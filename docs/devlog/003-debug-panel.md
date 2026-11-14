@@ -26,7 +26,26 @@ _(yours to fill in — panel visible, slider changes speed live, colour picker c
 
 ## Explain-it check
 
-_(yours to fill in)_
+Step 1:
+we define an ImGui window inside the SFML window we have created at the start of the engine.
+
+Step 2:
+We define a default Color that while it is on a scale of 0.0-1.0 we divide by the possible number of colors in the hex-to-decimal numbers (255)
+
+Step 3:
+We changed speed from a constexpr into a regular variable so we could manipulate it in the engine's ImGui Debug window.
+
+Step 4:
+We update the ImGui inside the main window by delta time so it stays updated at the same refresh rate as the engine window
+
+Step 5:
+We define the ImGui debug window and give it some properties to read data like fps, frame time, and player position
+
+Step 6:
+We then define some data that CAN be manipulated in the system like the clear color of the main window and the player speed
+
+Step 7:
+We update the window's clear with a modified version of clearColor from the debug window, allowing us to draw to the screen teh new background color
 
 ## Next step
 
