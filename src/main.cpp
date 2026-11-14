@@ -11,6 +11,7 @@ int main()
     sf::RenderWindow window(sf::VideoMode({1280, 720}), "MyEngine - Lesson 1");
     window.setFramerateLimit(60);
     ImGui::SFML::Init(window);
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     sf::Clock clock;
     int frames = 0;
@@ -71,6 +72,8 @@ int main()
         
 
         ImGui::SFML::Update(window, sf::seconds(dt));
+
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 
         bool stepClicked = false;
         ImGui::Begin("Engine Debug");
