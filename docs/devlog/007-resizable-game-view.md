@@ -34,7 +34,7 @@ _(yours to fill in — view follows panel/window resizes with no stretching, gro
 
 ## Explain-it check
 
-_(yours to fill in)_
+We created and update-able panel size variable that allows us to swap its data with the currently available game view size. the game view doesn't stretch anything out and we still maintain the same player size since only the game view size is changing. we could have a 1000000 x 1000000 screen and it would still be teh same player size and eventaul other assets
 
 ## Next step
 
