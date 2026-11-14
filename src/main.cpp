@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <cstdint>
 
 int main()
 {
@@ -87,7 +88,20 @@ int main()
 
         ImGui::SFML::Update(window, sf::seconds(dt));
 
-        window.clear(sf::Color(30, 30, 40));
+        ImGui::Begin("Engine Debug");
+        ImGui::Text("FPS: %.1f", 1.0f / dt);
+        ImGui::Text("Frame time: %.3f ms", dt * 1000.f);
+        ImGui::Text("Player: (%.0f, %.0f)", pos.x, pos.y);
+        ImGui::ColorEdit3("Clear color", clearColor);
+        ImGui::SliderFloat("Speed", &speed, 50.f, 600.f);
+        ImGui::End();
+
+        sf::Color clearCol(
+            static_cast<std::uint8_t>(clearColor[0] * 255.f),
+            static_cast<std::uint8_t>(clearColor[1] * 255.f),
+            static_cast<std::uint8_t>(clearColor[2] * 255.f));
+
+        window.clear(clearCol);
         window.draw(player);
 
         ImGui::SFML::Render(window);
