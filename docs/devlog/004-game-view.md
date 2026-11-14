@@ -33,7 +33,7 @@ Step 1:
 Create a render texture below the player creation but before the loop with a 800x600 window
 
 Step 2:
-In the game view and above where the drawing of the whole engine lives, have the game view draw the background (clear), the player, and then call display to finalize the texture that will be displayed in step 3.
+In the game view and above where the drawing of the whole engine lives, have the game view draw the background (clear), the player, and then call display to show the player and the background
 
 Step 3:
 Call ImGui Begin and define the game view INSIDE the engine via ImGui::Image. SUPER IMPORTANT, don't call gameView.Texture() as the first parameterl it will flip the image.
