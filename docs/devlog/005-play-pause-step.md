@@ -45,6 +45,9 @@ This will be useful for watching vfx happen frame by frame later on, but is usef
 Step 4:
 Move player motion below the debug view and only trigger it when we have either clicked step button OR if the game is playing. otherwise the player is frozen and cannot be moved.
 
+Addendum (the no-teleport question, answered in chat right after):
+the teleport doesnt happen because the direction increment ONLY happens in the instances where "time passes". it doesn't pool input
+
 ## Next step
 
 Lesson 6 — to be decided from here (docking/layout for the editor shell, or the first step from "a square" toward entities).
