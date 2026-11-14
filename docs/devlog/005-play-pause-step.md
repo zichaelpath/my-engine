@@ -32,7 +32,18 @@ _(yours to fill in — paused: player frozen, game time frozen, FPS still tickin
 
 ## Explain-it check
 
-_(yours to fill in)_
+Step 1:
+create a boolean variable called playing and a float variable called gameTime. These will check if the game is running or is paused, as well as the elapsed game time
+
+Step 2:
+In the event polling loop's key press checking, add a check for the space bar that will effectively play or pause the game (playing vs !playing).
+
+Step 3:
+When we are updating the game debug menu, add a play/pause button that will pause the interaction in the game view. The step button will move by milliseconds to allow you to step through the current frame.
+This will be useful for watching vfx happen frame by frame later on, but is useful for tracking the individual components of the game
+
+Step 4:
+Move player motion below the debug view and only trigger it when we have either clicked step button OR if the game is playing. otherwise the player is frozen and cannot be moved.
 
 ## Next step
 
