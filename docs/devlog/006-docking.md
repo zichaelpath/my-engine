@@ -18,7 +18,7 @@ _(filled at the start of the lesson; adjust if the build differs)_
 
 - CMake: Dear ImGui pin changed from `v1.91.8` to `v1.91.8-docking` (Build folder deleted, fresh configure).
 - After `ImGui::SFML::Init(window)`: `ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;`
-- Every frame, after `ImGui::SFML::Update` and before the first `Begin`: `ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());`
+- Every frame, after `ImGui::SFML::Update` and before the first `Begin`: `ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());` — in this version (v1.91.8-docking, verified against the pinned header) the first parameter is a dockspace ID (0 = default) and the viewport comes second; the older viewport-first form doesn't compile.
 - No panel code changes — docking is a property of the space, not of the panels.
 
 ## What broke
