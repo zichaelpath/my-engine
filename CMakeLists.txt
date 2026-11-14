@@ -12,12 +12,15 @@ FetchContent_Declare(SFML
     GIT_TAG 3.0.2)
 FetchContent_MakeAvailable(SFML)
 
-# --- Dear ImGui v1.91.8 ---
+# --- Dear ImGui v1.91.8, DOCKING branch ---
 # Sources only: ImGui ships no CMakeLists.txt of its own, so this just
 # downloads the code. ImGui-SFML below is what actually builds it.
+# The -docking tag is the same 1.91.8 release from ImGui's docking
+# branch — docking (DockSpace, snap-together panels) doesn't exist in
+# the master-branch build. Switched in Lesson 6.
 FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.91.8)
+    GIT_TAG v1.91.8-docking)
 FetchContent_MakeAvailable(imgui)
 
 # --- ImGui-SFML v3.0 ---
