@@ -23,6 +23,7 @@ int main()
     player.setPosition({375.f, 275.f});
 
     sf::RenderTexture gameView(sf::Vector2u(800, 600));
+    sf::Vector2f panelSize{800.f, 600.f};
 
     float speed = 200.f; // pixels per second
     float clearColor[3] = {30.f / 255.f, 30.f / 255.f, 40.f / 255.f};
@@ -127,8 +128,9 @@ int main()
             }
 
             // Clamp inside the window (window size − shape size)
-            pos.x = std::clamp(pos.x, 0.f, 750.f);
-            pos.y = std::clamp(pos.y, 0.f, 550.f);
+            sf::Vector2f viewSize(gameView.getSize());
+            pos.x = std::clamp(pos.x, 0.f, std::max(0.f, viewSize.x - 50.f));
+            pos.y = std::clamp(pos.y, 0.f, std::max(0.f, viewSize.y - 50.f));
             player.setPosition(pos);
         }
 
@@ -137,13 +139,25 @@ int main()
             static_cast<std::uint8_t>(clearColor[1] * 255.f),
             static_cast<std::uint8_t>(clearColor[2] * 255.f));
 
+        sf::Vector2u wantSize(panelSize);
+        if (wantSize.x > 0 && wantSize.y > 0 && wantSize != gameView.getSize())
+        {
+            gameView.resize(wantSize);
+            gameView.setView(sf::View(sf::FloatRect({0.f, 0.f}, sf::Vector2f(wantSize))));
+        }
+
         gameView.clear(clearCol);
         gameView.draw(player);
         gameView.display();
 
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
         ImGui::Begin("Game View");
-        ImGui::Image(gameView, sf::Vector2f(800.f, 600.f));
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        if (avail.x > 0.f && avail.y > 0.f)
+            panelSize = sf::Vector2(avail.x, avail.y);
+        ImGui::Image(gameView, panelSize);
         ImGui::End();
+        ImGui::PopStyleVar();
 
         window.clear(sf::Color(25, 25, 25));
         ImGui::SFML::Render(window);
