@@ -8,7 +8,7 @@
 
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode({800, 600}), "MyEngine - Lesson 1");
+    sf::RenderWindow window(sf::VideoMode({1280, 720}), "MyEngine - Lesson 1");
     window.setFramerateLimit(60);
     ImGui::SFML::Init(window);
 
@@ -20,6 +20,8 @@ int main()
     sf::RectangleShape player(sf::Vector2f(50.f, 50.f));
     player.setFillColor(sf::Color(80, 200, 120));
     player.setPosition({375.f, 275.f});
+
+    sf::RenderTexture gameView(sf::Vector2u(800, 600));
 
     float speed = 200.f; // pixels per second
 
@@ -101,9 +103,15 @@ int main()
             static_cast<std::uint8_t>(clearColor[1] * 255.f),
             static_cast<std::uint8_t>(clearColor[2] * 255.f));
 
-        window.clear(clearCol);
-        window.draw(player);
+        gameView.clear(clearCol);
+        gameView.draw(player);
+        gameView.display();
 
+        ImGui::Begin("Game View");
+        ImGui::Image(gameView, sf::Vector2f(800.f, 600.f));
+        ImGui::End();
+
+        window.clear(sf::Color(25, 25, 25));
         ImGui::SFML::Render(window);
         window.display();
     }
