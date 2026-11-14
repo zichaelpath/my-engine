@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
-
+#include <imgui.h>
+#include <imgui-SFML.h>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -8,16 +9,18 @@ int main()
 {
     sf::RenderWindow window(sf::VideoMode({800, 600}), "MyEngine - Lesson 1");
     window.setFramerateLimit(60);
+    ImGui::SFML::Init(window);
 
     sf::Clock clock;
     int frames = 0;
     float fpsTimer = 0.f;
 
+    float clearColor[3] = {30.f / 255.f, 30.f / 255.f, 40.f / 255.f};
     sf::RectangleShape player(sf::Vector2f(50.f, 50.f));
     player.setFillColor(sf::Color(80, 200, 120));
     player.setPosition({375.f, 275.f});
 
-    constexpr float speed = 200.f; // pixels per second
+    float speed = 200.f; // pixels per second
 
     while (window.isOpen())
     {
@@ -37,6 +40,7 @@ int main()
         // Events: discrete things that happened (closing the window)
         while (const std::optional event = window.pollEvent())
         {
+            ImGui::SFML::ProcessEvent(window, *event);
             if (event->is<sf::Event::Closed>())
             {
                 window.close();
@@ -81,10 +85,14 @@ int main()
         pos.y = std::clamp(pos.y, 0.f, 550.f);
         player.setPosition(pos);
 
+        ImGui::SFML::Update(window, sf::seconds(dt));
+
         window.clear(sf::Color(30, 30, 40));
         window.draw(player);
+
+        ImGui::SFML::Render(window);
         window.display();
     }
-
+    ImGui::SFML::Shutdown();
     return 0;
 }
