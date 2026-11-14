@@ -16,7 +16,7 @@ _(filled at the start of the lesson; adjust if the build differs)_
 
 - Window resized to 1280×720.
 - `sf::RenderTexture gameView` (800×600) created once in setup, before the loop.
-- Draw restructured into two stages: (1) clear/draw/display into `gameView`; (2) declare a "Game View" panel with `ImGui::Image(gameView.getTexture(), ...)`, clear the real window to dark grey, `ImGui::SFML::Render`, `display`.
+- Draw restructured into two stages: (1) clear/draw/display into `gameView`; (2) declare a "Game View" panel with `ImGui::Image(gameView, ...)` — pass the RenderTexture *itself*, not `getTexture()`: the library's RenderTexture overload flips the UVs internally (RenderTexture contents are stored upside-down), while the plain Texture overload does not. The SFML `Image` overloads take no UV arguments at all — after size come tint and border *colours* — so a hand-rolled UV-flip call doesn't compile; the raw-ImGui route would need the texture's native handle. Clear the real window to dark grey, `ImGui::SFML::Render`, `display`.
 - Debug panel unchanged — its clear-colour picker now recolours the game view's background, not the whole window.
 
 ## What broke
