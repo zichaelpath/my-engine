@@ -31,7 +31,11 @@ _(yours to fill in — panels snap to edges and tile, shared edges resize them, 
 
 ## Explain-it check
 
-_(yours to fill in)_
+In this section, we added a few tweaks to the system:
+
+1. We did a fresh build with the added ImGui docking section
+2. We set the flag for docking to be enabled.
+3. We ensured that the program would have the whole ImGui viewport of the game engine screen so that we could dock any windows anywhere
 
 ## Next step
 
