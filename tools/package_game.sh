@@ -16,7 +16,7 @@
 # (double-click works; the folder IS the install).
 set -euo pipefail
 
-VERSION="0.1.0"
+VERSION="1.0.0"
 BUILD_DIR="${1:-BuildRelease}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAGE="$ROOT/dist/GoldRush"

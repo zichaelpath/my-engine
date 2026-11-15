@@ -5,6 +5,7 @@
 #include "Game.hpp"
 #include "Log.hpp"
 #include "Project.hpp"
+#include "Version.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -26,6 +27,7 @@ enum class Screen
 
 int main()
 {
+    Log::info(std::string("MyEngine ") + engine::VERSION + " - Runtime");
     // The project file (Lesson 41) is read first: it says what
     // game this is. engine.ini below stays per-machine settings.
     Project project;

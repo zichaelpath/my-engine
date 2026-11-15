@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.28)
-project(MyEngine LANGUAGES CXX)
+project(MyEngine VERSION 1.0.0 LANGUAGES CXX)
+
+# The engine's version lives in the project() line above and
+# nowhere else: configure_file bakes it into a generated header the
+# hosts include, so every binary reports the same version and a
+# release bump is a one-line change.
+configure_file(src/Version.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/generated/Version.hpp @ONLY)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -50,6 +56,8 @@ target_link_libraries(MyRuntime PRIVATE
     GameLib)
 
 add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Config.cpp src/SpriteSheet.cpp src/Resources.cpp src/Project.cpp)
+
+target_include_directories(GameLib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 target_link_libraries(GameLib PUBLIC
     SFML::Graphics

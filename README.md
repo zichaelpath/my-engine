@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 41 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ · Arc 8 ✅ · Arc 9 (ship it) in progress — the project file format landed: `project.myengine` names the game, sets its seed, and names its start scene; the Runtime's title screen, window title, and world all flow from it (a 4-line test card turned the same binary into "Star Salvage, seed 777"). Release packaging and the documentation pass remain in Arc 9. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 42 complete — MyEngine 1.0.0.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ · Arc 8 ✅ · Arc 9 (ship it) in progress — the engine has a version (CMake `project()` → generated header → every host's first log line), Gold Rush is packaged as the 1.0.0 release (project file included, clean-room verified), the tree is tagged `v1.0.0`, `CHANGELOG.md` tells the release story, and `docs/WINDOWS_BUILD.md` walks through building on Windows. One documentation pass remains. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 

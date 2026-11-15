@@ -3,6 +3,7 @@
 #include "Game.hpp"
 #include "Log.hpp"
 #include "SpriteSheet.hpp"
+#include "Version.hpp"
 #include "Mat4.hpp"
 #include <array>
 #include <cmath>
@@ -280,6 +281,7 @@ std::vector<float> buildTerrain(const Game& game)
 
 int main()
 {
+    Log::info(std::string("MyEngine ") + engine::VERSION + " - GL host");
     sf::ContextSettings settings;
     settings.depthBits = 24;
     settings.majorVersion = 3;

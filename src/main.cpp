@@ -6,6 +6,7 @@
 #include "Camera.hpp"
 #include "Config.hpp"
 #include "Project.hpp"
+#include "Version.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
 #include "SpriteSheet.hpp"
@@ -34,6 +35,7 @@ int pickEntity(const Game& game, sf::Vector2f world)
 
 int main()
 {
+    Log::info(std::string("MyEngine ") + engine::VERSION + " - Editor");
     // The project file (Lesson 41): what game is being edited. The
     // editor reads it for identity; the seed/scene it names are the
     // Runtime's business — the editor's own seed config stays live

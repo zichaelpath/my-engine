@@ -264,6 +264,10 @@ The lesson's best moment was a compiler refusal: the four texture functions I tr
 
 The verification is my favourite kind — a four-line test card in a scratch folder (`name=Star Salvage`, `seed=777`) turned the *same binary* into a visibly different game, title screen and all. And the loader is strict where it matters: a file from a future format version fails loudly and whole, never half-loads into a subtly wrong game.
 
+## Lesson 42 — One Point Zero: A Version, a Package, a Tag
+
+**Built:** the release machinery. The engine's version now lives in exactly one place — the `project()` line in CMakeLists — and flows through a generated header into all three hosts, each of which announces "MyEngine 1.0.0" as its first log line. Gold Rush was repackaged as 1.0.0 (the project file rides along now), clean-room verified from an empty folder with a title screen byte-identical to the in-repo run, and the tree is tagged `v1.0.0`. `CHANGELOG.md` tells the release story, and `docs/WINDOWS_BUILD.md` is the walkthrough for the one machine I can't build on — written to be boring, including the DLL step phrased as a check rather than a guess.
+
 ---
 
-_Blog continues from Lesson 42. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 43. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
