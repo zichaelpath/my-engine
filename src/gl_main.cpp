@@ -7,11 +7,11 @@
 #include <cstdint>
 #include <string>
 
-// MyGL (Lessons 35-36) — the raw OpenGL host. Lesson 36 grows the
-// gradient triangle into a spinning cube: indexed geometry (8 shared
-// corners, 36 indices), the depth test, and the MVP chain — model
-// rotation, view translation, perspective projection — computed per
-// frame by the engine's own Mat4 and uploaded as a uniform.
+// MyGL (Lessons 35-37) — the raw OpenGL host. Lesson 37 adds a
+// flyable camera (WASD + Q/E, arrow keys look) built on Mat4::lookAt,
+// and a field of 25 spinning cubes so the flight has something to
+// read against. Controls: WASD move, Q/E down/up, arrows look,
+// Esc quit.
 
 namespace
 {
@@ -153,7 +153,20 @@ int main()
 
     glEnable(GL_DEPTH_TEST);
 
+    // The fly camera (Lesson 37). yaw/pitch are the whole state;
+    // the forward vector is derived from them with the same rotation
+    // conventions as Mat4 (yaw about Y, then pitch about X), so the
+    // keys, the movement, and lookAt never disagree.
+    Vec3 cameraPos{0.f, 1.4f, 2.5f};
+    float yaw = 0.f;
+    float pitch = -0.15f;
+    auto forward = [&]() {
+        return Vec3{-std::sin(yaw) * std::cos(pitch), std::sin(pitch),
+                    -std::cos(yaw) * std::cos(pitch)};
+    };
+
     sf::Clock clock;
+    sf::Clock elapsed;
     while (window.isOpen())
     {
         while (const std::optional event = window.pollEvent())
@@ -164,29 +177,73 @@ int main()
                 if (key->code == sf::Keyboard::Key::Escape)
                     window.close();
         }
-        float t = clock.getElapsedTime().asSeconds();
+        float dt = clock.restart().asSeconds();
+        float t = elapsed.getElapsedTime().asSeconds();
+
+        using Key = sf::Keyboard::Key;
+        const float turnSpeed = 1.6f; // radians per second
+        if (sf::Keyboard::isKeyPressed(Key::Left))
+            yaw += turnSpeed * dt;
+        if (sf::Keyboard::isKeyPressed(Key::Right))
+            yaw -= turnSpeed * dt;
+        if (sf::Keyboard::isKeyPressed(Key::Up))
+            pitch += turnSpeed * dt;
+        if (sf::Keyboard::isKeyPressed(Key::Down))
+            pitch -= turnSpeed * dt;
+        const float pitchLimit = 1.45f; // just under straight up/down
+        if (pitch > pitchLimit)
+            pitch = pitchLimit;
+        if (pitch < -pitchLimit)
+            pitch = -pitchLimit;
+
+        const float moveSpeed = 3.f;
+        Vec3 front = forward();
+        Vec3 right = normalized(Vec3{-front.z, 0.f, front.x});
+        if (sf::Keyboard::isKeyPressed(Key::W))
+            cameraPos += front * (moveSpeed * dt);
+        if (sf::Keyboard::isKeyPressed(Key::S))
+            cameraPos += front * (-moveSpeed * dt);
+        if (sf::Keyboard::isKeyPressed(Key::D))
+            cameraPos += right * (moveSpeed * dt);
+        if (sf::Keyboard::isKeyPressed(Key::A))
+            cameraPos += right * (-moveSpeed * dt);
+        if (sf::Keyboard::isKeyPressed(Key::E))
+            cameraPos.y += moveSpeed * dt;
+        if (sf::Keyboard::isKeyPressed(Key::Q))
+            cameraPos.y -= moveSpeed * dt;
 
         sf::Vector2u size = window.getSize();
         float aspect = size.y > 0 ? static_cast<float>(size.x) / static_cast<float>(size.y)
                                   : 1.f;
         glViewport(0, 0, static_cast<GLsizei>(size.x), static_cast<GLsizei>(size.y));
 
-        // The chain, read right to left: the cube spins in its own
-        // space (model), the world slides back so the camera can see
-        // it (view), and the frustum squeezes it into the cube of
-        // clip space (projection).
-        Mat4 model = Mat4::rotationY(t * 0.9f) * Mat4::rotationX(t * 0.6f);
-        Mat4 view = Mat4::translation(0.f, 0.f, -2.6f);
+        Mat4 view = Mat4::lookAt(cameraPos, cameraPos + front, Vec3{0.f, 1.f, 0.f});
         Mat4 projection = Mat4::perspective(60.f * 3.14159265f / 180.f, aspect, 0.1f, 100.f);
-        Mat4 mvp = projection * view * model;
 
         glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(program);
-        glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, mvp.data());
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
+        // One VAO, 25 draws: the model matrix is the only thing that
+        // changes between cubes — place, then spin with a per-cube
+        // phase so the field doesn't move in lockstep.
+        for (int gx = -2; gx <= 2; ++gx)
+        {
+            for (int gz = -2; gz <= 2; ++gz)
+            {
+                float phase = static_cast<float>((gx + 2) * 5 + (gz + 2)) * 0.37f;
+                Mat4 model = Mat4::translation(static_cast<float>(gx) * 2.2f, 0.f,
+                                               -6.f + static_cast<float>(gz) * 2.2f) *
+                             Mat4::rotationY(t * 0.7f + phase) *
+                             Mat4::rotationX(t * 0.4f + phase);
+                Mat4 mvp = projection * view * model;
+                glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, mvp.data());
+                glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
+            }
+        }
         window.display();
     }
+    Log::info("Camera stopped at (" + std::to_string(cameraPos.x) + ", " +
+              std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
     return 0;
 }

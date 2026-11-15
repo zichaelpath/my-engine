@@ -13,6 +13,43 @@
 
 #include <cmath>
 
+// Vec3 — the 3D companion to Math.hpp's 2D helpers (Lesson 37).
+struct Vec3
+{
+    float x = 0.f;
+    float y = 0.f;
+    float z = 0.f;
+
+    Vec3 operator+(const Vec3& o) const { return {x + o.x, y + o.y, z + o.z}; }
+    Vec3 operator-(const Vec3& o) const { return {x - o.x, y - o.y, z - o.z}; }
+    Vec3 operator*(float s) const { return {x * s, y * s, z * s}; }
+    Vec3& operator+=(const Vec3& o)
+    {
+        x += o.x;
+        y += o.y;
+        z += o.z;
+        return *this;
+    }
+};
+
+inline float dot(const Vec3& a, const Vec3& b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+inline Vec3 cross(const Vec3& a, const Vec3& b)
+{
+    return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
+inline Vec3 normalized(const Vec3& v)
+{
+    float len = std::sqrt(dot(v, v));
+    if (len <= 0.f)
+        return v;
+    return v * (1.f / len);
+}
+
 struct Mat4
 {
     float m[16] = {};
@@ -94,6 +131,31 @@ struct Mat4
         r.m[10] = (farPlane + nearPlane) / (nearPlane - farPlane);
         r.m[11] = -1.f;
         r.m[14] = 2.f * farPlane * nearPlane / (nearPlane - farPlane);
+        return r;
+    }
+
+    // The view matrix for a camera at eye looking at center: builds
+    // an orthonormal basis (side, up, -forward) from the two points
+    // and a world-up hint, then inverts the camera's placement —
+    // a view matrix is the camera transform turned inside out.
+    static Mat4 lookAt(const Vec3& eye, const Vec3& center, const Vec3& up)
+    {
+        Vec3 f = normalized(center - eye);
+        Vec3 s = normalized(cross(f, up));
+        Vec3 u = cross(s, f);
+        Mat4 r = identity();
+        r.m[0] = s.x;
+        r.m[1] = u.x;
+        r.m[2] = -f.x;
+        r.m[4] = s.y;
+        r.m[5] = u.y;
+        r.m[6] = -f.y;
+        r.m[8] = s.z;
+        r.m[9] = u.z;
+        r.m[10] = -f.z;
+        r.m[12] = -dot(s, eye);
+        r.m[13] = -dot(u, eye);
+        r.m[14] = dot(f, eye);
         return r;
     }
 

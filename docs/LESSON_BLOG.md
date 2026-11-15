@@ -234,6 +234,12 @@ Next: the triangle grows up — an indexed cube, depth testing, and the model/vi
 
 Next: a flyable camera — lookAt, WASD, and a field of cubes to move through — then the merger: the 2D tile world, extruded into 3D.
 
+## Lesson 37 — Flying: lookAt and a Field of Cubes
+
+**Built:** a camera you can fly. `Mat4` gained a `Vec3` and `lookAt` — which is really a small geometry lesson: forward from where you're looking, side from a cross product with world-up, true-up from another cross, and the view matrix as that basis turned inside out. WASD flies along the look direction (pitch down and W genuinely descends), Q/E handle altitude, the arrows look. The test scene is 25 spinning cubes off a single VAO — one mesh, 25 model matrices — and the proof is a pair of screenshots bracketing a flight plus the exit log reading the final position back: (0, 0.68, −2.29), 4.8 units from where it started, exactly on the path the inputs describe.
+
+Next is the merger this arc has been promising: the Gold Rush tile world, extruded into a 3D heightfield you can fly over.
+
 ---
 
-_Blog continues from Lesson 37. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 38. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
