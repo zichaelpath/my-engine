@@ -49,9 +49,10 @@ add_executable(MyRuntime src/runtime_main.cpp)
 target_link_libraries(MyRuntime PRIVATE
     GameLib)
 
-add_library(GameLib src/Game.cpp)
+add_library(GameLib src/Game.cpp src/Random.cpp)
 
 target_link_libraries(GameLib PUBLIC
     SFML::Graphics
     SFML::Window
     SFML::System)
+

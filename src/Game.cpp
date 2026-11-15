@@ -4,11 +4,53 @@
 #include <cmath>
 #include <cstdint>
 
-Game::Game()
+Game::Game() : m_random(m_seed)
 {
     m_player.setSize({50.f, 50.f});
     m_player.setFillColor(sf::Color(80, 200, 120));
     m_player.setPosition({375.f, 275.f});
+
+    generateTerrain();
+    generateDecor();
+}
+
+void Game::setSeed(std::uint32_t seed)
+{
+    m_seed = seed;
+    m_random.reseed(seed);
+    generateTerrain();
+    generateDecor();
+}
+
+void Game::generateTerrain()
+{
+    m_blocks.clear();
+    for (int i = 0; i < 12; ++i)
+    {
+        float size = m_random.rangeFloat("terrain", 20.f, 60.f);
+        sf::RectangleShape block(sf::Vector2f(size, size));
+        block.setPosition({m_random.rangeFloat("terrain", 0.f, 800.f - size),
+                           m_random.rangeFloat("terrain", 0.f, 600.f - size)});
+        int shade = m_random.rangeInt("terrain", 80, 130);
+        block.setFillColor(sf::Color(static_cast<std::uint8_t>(shade),
+                                     static_cast<std::uint8_t>(shade + 20),
+                                     static_cast<std::uint8_t>(shade + 50)));
+        m_blocks.push_back(block);
+    }
+}
+
+void Game::generateDecor()
+{
+    m_dots.clear();
+    for (int i = 0; i < 20; ++i)
+    {
+        float r = m_random.rangeFloat("decor", 3.f, 7.f);
+        sf::CircleShape dot(r);
+        dot.setPosition({m_random.rangeFloat("decor", 0.f, 800.f - 2.f * r),
+                         m_random.rangeFloat("decor", 0.f, 600.f - 2.f * r)});
+        dot.setFillColor(sf::Color(220, 180, 60));
+        m_dots.push_back(dot);
+    }
 }
 
 void Game::update(float dt, sf::Vector2f worldSize)
@@ -51,6 +93,10 @@ void Game::render(sf::RenderTarget& target) const
 
     target.clear(clearCol);
     target.draw(m_player);
+    for (const auto& block : m_blocks)
+        target.draw(block);
+    for (const auto& dot : m_dots)
+        target.draw(dot);
 }
 
 sf::Vector2f Game::playerPosition() const

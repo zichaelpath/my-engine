@@ -3,6 +3,7 @@
 #include <imgui-SFML.h>
 #include <iostream>
 #include "Game.hpp"
+#include <random>
 
 int main()
 {
@@ -81,6 +82,27 @@ int main()
         ImGui::ColorEdit3("Clear color", game.clearColor);
         ImGui::SliderFloat("Speed", &game.speed, 50.f, 600.f);
         ImGui::End();
+
+        ImGui::Begin("Procgen");
+        ImGui::Text("Master seed: %u", game.seed());
+        static int seedInput = 12345;
+        ImGui::InputInt("Seed", &seedInput);
+        if (ImGui::Button("Apply seed"))
+            game.setSeed(static_cast<std::uint32_t>(seedInput));
+        ImGui::SameLine();
+        if (ImGui::Button("Random seed"))
+        {
+            std::random_device rd;
+            seedInput = static_cast<int>(rd());
+            game.setSeed(static_cast<std::uint32_t>(seedInput));
+        }
+        if (ImGui::Button("Reshuffle terrain"))
+            game.generateTerrain();
+        ImGui::SameLine();
+        if (ImGui::Button("Reshuffle decor"))
+            game.generateDecor();
+        ImGui::End();
+
 
         if (playing || stepClicked)
             game.update(dt, sf::Vector2f(gameView.getSize()));
