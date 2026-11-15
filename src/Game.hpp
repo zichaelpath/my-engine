@@ -25,13 +25,14 @@ public:
     sf::Vector2f playerPosition() const;
     sf::Vector2f playerCenter() const;
     sf::Vector2f worldSize() const { return m_worldSize; }
+    int playerFrame() const { return m_entities[m_playerEntity].frame; }
 
     // Adds an entity to the world and returns its index (its identity:
     // indices stay valid for the world's lifetime; entities are never
     // removed yet, which is what makes that promise safe today).
     std::size_t spawnEntity(const std::string& name, sf::Vector2f position,
                             sf::Vector2f size, sf::Color color,
-                            bool playerControlled = false);
+                            bool playerControlled = false, int sprite = -1);
     const std::vector<Entity>& entities() const { return m_entities; }
 
     float speed = 200.f;
@@ -57,6 +58,7 @@ private:
 
     std::vector<Entity> m_entities;
     std::size_t m_playerEntity = 0;
+    sf::Texture m_sheet;
     std::vector<sf::RectangleShape> m_blocks;
     std::vector<sf::CircleShape> m_dots;
     sf::VertexArray m_field;

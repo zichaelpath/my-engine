@@ -2,6 +2,7 @@
 
 #include "Log.hpp"
 #include "Math.hpp"
+#include "SpriteSheet.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -11,22 +12,31 @@
 
 Game::Game() : m_random(m_seed)
 {
+    if (m_sheet.loadFromImage(buildSpriteSheetImage()))
+        Log::info("Sprite sheet built in code: " +
+                  std::to_string(m_sheet.getSize().x) + "x" +
+                  std::to_string(m_sheet.getSize().y));
+    else
+        Log::error("Sprite sheet failed to build; entities draw as rectangles");
+
     m_noise = ValueNoise(m_random.derivedSeed("noise"));
     generateField();
     generateTerrain();
     generateDecor();
 
     m_playerEntity = spawnEntity("Player", {375.f, 275.f}, {50.f, 50.f},
-                                 sf::Color(80, 200, 120), true);
-    spawnEntity("Crate", {200.f, 150.f}, {40.f, 40.f}, sf::Color(220, 140, 60));
-    spawnEntity("Crate", {560.f, 380.f}, {40.f, 40.f}, sf::Color(220, 140, 60));
+                                 sf::Color(80, 200, 120), true, sprites::PLAYER);
+    spawnEntity("Crate", {200.f, 150.f}, {40.f, 40.f}, sf::Color(220, 140, 60),
+                false, sprites::CRATE);
+    spawnEntity("Crate", {560.f, 380.f}, {40.f, 40.f}, sf::Color(220, 140, 60),
+                false, sprites::CRATE);
 
     Log::info("Game created with seed " + std::to_string(m_seed));
 }
 
 std::size_t Game::spawnEntity(const std::string& name, sf::Vector2f position,
                               sf::Vector2f size, sf::Color color,
-                              bool playerControlled)
+                              bool playerControlled, int sprite)
 {
     Entity entity;
     entity.name = name;
@@ -34,6 +44,7 @@ std::size_t Game::spawnEntity(const std::string& name, sf::Vector2f position,
     entity.size = size;
     entity.color = color;
     entity.playerControlled = playerControlled;
+    entity.sprite = sprite;
     m_entities.push_back(entity);
     Log::info("Entity spawned: " + name + " at (" +
               std::to_string(static_cast<int>(position.x)) + ", " +
@@ -173,6 +184,23 @@ void Game::update(float dt)
     // Movement is a system operating on whichever entity the player
     // controls — the input code no longer knows a special shape exists.
     Entity& player = m_entities[m_playerEntity];
+
+    // Animation is the movement system's other output: facing follows
+    // horizontal input, and the walk clock runs only while moving —
+    // stop, and the character settles back to the idle frame.
+    if (dir.x != 0.f)
+        player.flipX = dir.x < 0.f;
+    if (dir.x != 0.f || dir.y != 0.f)
+    {
+        player.animTime += dt;
+        player.frame = static_cast<int>(player.animTime / 0.12f) % 4;
+    }
+    else
+    {
+        player.animTime = 0.f;
+        player.frame = 0;
+    }
+
     sf::Vector2f move = dir * speed * dt;
 
     // Axis-separated collision: move and resolve one axis at a time.
@@ -234,19 +262,47 @@ void Game::render(sf::RenderTarget& target) const
     for (const auto& dot : m_dots)
         target.draw(dot);
 
-    // Entities are data; the rectangle is derived from the data each
-    // frame. Two passes so the player always draws on top.
+    // Entities are data; their picture is derived from the data each
+    // frame — a sprite cut from the sheet when they have one, the
+    // colour rectangle when they don't. Two passes so the player
+    // always draws on top.
     sf::RectangleShape shape;
+    sf::Sprite sprite(m_sheet);
     for (int pass = 0; pass < 2; ++pass)
     {
         for (const auto& entity : m_entities)
         {
             if ((pass == 1) != entity.playerControlled)
                 continue;
-            shape.setSize(entity.size);
-            shape.setPosition(entity.position);
-            shape.setFillColor(entity.color);
-            target.draw(shape);
+            if (entity.sprite == sprites::NONE)
+            {
+                shape.setSize(entity.size);
+                shape.setPosition(entity.position);
+                shape.setFillColor(entity.color);
+                target.draw(shape);
+                continue;
+            }
+            int baseX = entity.sprite == sprites::PLAYER ? sprites::PLAYER_X
+                                                         : sprites::CRATE_X;
+            sprite.setTextureRect(
+                sf::IntRect({baseX + entity.frame * sprites::FRAME, 0},
+                            {sprites::FRAME, sprites::FRAME}));
+            sf::Vector2f scale(entity.size.x / sprites::FRAME,
+                               entity.size.y / sprites::FRAME);
+            if (entity.flipX)
+            {
+                sprite.setOrigin({static_cast<float>(sprites::FRAME), 0.f});
+                sprite.setPosition(entity.position +
+                                   sf::Vector2f(entity.size.x, 0.f));
+                sprite.setScale({-scale.x, scale.y});
+            }
+            else
+            {
+                sprite.setOrigin({0.f, 0.f});
+                sprite.setPosition(entity.position);
+                sprite.setScale(scale);
+            }
+            target.draw(sprite);
         }
     }
 }

@@ -19,4 +19,12 @@ struct Entity
     sf::Color color = sf::Color::White;
     bool playerControlled = false;
     bool solid = true; // solid entities block movement (Lesson 15)
+
+    // Appearance (Lesson 17): which sprite-sheet character this is
+    // (sprites::NONE draws the colour rectangle instead), the current
+    // animation frame, the clock that advances it, and facing.
+    int sprite = -1;
+    int frame = 0;
+    float animTime = 0.f;
+    bool flipX = false;
 };

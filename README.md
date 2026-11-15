@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 16 complete.** Arc 1 (editor shell & the split) ✅ · Arc 2 (procgen/noise/logging/config foundations) ✅ · Arc 3 (the world gets things in it) in progress — entities, AABB collision, and the camera are in; sprites & animation are next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 17 complete — Arc 3 ✅.** Arc 1 (editor shell & the split) ✅ · Arc 2 (procgen/noise/logging/config foundations) ✅ · Arc 3 (the world gets things in it) ✅ — entities, AABB collision, the camera, and sprites & animation are all in. Arc 4 (scenes & data: save/load, resources, tilemaps) is next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 
@@ -12,7 +12,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 Three targets, built from one CMake project:
 
-- **GameLib** — the engine/game library: the game world, deterministic procgen (master seed + named RNG streams), value noise with fBm, a logging system, config loading, a small math toolbox, data-driven entities with AABB collision, and a camera (centre + visible height, follow with world-edge clamping).
+- **GameLib** — the engine/game library: the game world, deterministic procgen (master seed + named RNG streams), value noise with fBm, a logging system, config loading, a small math toolbox, data-driven entities with AABB collision, a camera (centre + visible height, follow with world-edge clamping), and a code-generated sprite sheet with frame animation (walk cycles, facing flips).
 - **MyEngine** — the editor: dockable ImGui panels (Engine Debug, Procgen, Console, Game View), a resizable game view rendered to a texture, play/pause/step time controls, a live seed/noise control panel, a colour-coded console fed by the engine's log, and camera controls (follow toggle, zoom slider, mouse-wheel zoom, right-drag pan).
 - **MyRuntime** — the standalone player: the same GameLib with no editor attached, its own window defaults, and a follow camera.
 

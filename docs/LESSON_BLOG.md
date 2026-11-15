@@ -114,6 +114,12 @@ The verification is the part worth telling: the editor was driven by automated k
 
 The screenshots carry the proof three ways. The runtime at spawn shows the familiar continent — same noise, same coordinates — except it now continues past every edge of the window. Drive into the corner and the framing doesn't move a pixel: the camera parks at the world's edge and the player walks off-centre to stand in the corner, which is the clamp working exactly as designed. In the editor, six mouse-wheel clicks over the Game View pull the zoom to 0.531 and nearly the whole 1600×1200 world fits on screen at once, dark bands of honest nothing beyond its edges. The runtime also quietly deleted its window-resize handler this lesson — when the view is re-derived every frame, there is nothing left for the handler to maintain. Arc 3 has one lesson left: sprites and animation, and the coloured rectangles retire.
 
+## Lesson 17 — Sprites & Animation (Arc 3 Closes)
+
+**Built:** the rectangles retired. The engine now paints its own sprite sheet in code at startup — no image files anywhere — a 160×32 atlas holding a little hooded traveller in four walk poses and one very earnest wooden crate. Entities name a sprite, rendering cuts the right 32×32 window out of the sheet and scales it to the entity's size, and the movement system drives the animation: the walk clock advances only while moving (a frame every 0.12 seconds), stopping settles back to idle, and horizontal input flips the sprite's facing. The world screenshot says most of it — the green square is a *character* now, standing on the shore of the lake, and the orange squares became crates with planks and a diagonal brace. The close-up pair, grabbed a third of a second apart mid-walk, shows the stride and passing poses alternating: animation proven the only honest way, with two frames that differ.
+
+That closes Arc 3: the world has things in it, the things are solid, the camera roams a world bigger than the screen, and the things have faces. Arc 4 turns to data — saving and loading scenes, managing resources, tilemaps — which is where Arc 2's determinism starts paying compound interest: a saved world is mostly a seed plus a handful of entity records, because everything else can be regenerated exactly.
+
 ---
 
-_Blog continues from Lesson 17. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 18. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

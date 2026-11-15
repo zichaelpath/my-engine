@@ -93,7 +93,7 @@ int main()
         ImGui::Text("FPS: %.1f", 1.0f / dt);
         ImGui::Text("Frame time: %.3f ms", dt * 1000.f);
         sf::Vector2f p = game.playerPosition();
-        ImGui::Text("Player: (%.0f, %.0f)", p.x, p.y);
+        ImGui::Text("Player: (%.0f, %.0f) frame %d", p.x, p.y, game.playerFrame());
         ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
         ImGui::Text("Camera: (%.0f, %.0f)", camera.center.x, camera.center.y);
         ImGui::Checkbox("Camera follow", &followCam);
