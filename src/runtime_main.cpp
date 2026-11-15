@@ -1,3 +1,4 @@
+#include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include "Camera.hpp"
 #include "Config.hpp"
@@ -11,8 +12,10 @@ int main()
     config.setDefault("seed", "12345");
     config.setDefault("noiseScale", "0.01");
     config.setDefault("playerSpeed", "200");
+    config.setDefault("volume", "80");
     if (!config.load("engine.ini"))
         config.save("engine.ini");
+    sf::Listener::setGlobalVolume(static_cast<float>(config.getInt("volume", 80)));
 
     sf::RenderWindow window(
         sf::VideoMode({static_cast<unsigned int>(config.getInt("windowWidth", 800)),

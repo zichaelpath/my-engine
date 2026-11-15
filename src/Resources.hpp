@@ -1,5 +1,6 @@
 #pragma once
 
+#include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 
 #include <map>
@@ -28,4 +29,21 @@ public:
 private:
     mutable std::map<std::string, sf::Texture> m_textures;
     sf::Image m_placeholderImage;
+};
+
+// The sound twin of TextureCache (Lesson 29): same load-once
+// contract, same map, same logical constness. The placeholder is a
+// short synthesized blip, so a missing sound file still makes *a*
+// sound — and the error is logged once, like textures.
+class SoundBufferCache
+{
+public:
+    SoundBufferCache();
+
+    const sf::SoundBuffer& get(const std::string& path) const;
+    std::size_t size() const { return m_buffers.size(); }
+
+private:
+    mutable std::map<std::string, sf::SoundBuffer> m_buffers;
+    sf::SoundBuffer m_placeholder;
 };

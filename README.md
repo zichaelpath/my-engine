@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 28 complete — Arc 5 ✅.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ — the editor is a real tool now: click-to-select, Hierarchy, live Inspector, drag-to-move, spawn/delete, undo/redo, and play-test with scene restore. Arc 6 (audio) is next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 29 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 (audio) in progress — the world makes noise now: a sound cache with a synthesized placeholder blip, an 8-voice playback pool, footsteps on a cadence, a splash on entering water, and a config/editor volume. Both sound effects are synthesized by `tools/make_sounds.py` (no recordings). Music is next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 

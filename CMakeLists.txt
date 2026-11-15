@@ -54,5 +54,6 @@ add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Co
 target_link_libraries(GameLib PUBLIC
     SFML::Graphics
     SFML::Window
-    SFML::System)
+    SFML::System
+    SFML::Audio)
 

@@ -6,6 +6,7 @@
 #include "Random.hpp"
 #include "Resources.hpp"
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -41,6 +42,11 @@ public:
     sf::Vector2f worldSize() const { return m_worldSize; }
     int playerFrame() const { return m_entities[m_playerEntity].frame; }
     std::size_t textureCacheSize() const { return m_resources.size(); }
+    // One-shot sounds (Lesson 29): played through a small pool of
+    // reusable players fed by the sound cache.
+    void playSound(const std::string& path, float pitch = 1.f);
+    int soundsPlayed() const { return m_soundsPlayed; }
+    std::size_t soundCacheSize() const { return m_soundBuffers.size(); }
 
     // Tilemap queries (Lesson 21): the tile id at a world position
     // (-1 outside the world), the tile under the player's feet, and
@@ -106,6 +112,13 @@ private:
     std::size_t m_playerEntity = 0;
     sf::Texture m_sheet;
     TextureCache m_resources;
+    SoundBufferCache m_soundBuffers;
+    std::vector<std::unique_ptr<sf::Sound>> m_players; // playback pool
+    std::size_t m_nextPlayer = 0;
+    int m_soundsPlayed = 0;
+    float m_stepTimer = 0.f; // footstep cadence clock
+    bool m_stepAlt = false;  // footstep pitch alternation
+    int m_lastPlayerTile = -1; // splash edge detection (-1 = unknown)
 
     std::vector<int> m_tiles;
     int m_tilesX = 0;

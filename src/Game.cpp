@@ -37,6 +37,12 @@ void applySpriteHitbox(Entity& e)
 
 Game::Game() : m_random(m_seed)
 {
+    // The sound playback pool (Lesson 29): eight slots, filled
+    // lazily — SFML 3's sf::Sound is born with a buffer, so a slot
+    // is created by its first sound. Eight overlapping one-shots is
+    // generous for footsteps and splashes.
+    m_players.resize(8);
+
     if (m_sheet.loadFromImage(buildSpriteSheetImage()))
         Log::info("Sprite sheet built in code: " +
                   std::to_string(m_sheet.getSize().x) + "x" +
@@ -352,6 +358,68 @@ void Game::update(float dt)
         player.position.y, -player.hitboxOffset.y,
         std::max(-player.hitboxOffset.y,
                  m_worldSize.y - player.hitboxOffset.y - boxSize.y));
+
+    // Footsteps (Lesson 29): while the player walks, a step every
+    // 0.27 s, alternating pitch so the loop doesn't sound mechanical.
+    if (dir.x != 0.f || dir.y != 0.f)
+    {
+        m_stepTimer += dt;
+        if (m_stepTimer >= 0.27f)
+        {
+            m_stepTimer = 0.f;
+            playSound("assets/step.wav", m_stepAlt ? 1.06f : 0.94f);
+            m_stepAlt = !m_stepAlt;
+        }
+    }
+    else
+        m_stepTimer = 0.20f; // the next walk's first step lands quickly
+
+    // Splash: entering water from land, once per entry — an edge
+    // detector over the tile stream, not a per-frame state.
+    int tileNow = playerTile();
+    auto isWater = [](int t) {
+        return t == tiles::Water || t == tiles::DeepWater;
+    };
+    if (m_lastPlayerTile != -1 && isWater(tileNow) && !isWater(m_lastPlayerTile))
+    {
+        playSound("assets/splash.wav");
+        Log::info("Splash - the player wades in");
+    }
+    m_lastPlayerTile = tileNow;
+}
+
+void Game::playSound(const std::string& path, float pitch)
+{
+    const sf::SoundBuffer& buffer = m_soundBuffers.get(path);
+    auto start = [&](std::unique_ptr<sf::Sound>& slot) {
+        if (!slot)
+            slot = std::make_unique<sf::Sound>(buffer); // born with it (SFML 3)
+        else
+        {
+            slot->stop();
+            slot->setBuffer(buffer);
+        }
+        slot->setPitch(pitch);
+        slot->play();
+        ++m_soundsPlayed;
+    };
+
+    // Round-robin over the pool: prefer a free player; if every slot
+    // is busy, steal the next one (the oldest sound loses).
+    for (std::size_t tries = 0; tries < m_players.size(); ++tries)
+    {
+        std::size_t i = (m_nextPlayer + tries) % m_players.size();
+        if (!m_players[i] ||
+            m_players[i]->getStatus() != sf::Sound::Status::Playing)
+        {
+            m_nextPlayer = (i + 1) % m_players.size();
+            start(m_players[i]);
+            return;
+        }
+    }
+    std::size_t i = m_nextPlayer;
+    m_nextPlayer = (m_nextPlayer + 1) % m_players.size();
+    start(m_players[i]);
 }
 
 void Game::resolveCollisions(Entity& mover, float movement, bool xAxis)

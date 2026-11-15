@@ -1,3 +1,4 @@
+#include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <imgui.h>
 #include <imgui-SFML.h>
@@ -38,8 +39,12 @@ int main()
     config.setDefault("seed", "12345");
     config.setDefault("noiseScale", "0.01");
     config.setDefault("playerSpeed", "200");
+    config.setDefault("volume", "80");
     if (!config.load("engine.ini"))
         config.save("engine.ini");
+
+    float volume = static_cast<float>(config.getInt("volume", 80));
+    sf::Listener::setGlobalVolume(volume);
 
     sf::RenderWindow window(
         sf::VideoMode({static_cast<unsigned int>(config.getInt("windowWidth", 1280)),
@@ -156,6 +161,10 @@ int main()
         ImGui::Text("Tile: %s", Game::tileName(game.playerTile()));
         ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
         ImGui::Text("Textures cached: %d", static_cast<int>(game.textureCacheSize()));
+        ImGui::Text("Sounds played: %d (cache %d)", game.soundsPlayed(),
+                    static_cast<int>(game.soundCacheSize()));
+        if (ImGui::SliderFloat("Volume", &volume, 0.f, 100.f, "%.0f"))
+            sf::Listener::setGlobalVolume(volume);
         if (selected >= 0 && selected < static_cast<int>(game.entities().size()))
         {
             const Entity& e = game.entities()[static_cast<std::size_t>(selected)];

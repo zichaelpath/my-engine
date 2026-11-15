@@ -186,6 +186,12 @@ Verified as one continuous session against the saved file: drag, undo, redo, spa
 
 That closes Arc 5. In six lessons the editor gained every verb it needs — select, list, inspect, drag, spawn, delete, undo, experiment — and `Game` was touched exactly twice along the way, which is the shared-state architecture from Lesson 22 paying off. Arc 6 gives the engine ears: audio, with the resource cache's family growing a sound branch, and a world that finally makes noise — starting with the splash when you wade in.
 
+## Lesson 29 — Audio Foundations: The World Makes Noise
+
+**Built:** sound, in the engine's established resource shape. A `SoundBufferCache` mirrors the texture cache contract for contract — load once, cache forever, and a placeholder on failure (here a synthesized blip, so a missing file is audible instead of silent). Playback runs through an eight-voice pool, because a footstep never waits for the last footstep to finish. The first two sounds are synthesized from math by a tools script, like the crate art: footsteps on a 0.27-second cadence with alternating pitch, and a splash that fires on the *edge* between land and water — standing in the pond is silent, stepping in is not. Volume is a host setting (config key + editor slider); the game code never touches it.
+
+SFML 3's audio API broke two of my from-memory assumptions (sounds are born with their buffers; sample loading wants a channel map) — both caught by the compiler and fixed against the pinned headers. One honest caveat: the build VM has no speakers, so playback is verified by logs, counters, and the splash line, with the actual *hearing* deferred to Zac's machine.
+
 ---
 
-_Blog continues from Lesson 29. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 30. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
