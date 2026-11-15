@@ -9,6 +9,25 @@
 #include <algorithm>
 #include <random>
 
+// Editor picking (Lesson 22): the index of the topmost entity whose
+// sprite box contains the world point, or -1. Topmost = draw order
+// reversed: the player draws last, then later spawns above earlier.
+int pickEntity(const Game& game, sf::Vector2f world)
+{
+    const auto& list = game.entities();
+    for (int pass = 0; pass < 2; ++pass)
+        for (int i = static_cast<int>(list.size()) - 1; i >= 0; --i)
+        {
+            const Entity& e = list[static_cast<std::size_t>(i)];
+            if ((pass == 0) != e.playerControlled)
+                continue;
+            if (world.x >= e.position.x && world.x <= e.position.x + e.size.x &&
+                world.y >= e.position.y && world.y <= e.position.y + e.size.y)
+                return i;
+        }
+    return -1;
+}
+
 int main()
 {
     Config config;
@@ -37,6 +56,7 @@ int main()
     Camera camera;
     bool followCam = true;
     float zoom = 1.f;
+    int selected = -1; // selected entity index (editor state, Lesson 22)
 
     // Procgen panel state, hoisted so scene loading can re-sync it.
     int seedInput = static_cast<int>(game.seed());
@@ -94,6 +114,7 @@ int main()
                     {
                         seedInput = static_cast<int>(game.seed());
                         noiseFreq = game.noiseFrequency();
+                        selected = -1; // the entity list was replaced
                     }
                 }
             }
@@ -113,6 +134,14 @@ int main()
         ImGui::Text("Tile: %s", Game::tileName(game.playerTile()));
         ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
         ImGui::Text("Textures cached: %d", static_cast<int>(game.textureCacheSize()));
+        if (selected >= 0 && selected < static_cast<int>(game.entities().size()))
+        {
+            const Entity& e = game.entities()[static_cast<std::size_t>(selected)];
+            ImGui::Text("Selected: %s (%.0f, %.0f)", e.name.c_str(), e.position.x,
+                        e.position.y);
+        }
+        else
+            ImGui::Text("Selected: none");
         ImGui::Text("Camera: (%.0f, %.0f)", camera.center.x, camera.center.y);
         ImGui::Checkbox("Camera follow", &followCam);
         ImGui::Checkbox("Show hitboxes", &game.showHitboxes);
@@ -141,6 +170,7 @@ int main()
             {
                 seedInput = static_cast<int>(game.seed());
                 noiseFreq = game.noiseFrequency();
+                selected = -1; // the entity list was replaced
             }
         }
         ImGui::End();
@@ -212,15 +242,47 @@ int main()
         gameView.setView(camera.makeView(canvasSize));
 
         game.render(gameView);
+
+        // Selection highlight: an editor overlay drawn into the same
+        // texture, in the same view — the game itself knows nothing
+        // about selection.
+        if (selected >= 0 && selected < static_cast<int>(game.entities().size()))
+        {
+            const Entity& e = game.entities()[static_cast<std::size_t>(selected)];
+            sf::RectangleShape highlight;
+            highlight.setSize(e.size + sf::Vector2f(4.f, 4.f));
+            highlight.setPosition(e.position - sf::Vector2f(2.f, 2.f));
+            highlight.setFillColor(sf::Color::Transparent);
+            highlight.setOutlineColor(sf::Color::Yellow);
+            highlight.setOutlineThickness(2.f);
+            gameView.draw(highlight);
+        }
         gameView.display();
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
         ImGui::Begin("Game View");
         ImVec2 avail = ImGui::GetContentRegionAvail();
         if (avail.x > 0.f && avail.y > 0.f)
             panelSize = sf::Vector2(avail.x, avail.y);
+        ImVec2 imagePos = ImGui::GetCursorScreenPos();
         ImGui::Image(gameView, panelSize);
         if (ImGui::IsWindowHovered())
         {
+            // Left click picks: panel pixels -> world via the view the
+            // texture was rendered with, then a topmost-first search.
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            {
+                ImVec2 mouse = ImGui::GetMousePos();
+                sf::Vector2f world = gameView.mapPixelToCoords(
+                    {static_cast<int>(mouse.x - imagePos.x),
+                     static_cast<int>(mouse.y - imagePos.y)});
+                selected = pickEntity(game, world);
+                if (selected >= 0)
+                    Log::info("Selected: " +
+                              game.entities()[static_cast<std::size_t>(selected)].name +
+                              " (index " + std::to_string(selected) + ")");
+                else
+                    Log::info("Selection cleared");
+            }
             // Mouse wheel zooms; right-drag grabs the world and pans
             // (disable Camera follow to stay where you pan to).
             float wheel = ImGui::GetIO().MouseWheel;

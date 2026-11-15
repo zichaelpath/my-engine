@@ -144,6 +144,12 @@ The fallback got the only honest test there is: run the same binary in a folder 
 
 The verification has the best story of the arc: the control run on "grass" came back suspiciously slow, twice, and the brand-new Tile readout is what exonerated the code — the chosen meadow was actually a pond shore, and the run had waded across a lake. Measured properly from inside the western lake, one second of walking covers 108 px against dry land's 200. The instrumentation caught the experiment lying, which is exactly what instrumentation is for. Arc 4 is complete — scenes, resources, hitboxes, tilemaps — and Arc 5 turns the editor from a viewer into a tool: selection first, then hierarchy and inspector.
 
+## Lesson 22 — Selection (Arc 5 Opens)
+
+**Built:** the editor learned to point. Click any entity in the Game View and it's selected — yellow outline in the world, name and position in the debug panel, a line in the console; click empty ground and the selection clears. The interesting part is where the feature *doesn't* live: selection is pure editor state. `Game` wasn't touched this lesson — the editor does the picking (panel pixel → texture pixel → world position → topmost-first search through the sprite boxes) and even draws the highlight itself, into the same texture right after the game renders. The runtime will never know selection exists, and that's the architecture working as intended.
+
+Verification had a one-pixel comedy: the first scripted click missed the crate by a hair of world space because the test assumed a slightly wrong view width — the pick honestly reported "empty ground", the aim was recomputed from the camera readout, and the second click landed centre-crate. Next, the Hierarchy panel gives the same selection a second door: a list of every entity, clickable — proving selection is a model, not a mouse trick.
+
 ---
 
-_Blog continues from Lesson 22. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 23. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
