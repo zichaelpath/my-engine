@@ -35,6 +35,12 @@ public:
                             bool playerControlled = false, int sprite = -1);
     const std::vector<Entity>& entities() const { return m_entities; }
 
+    // Scene serialisation (Lesson 18): the world is a recipe — seed +
+    // noise scale regenerate the terrain exactly (Arc 2 determinism),
+    // so the file only needs the recipe and the entity records.
+    bool saveScene(const std::string& path) const;
+    bool loadScene(const std::string& path);
+
     float speed = 200.f;
     float clearColor[3] = {30.f / 255.f, 30.f / 255.f, 40.f / 255.f};
     float time = 0.f;
@@ -43,6 +49,10 @@ private:
     // Pushes the mover out of every collider along one axis, back to
     // exact contact. Called once per axis per frame (Lesson 15).
     void resolveCollisions(Entity& mover, float movement, bool xAxis);
+
+    // Rebuilds the random streams and regenerates field, terrain and
+    // decor from the current seed — shared by setSeed and loadScene.
+    void regenerateWorld();
 
     // Declaration order is initialisation order: m_seed must be declared
     // before m_random, whose constructor reads it.

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <iomanip>
 #include <sstream>
 
@@ -60,7 +61,12 @@ void Game::setSeed(std::uint32_t seed)
     else
         Log::info("Seed set to " + std::to_string(seed));
     m_seed = seed;
-    m_random.reseed(seed);
+    regenerateWorld();
+}
+
+void Game::regenerateWorld()
+{
+    m_random.reseed(m_seed);
     m_noise = ValueNoise(m_random.derivedSeed("noise"));
     generateField();
     generateTerrain();
@@ -316,4 +322,125 @@ sf::Vector2f Game::playerCenter() const
 {
     const Entity& player = m_entities[m_playerEntity];
     return player.position + player.size / 2.f;
+}
+
+bool Game::saveScene(const std::string& path) const
+{
+    std::ofstream out(path);
+    if (!out)
+    {
+        Log::error("Could not open scene file for writing: " + path);
+        return false;
+    }
+    auto num = [](float v) {
+        std::ostringstream ss;
+        ss << std::setprecision(8) << v;
+        return ss.str();
+    };
+    out << "# MyEngine scene\n";
+    out << "version=1\n";
+    out << "seed=" << m_seed << "\n";
+    out << "noiseScale=" << num(m_noiseFrequency) << "\n";
+    out << "entities=" << m_entities.size() << "\n";
+    for (const auto& e : m_entities)
+    {
+        // name|x|y|w|h|r|g|b|controlled|solid|sprite — names must not
+        // contain '|' (ours never do; the format will grow escaping
+        // the day a name needs one).
+        out << "entity=" << e.name << '|' << num(e.position.x) << '|'
+            << num(e.position.y) << '|' << num(e.size.x) << '|' << num(e.size.y)
+            << '|' << static_cast<int>(e.color.r) << '|'
+            << static_cast<int>(e.color.g) << '|' << static_cast<int>(e.color.b)
+            << '|' << (e.playerControlled ? 1 : 0) << '|' << (e.solid ? 1 : 0)
+            << '|' << e.sprite << "\n";
+    }
+    Log::info("Scene saved to " + path + " (" +
+              std::to_string(m_entities.size()) + " entities)");
+    return true;
+}
+
+bool Game::loadScene(const std::string& path)
+{
+    std::ifstream in(path);
+    if (!in)
+    {
+        Log::error("Could not open scene file: " + path);
+        return false;
+    }
+    // Parse into temporaries first: a scene loads whole or not at
+    // all — never a half-loaded world.
+    std::uint32_t seed = m_seed;
+    float noiseScale = m_noiseFrequency;
+    std::vector<Entity> loaded;
+    std::string line;
+    int lineNo = 0;
+    while (std::getline(in, line))
+    {
+        ++lineNo;
+        if (line.empty() || line[0] == '#')
+            continue;
+        auto eq = line.find('=');
+        if (eq == std::string::npos)
+            continue;
+        std::string key = line.substr(0, eq);
+        std::string value = line.substr(eq + 1);
+        try
+        {
+            if (key == "version")
+            {
+                if (std::stoi(value) != 1)
+                {
+                    Log::error("Scene version not supported: " + value);
+                    return false;
+                }
+            }
+            else if (key == "seed")
+                seed = static_cast<std::uint32_t>(std::stoul(value));
+            else if (key == "noiseScale")
+                noiseScale = std::stof(value);
+            else if (key == "entity")
+            {
+                std::vector<std::string> f;
+                std::stringstream ss(value);
+                std::string part;
+                while (std::getline(ss, part, '|'))
+                    f.push_back(part);
+                if (f.size() != 11)
+                    throw std::runtime_error("bad entity field count");
+                Entity e;
+                e.name = f[0];
+                e.position = {std::stof(f[1]), std::stof(f[2])};
+                e.size = {std::stof(f[3]), std::stof(f[4])};
+                e.color = sf::Color(static_cast<std::uint8_t>(std::stoi(f[5])),
+                                    static_cast<std::uint8_t>(std::stoi(f[6])),
+                                    static_cast<std::uint8_t>(std::stoi(f[7])));
+                e.playerControlled = f[8] == "1";
+                e.solid = f[9] == "1";
+                e.sprite = std::stoi(f[10]);
+                loaded.push_back(e);
+            }
+        }
+        catch (const std::exception&)
+        {
+            Log::warning("Scene line " + std::to_string(lineNo) +
+                         " skipped (unparseable): " + line);
+        }
+    }
+    if (loaded.empty())
+    {
+        Log::error("Scene file has no entities: " + path);
+        return false;
+    }
+    m_seed = seed;
+    m_noiseFrequency = noiseScale;
+    regenerateWorld();
+    m_entities = loaded;
+    m_playerEntity = 0;
+    for (std::size_t i = 0; i < m_entities.size(); ++i)
+        if (m_entities[i].playerControlled)
+            m_playerEntity = i;
+    Log::info("Scene loaded from " + path + " (" +
+              std::to_string(m_entities.size()) + " entities, seed " +
+              std::to_string(m_seed) + ")");
+    return true;
 }

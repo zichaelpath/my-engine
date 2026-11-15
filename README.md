@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 17 complete — Arc 3 ✅.** Arc 1 (editor shell & the split) ✅ · Arc 2 (procgen/noise/logging/config foundations) ✅ · Arc 3 (the world gets things in it) ✅ — entities, AABB collision, the camera, and sprites & animation are all in. Arc 4 (scenes & data: save/load, resources, tilemaps) is next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 18 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 (scenes & data) in progress — scene save/load is in (a tiny text format: the seed recipe plus one line per entity); resources and tilemaps are next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 
@@ -35,6 +35,7 @@ Build/Debug/MyRuntime.exe
 ## Controls
 
 - **Move:** WASD or arrow keys (the player entity; diagonal movement is normalised, walls slide)
+- **Quicksave / quickload:** F5 saves the scene to `scene.txt`, F9 loads it back (both hosts; the editor also has Scene buttons)
 - **Runtime:** Esc closes
 - **Editor:** Play/Pause/Step buttons drive game time; the Procgen panel applies seeds and reshuffles terrain/decor streams independently; the Camera follow checkbox, Zoom slider, mouse wheel over the Game View, and right-drag panning control the editor camera
 

@@ -46,6 +46,14 @@ int main()
                 {
                     window.close();
                 }
+                if (keyPressed->code == sf::Keyboard::Key::F5)
+                {
+                    game.saveScene("scene.txt");
+                }
+                if (keyPressed->code == sf::Keyboard::Key::F9)
+                {
+                    game.loadScene("scene.txt");
+                }
             }
         }
         game.update(dt);

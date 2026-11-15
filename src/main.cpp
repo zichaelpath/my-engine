@@ -38,6 +38,10 @@ int main()
     bool followCam = true;
     float zoom = 1.f;
 
+    // Procgen panel state, hoisted so scene loading can re-sync it.
+    int seedInput = static_cast<int>(game.seed());
+    float noiseFreq = game.noiseFrequency();
+
     sf::Clock clock;
     int frames = 0;
     float fpsTimer = 0.f;
@@ -80,6 +84,18 @@ int main()
                 {
                     playing = !playing;
                 }
+                if (keyPressed->code == sf::Keyboard::Key::F5)
+                {
+                    game.saveScene("scene.txt");
+                }
+                if (keyPressed->code == sf::Keyboard::Key::F9)
+                {
+                    if (game.loadScene("scene.txt"))
+                    {
+                        seedInput = static_cast<int>(game.seed());
+                        noiseFreq = game.noiseFrequency();
+                    }
+                }
             }
         }
         
@@ -110,11 +126,24 @@ int main()
         }
         ImGui::ColorEdit3("Clear color", game.clearColor);
         ImGui::SliderFloat("Speed", &game.speed, 50.f, 600.f);
+        ImGui::SeparatorText("Scene");
+        if (ImGui::Button("Save scene (F5)"))
+        {
+            game.saveScene("scene.txt");
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load scene (F9)"))
+        {
+            if (game.loadScene("scene.txt"))
+            {
+                seedInput = static_cast<int>(game.seed());
+                noiseFreq = game.noiseFrequency();
+            }
+        }
         ImGui::End();
 
         ImGui::Begin("Procgen");
         ImGui::Text("Master seed: %u", game.seed());
-        static int seedInput = static_cast<int>(game.seed());
         ImGui::InputInt("Seed", &seedInput);
         if (ImGui::Button("Apply seed"))
             game.setSeed(static_cast<std::uint32_t>(seedInput));
@@ -125,7 +154,7 @@ int main()
             seedInput = static_cast<int>(rd());
             game.setSeed(static_cast<std::uint32_t>(seedInput));
         }
-        static float noiseFreq = game.noiseFrequency();
+        // noiseFreq itself is declared with the other panel state, above the loop.
         if (ImGui::SliderFloat("Noise scale", &noiseFreq, 0.004f, 0.03f))
             game.setNoiseFrequency(noiseFreq);
         if (ImGui::Button("Reshuffle terrain"))

@@ -120,6 +120,12 @@ The screenshots carry the proof three ways. The runtime at spawn shows the famil
 
 That closes Arc 3: the world has things in it, the things are solid, the camera roams a world bigger than the screen, and the things have faces. Arc 4 turns to data — saving and loading scenes, managing resources, tilemaps — which is where Arc 2's determinism starts paying compound interest: a saved world is mostly a seed plus a handful of entity records, because everything else can be regenerated exactly.
 
+## Lesson 18 — Scene Save/Load (Arc 4 Opens)
+
+**Built:** persistence, and the file is almost comically small — nine lines for an entire 1600×1200 world. That's Arc 2's determinism collecting its debt: the terrain is a function of (seed, noise scale), so the scene stores the *recipe* and regenerates the meal on load. What's left is one line per entity — name, position, size, colour, flags, sprite — in a text format you can open in Notepad and edit by hand, versioned from day one because the cheapest moment to add a version line is before a second version exists. Loading is all-or-nothing: parse into temporaries, refuse a wrong version, warn-and-skip a corrupt line, and only touch the live world once the file has proven itself whole.
+
+Both hosts got F5/F9 quicksave/quickload, and the verification was a proper round-trip: walk the traveller to (542, 455), save, walk away, load — and the debug panel reads (542, 455) again while the console narrates the save, the regeneration, and the load in order. The devlog states the one honest limit in writing: reshuffle history isn't saved, because the file stores the recipe rather than the RNG streams' diary. That's a v1 boundary, named rather than hidden — exactly where it belongs.
+
 ---
 
-_Blog continues from Lesson 18. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 19. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
