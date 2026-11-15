@@ -192,6 +192,12 @@ That closes Arc 5. In six lessons the editor gained every verb it needs — sele
 
 SFML 3's audio API broke two of my from-memory assumptions (sounds are born with their buffers; sample loading wants a channel map) — both caught by the compiler and fixed against the pinned headers. One honest caveat: the build VM has no speakers, so playback is verified by logs, counters, and the splash line, with the actual *hearing* deferred to Zac's machine.
 
+## Lesson 30 — Music: The Stream
+
+**Built:** background music, streamed rather than loaded — a three-minute song as a `sf::SoundBuffer` would cost tens of megabytes of memory, while `sf::Music` decodes from disk in chunks and costs kilobytes. The track itself is synthesized by the tools script: four pad chords crossfaded with wrap-around envelopes so the loop point is seamless by construction, plus sparse plucks that all decay before the seam. Both hosts start it at boot behind a `music` config key, and the editor shows its state with Play/Stop controls. Music is presentation, not simulation — it doesn't pause with the game or rewind with a play-test.
+
+The verification carries an honest asterisk, recorded in full in the devlog: this build VM has no audio device at all (and SFML 3 turns out to use miniaudio, not OpenAL), so the stream reports Playing and the controls provably work, but the playback offset can't advance without something consuming samples. The hearing test, like the sound effects', happens on Zac's machine.
+
 ---
 
-_Blog continues from Lesson 30. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 31. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

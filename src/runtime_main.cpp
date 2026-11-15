@@ -13,6 +13,7 @@ int main()
     config.setDefault("noiseScale", "0.01");
     config.setDefault("playerSpeed", "200");
     config.setDefault("volume", "80");
+    config.setDefault("music", "1");
     if (!config.load("engine.ini"))
         config.save("engine.ini");
     sf::Listener::setGlobalVolume(static_cast<float>(config.getInt("volume", 80)));
@@ -29,6 +30,8 @@ int main()
     if (config.getFloat("noiseScale", 0.01f) != game.noiseFrequency())
         game.setNoiseFrequency(config.getFloat("noiseScale", 0.01f));
     game.speed = config.getFloat("playerSpeed", 200.f);
+    if (config.getInt("music", 1))
+        game.startMusic("assets/music.wav");
     Camera camera;
     sf::Clock clock;
 

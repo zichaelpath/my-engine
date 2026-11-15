@@ -40,6 +40,7 @@ int main()
     config.setDefault("noiseScale", "0.01");
     config.setDefault("playerSpeed", "200");
     config.setDefault("volume", "80");
+    config.setDefault("music", "1");
     if (!config.load("engine.ini"))
         config.save("engine.ini");
 
@@ -64,6 +65,8 @@ int main()
     if (config.getFloat("noiseScale", 0.01f) != game.noiseFrequency())
         game.setNoiseFrequency(config.getFloat("noiseScale", 0.01f));
     game.speed = config.getFloat("playerSpeed", 200.f);
+    if (config.getInt("music", 1))
+        game.startMusic("assets/music.wav");
 
     Camera camera;
     bool followCam = true;
@@ -163,6 +166,15 @@ int main()
         ImGui::Text("Textures cached: %d", static_cast<int>(game.textureCacheSize()));
         ImGui::Text("Sounds played: %d (cache %d)", game.soundsPlayed(),
                     static_cast<int>(game.soundCacheSize()));
+        ImGui::Text("Music: %s (%.1f s)", game.musicPlaying() ? "playing" : "stopped",
+                    game.musicOffset());
+        if (game.musicPlaying())
+        {
+            if (ImGui::Button("Stop music"))
+                game.stopMusic();
+        }
+        else if (ImGui::Button("Play music"))
+            game.startMusic("assets/music.wav");
         if (ImGui::SliderFloat("Volume", &volume, 0.f, 100.f, "%.0f"))
             sf::Listener::setGlobalVolume(volume);
         if (selected >= 0 && selected < static_cast<int>(game.entities().size()))

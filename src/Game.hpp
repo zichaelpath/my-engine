@@ -47,6 +47,14 @@ public:
     void playSound(const std::string& path, float pitch = 1.f);
     int soundsPlayed() const { return m_soundsPlayed; }
     std::size_t soundCacheSize() const { return m_soundBuffers.size(); }
+    // Music (Lesson 30): one streamed track, looped. Unlike a
+    // sound buffer, a stream decodes from disk as it plays — a
+    // three-minute song costs kilobytes of memory, not megabytes.
+    bool startMusic(const std::string& path);
+    void stopMusic();
+    bool musicPlaying() const;
+    float musicOffset() const; // seconds into the track
+    const std::string& musicTrack() const { return m_musicTrack; }
 
     // Tilemap queries (Lesson 21): the tile id at a world position
     // (-1 outside the world), the tile under the player's feet, and
@@ -119,6 +127,8 @@ private:
     float m_stepTimer = 0.f; // footstep cadence clock
     bool m_stepAlt = false;  // footstep pitch alternation
     int m_lastPlayerTile = -1; // splash edge detection (-1 = unknown)
+    sf::Music m_music;
+    std::string m_musicTrack;
 
     std::vector<int> m_tiles;
     int m_tilesX = 0;

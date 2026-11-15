@@ -422,6 +422,37 @@ void Game::playSound(const std::string& path, float pitch)
     start(m_players[i]);
 }
 
+bool Game::startMusic(const std::string& path)
+{
+    if (!m_music.openFromFile(path))
+    {
+        // Music is garnish, not a dependency: one error, then silence.
+        Log::error("Music failed to open: " + path + " (continuing silently)");
+        return false;
+    }
+    m_music.setLooping(true);
+    m_music.play();
+    m_musicTrack = path;
+    Log::info("Music started: " + path);
+    return true;
+}
+
+void Game::stopMusic()
+{
+    m_music.stop();
+    Log::info("Music stopped");
+}
+
+bool Game::musicPlaying() const
+{
+    return m_music.getStatus() == sf::Sound::Status::Playing;
+}
+
+float Game::musicOffset() const
+{
+    return m_music.getPlayingOffset().asSeconds();
+}
+
 void Game::resolveCollisions(Entity& mover, float movement, bool xAxis)
 {
     // Collision happens between hitboxes, not sprite boxes: the
