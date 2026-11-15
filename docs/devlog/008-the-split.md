@@ -35,7 +35,9 @@ _(yours to fill in — behaviour identical to Lesson 7 in every respect: movemen
 
 ## Explain-it check
 
-_(yours to fill in)_
+Lesson 8 turned the game engine from simply being a single file with some basic controls into a separate beast in which the game and it's associated controls are now in their own dedicated class with an hpp header file and a cpp logic file.
+By taking out the "game" aspect from the main program, we are able to define the debugging controls and the game view in a more separate manner. The "game" has the character controls, definition, and the rendering details of the game view.
+The "engine" of "main" program now deals with rendering the game based on an insantiated "game" class versus manually tracking everything in the main program.
 
 ## Next step
 
