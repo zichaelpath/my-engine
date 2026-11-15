@@ -168,6 +168,12 @@ The verification renamed the lakeside crate and then saved the scene — the fil
 
 The first attempt dragged *the window* instead of the crate — ImGui's default lets a press on a widget-less area move the window itself, and since the panel chased the mouse perfectly, the world point under it never changed and the entity stayed put with complete correctness. One configuration line (windows move from title bars only) gave the gesture back to the canvas, and the retest moved the crate to within a pixel of the predicted landing spot. Next: spawn and delete — where index-based selection meets the problem of a list that can shrink.
 
+## Lesson 26 — Spawn & Delete
+
+**Built:** the editor can now create and destroy. "Spawn crate" drops a new crate at the camera's centre — through the same `spawnEntity` the game itself uses, hitbox and all — and it arrives selected, ready to drag. Delete (button, or the Delete key when no text field has focus) removes the selected entity through a new `Game::removeEntity` — which flatly refuses the player, with an amber warning in the console, because every system in the game assumes a player exists.
+
+Deletion is where index-based identity earns its scrutiny: erasing an element shifts every later index, so the editor clears its selection and the game repairs its player index in the same operation. All of it verified in one session — spawn (entity 4, selected, at the camera's centre), refusal (player delete attempted and declined), delete (count 4 → 3, selection cleared), and an F5 save showing exactly the surviving three. Next, the safety net every editor eventually needs: undo/redo.
+
 ---
 
-_Blog continues from Lesson 26. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 27. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

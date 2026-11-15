@@ -55,6 +55,10 @@ public:
     std::size_t spawnEntity(const std::string& name, sf::Vector2f position,
                             sf::Vector2f size, sf::Color color,
                             bool playerControlled = false, int sprite = -1);
+    // Remove an entity by index (Lesson 26). Refuses the player —
+    // the game depends on it. Indices above the removed one shift
+    // down, and m_playerEntity follows its entity.
+    void removeEntity(std::size_t index);
     const std::vector<Entity>& entities() const { return m_entities; }
     // Mutable access for the editor's inspector (Lesson 24). The
     // runtime never calls this; it exists so tools can edit the

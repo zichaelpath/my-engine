@@ -6,6 +6,7 @@
 #include "Config.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
+#include "SpriteSheet.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <random>
@@ -185,6 +186,23 @@ int main()
         }
         ImGui::End();
 
+        // Spawn/delete plumbing (Lesson 26), shared by the Hierarchy
+        // buttons and the Delete key. If the count doesn't drop, the
+        // removal was refused (the player) and the selection stays.
+        auto deleteSelected = [&]() {
+            if (selected < 0 || selected >= static_cast<int>(game.entities().size()))
+                return;
+            std::size_t before = game.entities().size();
+            game.removeEntity(static_cast<std::size_t>(selected));
+            if (game.entities().size() < before)
+            {
+                selected = -1;
+                dragging = false;
+            }
+        };
+        if (ImGui::IsKeyPressed(ImGuiKey_Delete) && !ImGui::GetIO().WantTextInput)
+            deleteSelected();
+
         // Hierarchy (Lesson 23): every entity by name; clicking a row
         // drives the SAME selection the Game View picking writes.
         ImGui::Begin("Hierarchy");
@@ -205,6 +223,19 @@ int main()
                               std::to_string(i) + ")");
                 }
             }
+            ImGui::Separator();
+            if (ImGui::Button("Spawn crate"))
+            {
+                // At the camera's centre, and it arrives selected —
+                // ready to drag wherever it actually belongs.
+                sf::Vector2f at = camera.center - sf::Vector2f(20.f, 20.f);
+                selected = static_cast<int>(game.spawnEntity(
+                    "Crate", at, {40.f, 40.f}, sf::Color(220, 140, 60), false,
+                    sprites::CRATE));
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Delete selected"))
+                deleteSelected();
         }
         ImGui::End();
 

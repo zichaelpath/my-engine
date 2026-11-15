@@ -78,6 +78,22 @@ std::size_t Game::spawnEntity(const std::string& name, sf::Vector2f position,
     return m_entities.size() - 1;
 }
 
+void Game::removeEntity(std::size_t index)
+{
+    if (index >= m_entities.size())
+        return;
+    if (index == m_playerEntity)
+    {
+        Log::warning("Refused to remove the player entity");
+        return;
+    }
+    Log::info("Entity removed: " + m_entities[index].name + " (index " +
+              std::to_string(index) + ")");
+    m_entities.erase(m_entities.begin() + static_cast<std::ptrdiff_t>(index));
+    if (m_playerEntity > index)
+        --m_playerEntity; // the player slid down with everyone else
+}
+
 void Game::setSeed(std::uint32_t seed)
 {
     if (seed == m_seed)
