@@ -47,6 +47,11 @@ int main()
     window.setFramerateLimit(60);
     ImGui::SFML::Init(window);
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // Windows move from their title bars only. The default (drag from
+    // anywhere in the body) makes the Game View itself follow the
+    // mouse during an entity drag — the gesture has to belong to the
+    // canvas, not the window frame. (Found by Lesson 25's first drag.)
+    ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
     Game game;
     if (static_cast<std::uint32_t>(config.getInt("seed", 12345)) != game.seed())
         game.setSeed(static_cast<std::uint32_t>(config.getInt("seed", 12345)));
@@ -58,6 +63,8 @@ int main()
     bool followCam = true;
     float zoom = 1.f;
     int selected = -1; // selected entity index (editor state, Lesson 22)
+    bool dragging = false; // drag-to-move in progress (Lesson 25)
+    sf::Vector2f dragOffset; // entity position minus grab point, world space
 
     // Procgen panel state, hoisted so scene loading can re-sync it.
     int seedInput = static_cast<int>(game.seed());
@@ -116,6 +123,7 @@ int main()
                         seedInput = static_cast<int>(game.seed());
                         noiseFreq = game.noiseFrequency();
                         selected = -1; // the entity list was replaced
+                        dragging = false;
                     }
                 }
             }
@@ -172,6 +180,7 @@ int main()
                 seedInput = static_cast<int>(game.seed());
                 noiseFreq = game.noiseFrequency();
                 selected = -1; // the entity list was replaced
+                        dragging = false;
             }
         }
         ImGui::End();
@@ -335,6 +344,9 @@ int main()
         {
             // Left click picks: panel pixels -> world via the view the
             // texture was rendered with, then a topmost-first search.
+            // A successful pick also starts a drag (Lesson 25): the
+            // grab offset is kept so the entity doesn't jump to centre
+            // itself on the cursor.
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
             {
                 ImVec2 mouse = ImGui::GetMousePos();
@@ -343,9 +355,15 @@ int main()
                      static_cast<int>(mouse.y - imagePos.y)});
                 selected = pickEntity(game, world);
                 if (selected >= 0)
+                {
                     Log::info("Selected: " +
                               game.entities()[static_cast<std::size_t>(selected)].name +
                               " (index " + std::to_string(selected) + ")");
+                    dragging = true;
+                    dragOffset =
+                        game.entities()[static_cast<std::size_t>(selected)].position -
+                        world;
+                }
                 else
                     Log::info("Selection cleared");
             }
@@ -361,6 +379,35 @@ int main()
                 camera.center -= sf::Vector2f(drag.x * view.x / panelSize.x,
                                               drag.y * view.y / panelSize.y);
                 ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
+            }
+        }
+        // Drag-to-move continues outside the hover check: a drag that
+        // leaves the panel mid-pull still tracks, and the release is
+        // caught wherever it happens. The move is logged once, on
+        // drop — never per frame.
+        if (dragging)
+        {
+            bool valid = selected >= 0 &&
+                         selected < static_cast<int>(game.entities().size());
+            if (valid && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+            {
+                ImVec2 mouse = ImGui::GetMousePos();
+                sf::Vector2f world = gameView.mapPixelToCoords(
+                    {static_cast<int>(mouse.x - imagePos.x),
+                     static_cast<int>(mouse.y - imagePos.y)});
+                game.entities()[static_cast<std::size_t>(selected)].position =
+                    world + dragOffset;
+            }
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            {
+                dragging = false;
+                if (valid)
+                {
+                    const Entity& e = game.entities()[static_cast<std::size_t>(selected)];
+                    Log::info("Moved " + e.name + " to (" +
+                              std::to_string(static_cast<int>(e.position.x)) + ", " +
+                              std::to_string(static_cast<int>(e.position.y)) + ")");
+                }
             }
         }
         ImGui::End();

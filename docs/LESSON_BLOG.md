@@ -162,6 +162,12 @@ The list also tells a truth the world view hides: the two crates have the *same 
 
 The verification renamed the lakeside crate and then saved the scene — the file itself contains "Lake Crate", proof the edit lives in the game's data and not just in a panel. Two honest limits are on the record: colour edits are real but invisible on sprite-bearing entities (tinting is a future line), and the sprite field is read-only because swapping a sprite must also swap its hitbox. Next: drag-to-move — grab the selected entity in the Game View and pull it around, the embryo of every gizmo to come.
 
+## Lesson 25 — Drag to Move
+
+**Built:** grab any entity in the Game View and pull it around the world. Under the hood it's a three-state machine (idle, grabbed, dragging) plus one crucial subtraction — the grab offset, entity position minus mouse position, so the crate stays where your hand took it instead of snapping to the cursor. The drop logs a single line; the Inspector's position fields follow along live; drags survive leaving the panel mid-pull.
+
+The first attempt dragged *the window* instead of the crate — ImGui's default lets a press on a widget-less area move the window itself, and since the panel chased the mouse perfectly, the world point under it never changed and the entity stayed put with complete correctness. One configuration line (windows move from title bars only) gave the gesture back to the canvas, and the retest moved the crate to within a pixel of the predicted landing spot. Next: spawn and delete — where index-based selection meets the problem of a list that can shrink.
+
 ---
 
-_Blog continues from Lesson 25. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 26. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

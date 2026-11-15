@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 24 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 (the editor grows up) in progress — selection, a Hierarchy panel, and now an Inspector: the selected entity's name, position, size, colour and solid flag are editable live, while the game runs. Drag-to-move gizmos are next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 25 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 (the editor grows up) in progress — selection, Hierarchy, Inspector, and now drag-to-move: grab any entity in the Game View and pull it around the world. Spawn/delete is next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 
