@@ -57,7 +57,7 @@ target_link_libraries(MyRuntime PRIVATE
 
 add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Config.cpp src/SpriteSheet.cpp src/Resources.cpp src/Project.cpp)
 
-target_include_directories(GameLib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/generated)
+target_include_directories(GameLib PUBLIC src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 target_link_libraries(GameLib PUBLIC
     SFML::Graphics
@@ -87,4 +87,12 @@ target_link_libraries(MyGL PRIVATE
     GLLoader
     SFML::Window
     SFML::System)
+
+# The headless test harness (Lesson 45): the Phase 1 probes, grown
+# up into one command — determinism, scene round-trips, project and
+# config parsing, and the Lesson 44 flip regression. Exit code is
+# the number of failures, so CI can read it.
+add_executable(MyTests tests/tests_main.cpp)
+
+target_link_libraries(MyTests PRIVATE GameLib)
 
