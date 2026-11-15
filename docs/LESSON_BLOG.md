@@ -222,6 +222,12 @@ The Won screen earned its verification the hard way: a throwaway parallel build 
 
 Thirty-four lessons ago this was an empty window. It's now an engine with an editor, a sound-synthesizing audio system, a deterministic procgen world — and a shipped game. Arc 8 goes where the roadmap always promised: raw OpenGL, and the third dimension.
 
+## Lesson 35 — Hello, Triangle
+
+**Built:** Arc 8 opens with the smallest honest 3D program: a third host, `MyGL`, an OpenGL 3.3 core context inside an SFML window, and one triangle whose three corner colours the GPU blends across its face. The interesting part is what *isn't* there — no GLAD. A core context only links OpenGL 1.1 directly; everything modern has to be requested from the driver by name at runtime, so the engine grew its own loader: 19 function pointers, one per function it actually uses, each miss logged by name. Zac's rule for this project is *understand everything*, and a generated loader is exactly the kind of magic this engine refuses. SFML, meanwhile, is demoted to window-and-events duty — `sf::Window`, never `RenderWindow` — so no SFML renderer state fights the GL pipeline. The 2D game never noticed a thing.
+
+Next: the triangle grows up — an indexed cube, depth testing, and the model/view/projection matrix chain.
+
 ---
 
-_Blog continues from Lesson 35. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 36. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

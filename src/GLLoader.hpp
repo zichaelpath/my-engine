@@ -1,0 +1,52 @@
+#pragma once
+
+// GLLoader — the engine's own OpenGL function loader (Lesson 35).
+//
+// Why this exists: an OpenGL 3.3 core context only guarantees the
+// OpenGL 1.1 entry points at link time. Everything newer — shaders,
+// buffers, vertex arrays — must be asked of the driver at runtime,
+// by name. Libraries like GLAD generate this file; an engine you
+// intend to understand writes it, once, and watches it grow by one
+// line per function the engine actually uses.
+//
+// GL 1.1 functions (glClear, glViewport, glGetString, ...) are
+// declared by <GL/gl.h> and called directly. The post-1.1 functions
+// below are pointers, filled in by loadGLFunctions() once a context
+// is current. vendor/GL/glext.h is the official Khronos header: it
+// supplies the PFN* types (and no prototypes, so the names are free
+// for our pointers).
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
+#include <GL/gl.h>
+#include <GL/glext.h>
+
+inline PFNGLCREATESHADERPROC glCreateShader = nullptr;
+inline PFNGLSHADERSOURCEPROC glShaderSource = nullptr;
+inline PFNGLCOMPILESHADERPROC glCompileShader = nullptr;
+inline PFNGLGETSHADERIVPROC glGetShaderiv = nullptr;
+inline PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog = nullptr;
+inline PFNGLCREATEPROGRAMPROC glCreateProgram = nullptr;
+inline PFNGLATTACHSHADERPROC glAttachShader = nullptr;
+inline PFNGLLINKPROGRAMPROC glLinkProgram = nullptr;
+inline PFNGLGETPROGRAMIVPROC glGetProgramiv = nullptr;
+inline PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog = nullptr;
+inline PFNGLUSEPROGRAMPROC glUseProgram = nullptr;
+inline PFNGLDELETESHADERPROC glDeleteShader = nullptr;
+inline PFNGLGENVERTEXARRAYSPROC glGenVertexArrays = nullptr;
+inline PFNGLBINDVERTEXARRAYPROC glBindVertexArray = nullptr;
+inline PFNGLGENBUFFERSPROC glGenBuffers = nullptr;
+inline PFNGLBINDBUFFERPROC glBindBuffer = nullptr;
+inline PFNGLBUFFERDATAPROC glBufferData = nullptr;
+inline PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer = nullptr;
+inline PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray = nullptr;
+
+// Fills every pointer above from the current context's driver.
+// Returns false (and logs each miss) if any function is missing —
+// call it once, right after the window's context is made current.
+bool loadGLFunctions();
