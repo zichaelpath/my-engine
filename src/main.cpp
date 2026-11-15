@@ -66,6 +66,10 @@ int main()
     int selected = -1; // selected entity index (editor state, Lesson 22)
     bool dragging = false; // drag-to-move in progress (Lesson 25)
     sf::Vector2f dragOffset; // entity position minus grab point, world space
+    // Undo/redo history (Lesson 27): snapshots of the whole entity
+    // list, taken BEFORE each committed editor action.
+    std::vector<std::vector<Entity>> undoStack;
+    std::vector<std::vector<Entity>> redoStack;
 
     // Procgen panel state, hoisted so scene loading can re-sync it.
     int seedInput = static_cast<int>(game.seed());
@@ -125,6 +129,8 @@ int main()
                         noiseFreq = game.noiseFrequency();
                         selected = -1; // the entity list was replaced
                         dragging = false;
+                        undoStack.clear(); // history belongs to the old scene
+                        redoStack.clear();
                     }
                 }
             }
@@ -182,9 +188,55 @@ int main()
                 noiseFreq = game.noiseFrequency();
                 selected = -1; // the entity list was replaced
                         dragging = false;
+                        undoStack.clear(); // history belongs to the old scene
+                        redoStack.clear();
             }
         }
         ImGui::End();
+
+        // Undo/redo (Lesson 27): snapshot the entity list BEFORE a
+        // committed action; undo swaps the current list onto the
+        // redo stack and restores the snapshot.
+        auto pushUndoState = [&](std::vector<Entity> state) {
+            undoStack.push_back(std::move(state));
+            if (undoStack.size() > 100)
+                undoStack.erase(undoStack.begin());
+            redoStack.clear();
+        };
+        auto pushUndo = [&]() { pushUndoState(game.entities()); };
+        auto doUndo = [&]() {
+            if (undoStack.empty())
+                return;
+            redoStack.push_back(game.entities());
+            game.replaceEntities(undoStack.back());
+            undoStack.pop_back();
+            selected = -1;
+            dragging = false;
+            Log::info("Undo (" + std::to_string(game.entities().size()) +
+                      " entities)");
+        };
+        auto doRedo = [&]() {
+            if (redoStack.empty())
+                return;
+            undoStack.push_back(game.entities());
+            game.replaceEntities(redoStack.back());
+            redoStack.pop_back();
+            selected = -1;
+            dragging = false;
+            Log::info("Redo (" + std::to_string(game.entities().size()) +
+                      " entities)");
+        };
+        if (!ImGui::GetIO().WantTextInput)
+        {
+            bool ctrl = ImGui::GetIO().KeyCtrl;
+            bool shift = ImGui::GetIO().KeyShift;
+            if (ctrl && shift && ImGui::IsKeyPressed(ImGuiKey_Z))
+                doRedo();
+            else if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y))
+                doRedo();
+            else if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z))
+                doUndo();
+        }
 
         // Spawn/delete plumbing (Lesson 26), shared by the Hierarchy
         // buttons and the Delete key. If the count doesn't drop, the
@@ -192,6 +244,8 @@ int main()
         auto deleteSelected = [&]() {
             if (selected < 0 || selected >= static_cast<int>(game.entities().size()))
                 return;
+            if (selected != static_cast<int>(game.playerIndex()))
+                pushUndo(); // a refused delete leaves no history
             std::size_t before = game.entities().size();
             game.removeEntity(static_cast<std::size_t>(selected));
             if (game.entities().size() < before)
@@ -228,6 +282,7 @@ int main()
             {
                 // At the camera's centre, and it arrives selected —
                 // ready to drag wherever it actually belongs.
+                pushUndo();
                 sf::Vector2f at = camera.center - sf::Vector2f(20.f, 20.f);
                 selected = static_cast<int>(game.spawnEntity(
                     "Crate", at, {40.f, 40.f}, sf::Color(220, 140, 60), false,
@@ -236,6 +291,13 @@ int main()
             ImGui::SameLine();
             if (ImGui::Button("Delete selected"))
                 deleteSelected();
+            if (ImGui::Button("Undo"))
+                doUndo();
+            ImGui::SameLine();
+            if (ImGui::Button("Redo"))
+                doRedo();
+            ImGui::SameLine();
+            ImGui::Text("%zu back / %zu fwd", undoStack.size(), redoStack.size());
         }
         ImGui::End();
 
@@ -256,11 +318,20 @@ int main()
                 std::snprintf(nameBuf, sizeof(nameBuf), "%s", e.name.c_str());
                 nameFor = selected;
             }
+            // Undo hooks: drag/text/colour widgets snapshot on
+            // ACTIVATION — the press frame, before the gesture's
+            // first change lands — so one gesture = one undo step.
             if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf)))
                 e.name = nameBuf;
+            if (ImGui::IsItemActivated())
+                pushUndo();
 
             ImGui::DragFloat2("Position", &e.position.x, 1.f);
+            if (ImGui::IsItemActivated())
+                pushUndo();
             ImGui::DragFloat2("Size", &e.size.x, 1.f, 1.f, 500.f);
+            if (ImGui::IsItemActivated())
+                pushUndo();
 
             float rgb[3] = {e.color.r / 255.f, e.color.g / 255.f, e.color.b / 255.f};
             if (ImGui::ColorEdit3("Colour", rgb))
@@ -269,8 +340,18 @@ int main()
                            static_cast<std::uint8_t>(rgb[1] * 255.f),
                            static_cast<std::uint8_t>(rgb[2] * 255.f)};
             }
+            if (ImGui::IsItemActivated())
+                pushUndo();
 
-            ImGui::Checkbox("Solid", &e.solid);
+            // A checkbox flips DURING its call, so its pre-state is
+            // reconstructed and pushed explicitly.
+            bool wasSolid = e.solid;
+            if (ImGui::Checkbox("Solid", &e.solid))
+            {
+                std::vector<Entity> prior = game.entities();
+                prior[static_cast<std::size_t>(selected)].solid = wasSolid;
+                pushUndoState(std::move(prior));
+            }
             ImGui::Text("Sprite: %d", e.sprite);
             ImGui::Text("Player-controlled: %s", e.playerControlled ? "yes" : "no");
         }
@@ -390,6 +471,7 @@ int main()
                     Log::info("Selected: " +
                               game.entities()[static_cast<std::size_t>(selected)].name +
                               " (index " + std::to_string(selected) + ")");
+                    pushUndo(); // one snapshot per drag, taken at the grab
                     dragging = true;
                     dragOffset =
                         game.entities()[static_cast<std::size_t>(selected)].position -

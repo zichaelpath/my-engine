@@ -94,6 +94,18 @@ void Game::removeEntity(std::size_t index)
         --m_playerEntity; // the player slid down with everyone else
 }
 
+void Game::replaceEntities(const std::vector<Entity>& entities)
+{
+    m_entities = entities;
+    m_playerEntity = 0;
+    for (std::size_t i = 0; i < m_entities.size(); ++i)
+        if (m_entities[i].playerControlled)
+        {
+            m_playerEntity = i;
+            break;
+        }
+}
+
 void Game::setSeed(std::uint32_t seed)
 {
     if (seed == m_seed)

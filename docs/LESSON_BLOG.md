@@ -174,6 +174,12 @@ The first attempt dragged *the window* instead of the crate — ImGui's default 
 
 Deletion is where index-based identity earns its scrutiny: erasing an element shifts every later index, so the editor clears its selection and the game repairs its player index in the same operation. All of it verified in one session — spawn (entity 4, selected, at the camera's centre), refusal (player delete attempted and declined), delete (count 4 → 3, selection cleared), and an F5 save showing exactly the surviving three. Next, the safety net every editor eventually needs: undo/redo.
 
+## Lesson 27 — Undo/Redo
+
+**Built:** Ctrl+Z and Ctrl+Y over every editor action — drags, spawns, deletes, and Inspector edits. The implementation is deliberately the simple kind: before each committed action, the editor snapshots the *whole entity list*; undo swaps the current list onto the redo stack and restores the snapshot. At thirty small entities, uniformity beats the command pattern's per-action inverse logic — and the devlog says plainly where that trade flips. Snapshots land at commit points only (a drag's grab, a widget's activation frame), so one gesture is one undo step, and restoring goes through a `Game` function that re-derives the player from its flag, so a restored list can never point the game at the wrong entity.
+
+Verified as one continuous session against the saved file: drag, undo, redo, spawn, undo — the final `scene.txt` holds exactly the redone drag position with the spawn nowhere in it, and the Hierarchy's "1 back / 1 fwd" readout matches a hand-trace of the stacks. One lesson remains in Arc 5: play-in-editor with restore, so experimenting costs nothing at all.
+
 ---
 
-_Blog continues from Lesson 27. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 28. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

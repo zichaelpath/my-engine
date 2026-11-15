@@ -59,6 +59,11 @@ public:
     // the game depends on it. Indices above the removed one shift
     // down, and m_playerEntity follows its entity.
     void removeEntity(std::size_t index);
+    std::size_t playerIndex() const { return m_playerEntity; }
+    // Replace the whole entity list (editor undo/redo, Lesson 27).
+    // The player index is re-derived from the playerControlled flag,
+    // so a restored list can never point the game at the wrong entity.
+    void replaceEntities(const std::vector<Entity>& entities);
     const std::vector<Entity>& entities() const { return m_entities; }
     // Mutable access for the editor's inspector (Lesson 24). The
     // runtime never calls this; it exists so tools can edit the
