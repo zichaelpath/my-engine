@@ -84,6 +84,15 @@ struct Mat4
         return r;
     }
 
+    static Mat4 scaling(float x, float y, float z)
+    {
+        Mat4 r = identity();
+        r.m[0] = x;
+        r.m[5] = y;
+        r.m[10] = z;
+        return r;
+    }
+
     static Mat4 rotationX(float radians)
     {
         Mat4 r = identity();

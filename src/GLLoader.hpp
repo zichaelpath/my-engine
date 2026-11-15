@@ -48,6 +48,11 @@ inline PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray = nullptr;
 inline PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation = nullptr;
 inline PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv = nullptr;
 inline PFNGLUNIFORM3FPROC glUniform3f = nullptr;
+inline PFNGLUNIFORM1IPROC glUniform1i = nullptr;
+inline PFNGLGENERATEMIPMAPPROC glGenerateMipmap = nullptr;
+// Note: glGenTextures/glBindTexture/glTexImage2D/glTexParameteri
+// are NOT here — texture objects are OpenGL 1.1 (1997), so they are
+// declared by <GL/gl.h> and called directly, like glClear.
 
 // Fills every pointer above from the current context's driver.
 // Returns false (and logs each miss) if any function is missing —

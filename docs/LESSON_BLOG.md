@@ -252,6 +252,12 @@ The lesson also produced my favourite verification so far: a pixel-diff against 
 
 One honest footnote the devlog records: the normals ride unrotated because the terrain's model is the identity — the day a rotated model carries normals, they'll need the inverse-transpose. Noted, not dodged.
 
+## Lesson 40 — Texture: The Crate Comes Home
+
+**Built:** Arc 8 closes. The crate texture — the same `crate.tga` the 2D game has used since Lesson 20 — is uploaded as a real GL texture, a 24-vertex indexed cube wears it via UVs, and the crates aren't placed by hand: they're read out of the Game's entity list, converted from 2D pixels to terrain space, and stood on the height of the tile beneath them. Move a crate in the 2D world and its 3D self moves. Two shader programs now share one sun.
+
+The lesson's best moment was a compiler refusal: the four texture functions I tried to add to the loader don't have loadable types — because texture objects are OpenGL **1.1**, from 1997. Textures are older than shaders. They left the loader and are called directly, like `glClear`. The close-up screenshot — plank grain readable, right way up, lit like the terrain around it — is the whole arc in one frame.
+
 ---
 
-_Blog continues from Lesson 40. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 41. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

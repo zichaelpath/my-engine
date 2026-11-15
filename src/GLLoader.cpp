@@ -61,6 +61,8 @@ bool loadGLFunctions()
     load("glGetUniformLocation", glGetUniformLocation);
     load("glUniformMatrix4fv", glUniformMatrix4fv);
     load("glUniform3f", glUniform3f);
+    load("glUniform1i", glUniform1i);
+    load("glGenerateMipmap", glGenerateMipmap);
 
     if (ok)
         Log::info("OpenGL functions loaded");

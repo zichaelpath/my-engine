@@ -2,6 +2,7 @@
 #include "GLLoader.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
+#include "SpriteSheet.hpp"
 #include "Mat4.hpp"
 #include <array>
 #include <cmath>
@@ -9,12 +10,12 @@
 #include <string>
 #include <vector>
 
-// MyGL (Lessons 35-39) — the raw OpenGL host. Lesson 39 lights the
-// heightfield for real: every face carries a normal, and the
-// fragment shader shades it against a directional sun (plus an
-// ambient floor) — replacing the fake darkened-skirt trick from
-// Lesson 38. Controls: WASD move, Q/E down/up, arrows look,
-// Esc quit.
+// MyGL (Lessons 35-40) — the raw OpenGL host. Lesson 40 closes
+// Arc 8 with texture: a second shader program samples the crate
+// texture (assets/crate.tga, the same file the 2D game loads), and
+// the Game's own crate entities stand on the terrain at their
+// world positions, UV-mapped and sun-lit. Controls: WASD move,
+// Q/E down/up, arrows look, Esc quit.
 
 namespace
 {
@@ -51,6 +52,39 @@ void main()
 }
 )";
 
+// The textured program (Lesson 40): same sun, but the base colour
+// comes from a texture sample instead of a vertex colour.
+const char* kTexVertexShader = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aUV;
+uniform mat4 uMVP;
+out vec3 vNormal;
+out vec2 vUV;
+void main()
+{
+    gl_Position = uMVP * vec4(aPos, 1.0);
+    vNormal = aNormal;
+    vUV = aUV;
+}
+)";
+
+const char* kTexFragmentShader = R"(
+#version 330 core
+in vec3 vNormal;
+in vec2 vUV;
+uniform vec3 uSunDir;
+uniform sampler2D uTexture;
+out vec4 FragColor;
+void main()
+{
+    float diffuse = max(dot(normalize(vNormal), uSunDir), 0.0);
+    float light = 0.35 + 0.65 * diffuse;
+    FragColor = vec4(texture(uTexture, vUV).rgb * light, 1.0);
+}
+)";
+
 GLuint compileShader(GLenum type, const char* source, const char* stageName)
 {
     GLuint shader = glCreateShader(type);
@@ -67,6 +101,66 @@ GLuint compileShader(GLenum type, const char* source, const char* stageName)
     }
     Log::info(std::string(stageName) + " shader compiled");
     return shader;
+}
+
+// Compiles and links a full program; 0 on any failure (the stage
+// logs carry the details).
+GLuint createProgram(const char* vertexSource, const char* fragmentSource)
+{
+    GLuint vertex = compileShader(GL_VERTEX_SHADER, vertexSource, "Vertex");
+    GLuint fragment = compileShader(GL_FRAGMENT_SHADER, fragmentSource, "Fragment");
+    if (vertex == 0 || fragment == 0)
+        return 0;
+    GLuint program = glCreateProgram();
+    glAttachShader(program, vertex);
+    glAttachShader(program, fragment);
+    glLinkProgram(program);
+    GLint linked = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &linked);
+    glDeleteShader(vertex);
+    glDeleteShader(fragment);
+    if (linked == GL_FALSE)
+    {
+        std::array<char, 1024> log{};
+        glGetProgramInfoLog(program, static_cast<GLsizei>(log.size()), nullptr, log.data());
+        Log::error(std::string("Program failed to link: ") + log.data());
+        return 0;
+    }
+    return program;
+}
+
+// The crate mesh (Lesson 40): a unit cube, 24 vertices — four per
+// face, because faces need their own normals AND their own UV
+// corners. Vertex layout: position + normal + UV (8 floats).
+void buildCrateMesh(std::vector<float>& verts, std::vector<std::uint32_t>& indices)
+{
+    struct Face
+    {
+        float normal[3];
+        float corners[4][3];
+    };
+    const Face faces[6] = {
+        {{0, 0, 1}, {{-0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, 0.5f}, {0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f}}},
+        {{0, 0, -1}, {{0.5f, -0.5f, -0.5f}, {-0.5f, -0.5f, -0.5f}, {-0.5f, 0.5f, -0.5f}, {0.5f, 0.5f, -0.5f}}},
+        {{1, 0, 0}, {{0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}}},
+        {{-1, 0, 0}, {{-0.5f, -0.5f, -0.5f}, {-0.5f, -0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f, -0.5f}}},
+        {{0, 1, 0}, {{-0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, -0.5f}, {-0.5f, 0.5f, -0.5f}}},
+        {{0, -1, 0}, {{-0.5f, -0.5f, -0.5f}, {0.5f, -0.5f, -0.5f}, {0.5f, -0.5f, 0.5f}, {-0.5f, -0.5f, 0.5f}}},
+    };
+    const float uvs[4][2] = {{0.f, 0.f}, {1.f, 0.f}, {1.f, 1.f}, {0.f, 1.f}};
+    for (const Face& face : faces)
+    {
+        std::uint32_t base = static_cast<std::uint32_t>(verts.size() / 8);
+        for (int i = 0; i < 4; ++i)
+        {
+            verts.insert(verts.end(),
+                         {face.corners[i][0], face.corners[i][1], face.corners[i][2],
+                          face.normal[0], face.normal[1], face.normal[2],
+                          uvs[i][0], uvs[i][1]});
+        }
+        indices.insert(indices.end(),
+                       {base, base + 1, base + 2, base, base + 2, base + 3});
+    }
 }
 
 // Height per tile type (Lesson 38): water sits below the land it
@@ -205,37 +299,26 @@ int main()
     Log::info(std::string("OpenGL version: ") +
               reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 
-    GLuint vertex = compileShader(GL_VERTEX_SHADER, kVertexShader, "Vertex");
-    GLuint fragment = compileShader(GL_FRAGMENT_SHADER, kFragmentShader, "Fragment");
-    if (vertex == 0 || fragment == 0)
+    GLuint program = createProgram(kVertexShader, kFragmentShader);
+    GLuint texProgram = createProgram(kTexVertexShader, kTexFragmentShader);
+    if (program == 0 || texProgram == 0)
         return 1;
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertex);
-    glAttachShader(program, fragment);
-    glLinkProgram(program);
-    GLint linked = 0;
-    glGetProgramiv(program, GL_LINK_STATUS, &linked);
-    if (linked == GL_FALSE)
-    {
-        std::array<char, 1024> log{};
-        glGetProgramInfoLog(program, static_cast<GLsizei>(log.size()), nullptr, log.data());
-        Log::error(std::string("Program failed to link: ") + log.data());
-        return 1;
-    }
-    glDeleteShader(vertex);
-    glDeleteShader(fragment);
     GLint mvpLocation = glGetUniformLocation(program, "uMVP");
     GLint sunLocation = glGetUniformLocation(program, "uSunDir");
-    if (mvpLocation < 0 || sunLocation < 0)
+    GLint texMvpLocation = glGetUniformLocation(texProgram, "uMVP");
+    GLint texSunLocation = glGetUniformLocation(texProgram, "uSunDir");
+    GLint texSamplerLocation = glGetUniformLocation(texProgram, "uTexture");
+    if (mvpLocation < 0 || sunLocation < 0 || texMvpLocation < 0 ||
+        texSunLocation < 0 || texSamplerLocation < 0)
     {
-        Log::error("A required uniform was not found in the shader program");
+        Log::error("A required uniform was not found in a shader program");
         return 1;
     }
     // The sun: low in the west, slightly south — direction TOWARD
-    // it, normalized once here; the shader dots it with each face's
-    // normal. Static this lesson; moving it is a Lesson 40 topic.
+    // it, normalized once here; the shaders dot it with each face's
+    // normal.
     Vec3 sunDir = normalized(Vec3{-0.55f, 0.75f, 0.35f});
-    Log::info("Shader program linked; uniforms located");
+    Log::info("Shader programs linked; uniforms located");
 
     // The world, from the same Game the 2D hosts play (default seed
     // 12345 — the Gold Rush world), extruded by tile type.
@@ -265,6 +348,84 @@ int main()
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
                           reinterpret_cast<const void*>(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+
+    // The crates (Lesson 40): mesh, texture, and placements — the
+    // placements come from the Game's own entity list, converted
+    // from 2D world pixels into terrain space and stood on the
+    // height of the tile beneath them.
+    std::vector<float> crateVerts;
+    std::vector<std::uint32_t> crateIndices;
+    buildCrateMesh(crateVerts, crateIndices);
+    GLuint crateVao = 0;
+    GLuint crateVbo = 0;
+    GLuint crateEbo = 0;
+    glGenVertexArrays(1, &crateVao);
+    glGenBuffers(1, &crateVbo);
+    glGenBuffers(1, &crateEbo);
+    glBindVertexArray(crateVao);
+    glBindBuffer(GL_ARRAY_BUFFER, crateVbo);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(crateVerts.size() * sizeof(float)),
+                 crateVerts.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, crateEbo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(crateIndices.size() * sizeof(std::uint32_t)),
+                 crateIndices.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                          reinterpret_cast<const void*>(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                          reinterpret_cast<const void*>(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    // The texture: SFML decodes the file (CPU-side loading is its
+    // job in every host); the GL texture object is ours. Images load
+    // top-row-first and GL textures start at the bottom row, so the
+    // image is flipped on the way in. NEAREST magnification keeps
+    // the pixel art crisp; mipmaps (generated by the GPU) keep it
+    // from shimmering at a distance.
+    GLuint crateTexture = 0;
+    sf::Image crateImage;
+    if (crateImage.loadFromFile("assets/crate.tga"))
+    {
+        crateImage.flipVertically();
+        glGenTextures(1, &crateTexture);
+        glBindTexture(GL_TEXTURE_2D, crateTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        sf::Vector2u ts = crateImage.getSize();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, static_cast<GLsizei>(ts.x),
+                     static_cast<GLsizei>(ts.y), 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     crateImage.getPixelsPtr());
+        glGenerateMipmap(GL_TEXTURE_2D);
+        Log::info("Crate texture uploaded: " + std::to_string(ts.x) + "x" +
+                  std::to_string(ts.y));
+    }
+    else
+    {
+        Log::error("Crate texture failed to load: assets/crate.tga (crates skipped)");
+    }
+
+    std::vector<Vec3> crateSpots;
+    {
+        float tileSize = game.worldSize().x / static_cast<float>(game.tilesX());
+        for (const Entity& e : game.entities())
+        {
+            if (e.sprite != sprites::CRATE)
+                continue;
+            float centreTileX = (e.position.x + e.size.x / 2.f) / tileSize;
+            float centreTileY = (e.position.y + e.size.y / 2.f) / tileSize;
+            int tx = static_cast<int>(centreTileX);
+            int ty = static_cast<int>(centreTileY);
+            float ground = tileHeight(game.tileAt(tx, ty));
+            crateSpots.push_back({centreTileX - game.tilesX() / 2.f, ground + 0.8f,
+                                  centreTileY - game.tilesY() / 2.f});
+        }
+    }
+    Log::info("Crates placed: " + std::to_string(crateSpots.size()));
 
     glEnable(GL_DEPTH_TEST);
 
@@ -343,6 +504,27 @@ int main()
         glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, mvp.data());
         glUniform3f(sunLocation, sunDir.x, sunDir.y, sunDir.z);
         glDrawArrays(GL_TRIANGLES, 0, terrainVertexCount);
+
+        // The crates: second program, same sun. Their model is a
+        // translation plus a uniform scale — normals survive both
+        // (translation never rotates; uniform scale only stretches
+        // a normal's length, and the shader normalizes).
+        if (crateTexture != 0)
+        {
+            glUseProgram(texProgram);
+            glBindVertexArray(crateVao);
+            glBindTexture(GL_TEXTURE_2D, crateTexture);
+            glUniform3f(texSunLocation, sunDir.x, sunDir.y, sunDir.z);
+            glUniform1i(texSamplerLocation, 0);
+            for (const Vec3& spot : crateSpots)
+            {
+                Mat4 model = Mat4::translation(spot.x, spot.y, spot.z) *
+                             Mat4::scaling(1.6f, 1.6f, 1.6f);
+                Mat4 crateMvp = projection * view * model;
+                glUniformMatrix4fv(texMvpLocation, 1, GL_FALSE, crateMvp.data());
+                glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
+            }
+        }
         window.display();
     }
     Log::info("Camera stopped at (" + std::to_string(cameraPos.x) + ", " +

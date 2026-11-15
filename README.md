@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 39 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ · Arc 8 (raw OpenGL 3D) in progress — the heightfield is lit: exact per-face normals and a directional sun (Lambert diffuse + ambient floor) in the fragment shader replaced the fake darkened skirts. One texture lesson remains in Arc 8. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 40 complete — Arc 8 ✅.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ · Arc 8 ✅ (raw OpenGL 3D: hand-written loader, shaders, MVP matrices, fly camera, heightfield terrain from the shared tile world, Lambert sunlight, and textures — the Game's crates stand UV-mapped on the terrain). Arc 9 (project format, packaging, release) is the last arc. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 
