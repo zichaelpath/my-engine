@@ -70,6 +70,11 @@ int main()
     // list, taken BEFORE each committed editor action.
     std::vector<std::vector<Entity>> undoStack;
     std::vector<std::vector<Entity>> redoStack;
+    // Play-test session (Lesson 28): a snapshot taken when the test
+    // starts; stopping the test restores it exactly.
+    bool testing = false;
+    std::vector<Entity> testSnapshot;
+    float testSnapshotTime = 0.f;
 
     // Procgen panel state, hoisted so scene loading can re-sync it.
     int seedInput = static_cast<int>(game.seed());
@@ -131,6 +136,7 @@ int main()
                         dragging = false;
                         undoStack.clear(); // history belongs to the old scene
                         redoStack.clear();
+                        testing = false; // and any test snapshot is stale
                     }
                 }
             }
@@ -162,8 +168,34 @@ int main()
         ImGui::Checkbox("Camera follow", &followCam);
         ImGui::Checkbox("Show hitboxes", &game.showHitboxes);
         ImGui::SliderFloat("Zoom", &zoom, 0.4f, 3.f);
+        // Play-test mode (Lesson 28): Play snapshots the scene;
+        // Stop restores it — experiment freely, keep nothing.
+        if (!testing)
+        {
+            if (ImGui::Button("Play test (snapshot scene)"))
+            {
+                testSnapshot = game.entities();
+                testSnapshotTime = game.time;
+                testing = true;
+                playing = true; // a test starts running
+                Log::info("Play test started - scene snapshot taken");
+            }
+        }
+        else
+        {
+            if (ImGui::Button("Stop test (restore scene)"))
+            {
+                game.replaceEntities(testSnapshot);
+                game.time = testSnapshotTime;
+                testing = false;
+                selected = -1;
+                dragging = false;
+                Log::info("Play test stopped - scene restored");
+            }
+            ImGui::Text("TESTING: changes are discarded on Stop");
+        }
         ImGui::Text("Game time: %.2f s", game.time);
-        if (ImGui::Button(playing ? "Pause" : "Play"))
+        if (ImGui::Button(playing ? "Pause" : "Resume"))
         {
             playing = !playing;
         }
@@ -190,6 +222,7 @@ int main()
                         dragging = false;
                         undoStack.clear(); // history belongs to the old scene
                         redoStack.clear();
+                        testing = false; // and any test snapshot is stale
             }
         }
         ImGui::End();

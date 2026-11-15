@@ -180,6 +180,12 @@ Deletion is where index-based identity earns its scrutiny: erasing an element sh
 
 Verified as one continuous session against the saved file: drag, undo, redo, spawn, undo — the final `scene.txt` holds exactly the redone drag position with the spawn nowhere in it, and the Hierarchy's "1 back / 1 fwd" readout matches a hand-trace of the stacks. One lesson remains in Arc 5: play-in-editor with restore, so experimenting costs nothing at all.
 
+## Lesson 28 — Play-Test With Restore (Arc 5 Closes)
+
+**Built:** a Play test button that snapshots the scene, and a Stop button that restores it exactly — entities and game clock alike. Walk the player to the far corner, press Stop, and he's back at spawn as if the trip never happened. It looks like undo but answers a different question: undo is a history of *authoring actions*, while the test snapshot is a save point for an *experiment* — separate stacks, no cross-talk, and the panel says the contract out loud while you test ("changes are discarded on Stop"). Scene loads cancel test mode, because a snapshot of a scene that no longer exists would be a lie.
+
+That closes Arc 5. In six lessons the editor gained every verb it needs — select, list, inspect, drag, spawn, delete, undo, experiment — and `Game` was touched exactly twice along the way, which is the shared-state architecture from Lesson 22 paying off. Arc 6 gives the engine ears: audio, with the resource cache's family growing a sound branch, and a world that finally makes noise — starting with the splash when you wade in.
+
 ---
 
-_Blog continues from Lesson 28. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 29. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
