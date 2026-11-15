@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 33 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 (a real game) in progress — and the game exists: **collect all 40 gold dots** scattered by the world generator, against the clock. Collection, win state, and run timer live in `Game`; the Runtime frames them with a full state machine — title screen, pause, win screen — over a bundled-font HUD, and the editor shows the same counters. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 34 complete — Arc 7 ✅.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ — **Gold Rush v0.1.0 is packaged**: collect all 40 gold dots against the clock, framed by a title screen, pause, and win screen, and released by `tools/package_game.sh` as a self-contained zip (statically linked, assets included, clean-room tested). Next: Arc 8 takes the engine into raw OpenGL 3D. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 

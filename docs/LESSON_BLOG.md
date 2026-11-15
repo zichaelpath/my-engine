@@ -216,6 +216,12 @@ Verification was the fun kind: at full-world zoom I detected every dot in the sc
 
 The Won screen earned its verification the hard way: a throwaway parallel build tree collapsed (two CMake configures corrupting each other — my mess, documented in the devlog), so the win was proven by temporarily shrinking the world to 3 dots in the real tree, sweeping the map quadrant by quadrant with programmatic dot detection, and keyboard-driving onto each one until the banner froze the clock at 1:40. Then the tweak was reverted — the real game still has all 40.
 
+## Lesson 34 — Gold Rush v0.1.0: The Package
+
+**Built:** Arc 7 closes with the thing it was always pointing at — a game somebody else could play. `tools/package_game.sh` builds the Runtime, renames it `GoldRush`, stages only what the game loads (editor sounds and source stay home), adds a player README and a default config, and zips it as **GoldRush-0.1.0-linux.zip, 1.9 MB**. Because SFML links statically here, the binary carries its engine with it — no DLL hunts, no launcher scripts. The proof was a clean-room run: unzipped into an empty directory, launched cold, title screen up with every asset resolving from the package alone. One honest limit: this zip is the Linux build from my rig; a Windows package needs the same steps in Zac's Windows environment, and that's Arc 9 work.
+
+Thirty-four lessons ago this was an empty window. It's now an engine with an editor, a sound-synthesizing audio system, a deterministic procgen world — and a shipped game. Arc 8 goes where the roadmap always promised: raw OpenGL, and the third dimension.
+
 ---
 
-_Blog continues from Lesson 34. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 35. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

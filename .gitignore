@@ -2,3 +2,4 @@ Build/
 BuildLinux/
 imgui.ini
 engine.ini
+dist/
