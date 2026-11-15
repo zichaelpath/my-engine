@@ -156,6 +156,12 @@ Verification had a one-pixel comedy: the first scripted click missed the crate b
 
 The list also tells a truth the world view hides: the two crates have the *same name*, sitting in adjacent rows like a small accusation. That's what hierarchies are for — exposing scene hygiene problems — and it sets up the next lesson perfectly: the Inspector, where the selected entity's name, position, size, colour and flags become editable, and "Crate / Crate" can finally become "Crate by the lake / Crate at spawn".
 
+## Lesson 24 — The Inspector
+
+**Built:** the editor's first *writer*. Select an entity and the Inspector shows its real properties — name, position, size, colour, solid flag — every one of them editable, writing straight into the live game while it runs. Drag a crate's position and it moves in the world; rename it and the Hierarchy row updates in the same frame ("Crate / Crate" finally became "Crate / Lake Crate"); untick Solid and the player can walk through it. `Game` grew exactly one thing for this: a mutable entities accessor for tools, which the runtime never calls.
+
+The verification renamed the lakeside crate and then saved the scene — the file itself contains "Lake Crate", proof the edit lives in the game's data and not just in a panel. Two honest limits are on the record: colour edits are real but invisible on sprite-bearing entities (tinting is a future line), and the sprite field is read-only because swapping a sprite must also swap its hitbox. Next: drag-to-move — grab the selected entity in the Game View and pull it around, the embryo of every gizmo to come.
+
 ---
 
-_Blog continues from Lesson 24. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 25. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

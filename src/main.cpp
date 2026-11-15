@@ -7,6 +7,7 @@
 #include "Game.hpp"
 #include "Log.hpp"
 #include <algorithm>
+#include <cstdio>
 #include <random>
 
 // Editor picking (Lesson 22): the index of the topmost entity whose
@@ -195,6 +196,48 @@ int main()
                               std::to_string(i) + ")");
                 }
             }
+        }
+        ImGui::End();
+
+        // Inspector (Lesson 24): the selected entity's properties,
+        // editable — edits write straight into the live game.
+        ImGui::Begin("Inspector");
+        if (selected >= 0 && selected < static_cast<int>(game.entities().size()))
+        {
+            Entity& e = game.entities()[static_cast<std::size_t>(selected)];
+            ImGui::Text("Index %d", selected);
+
+            // Name edits through a buffer that re-syncs whenever the
+            // selection changes (typing must not fight the game).
+            static char nameBuf[64] = "";
+            static int nameFor = -2;
+            if (nameFor != selected)
+            {
+                std::snprintf(nameBuf, sizeof(nameBuf), "%s", e.name.c_str());
+                nameFor = selected;
+            }
+            if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf)))
+                e.name = nameBuf;
+
+            ImGui::DragFloat2("Position", &e.position.x, 1.f);
+            ImGui::DragFloat2("Size", &e.size.x, 1.f, 1.f, 500.f);
+
+            float rgb[3] = {e.color.r / 255.f, e.color.g / 255.f, e.color.b / 255.f};
+            if (ImGui::ColorEdit3("Colour", rgb))
+            {
+                e.color = {static_cast<std::uint8_t>(rgb[0] * 255.f),
+                           static_cast<std::uint8_t>(rgb[1] * 255.f),
+                           static_cast<std::uint8_t>(rgb[2] * 255.f)};
+            }
+
+            ImGui::Checkbox("Solid", &e.solid);
+            ImGui::Text("Sprite: %d", e.sprite);
+            ImGui::Text("Player-controlled: %s", e.playerControlled ? "yes" : "no");
+        }
+        else
+        {
+            ImGui::TextWrapped(
+                "Nothing selected. Click an entity in the Game View or the Hierarchy.");
         }
         ImGui::End();
 

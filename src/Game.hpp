@@ -56,6 +56,10 @@ public:
                             sf::Vector2f size, sf::Color color,
                             bool playerControlled = false, int sprite = -1);
     const std::vector<Entity>& entities() const { return m_entities; }
+    // Mutable access for the editor's inspector (Lesson 24). The
+    // runtime never calls this; it exists so tools can edit the
+    // scene the game is simulating.
+    std::vector<Entity>& entities() { return m_entities; }
 
     // Scene serialisation (Lesson 18): the world is a recipe — seed +
     // noise scale regenerate the terrain exactly (Arc 2 determinism),
