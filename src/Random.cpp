@@ -62,12 +62,3 @@ bool Random::chance(const std::string& streamName, float probability)
 {
     return rangeFloat(streamName, 0.f, 1.f) < probability;
 }
-
-std::uint32_t Random::derivedSeed(const std::string& streamName) const 
-{
-    std::uint32_t h = m_masterSeed ^ hashName(streamName);
-    h ^= h >> 16;
-    h *= 0x7FEB352Du;
-    h ^= h >> 15;
-    return h;
-}
