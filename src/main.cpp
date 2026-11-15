@@ -5,6 +5,7 @@
 #include <iostream>
 #include "Camera.hpp"
 #include "Config.hpp"
+#include "Project.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
 #include "SpriteSheet.hpp"
@@ -33,6 +34,13 @@ int pickEntity(const Game& game, sf::Vector2f world)
 
 int main()
 {
+    // The project file (Lesson 41): what game is being edited. The
+    // editor reads it for identity; the seed/scene it names are the
+    // Runtime's business — the editor's own seed config stays live
+    // so worlds can be experimented with without touching the file.
+    Project project;
+    bool haveProject = loadProject("project.myengine", project);
+
     Config config;
     config.setDefault("windowWidth", "1280");
     config.setDefault("windowHeight", "720");
@@ -50,7 +58,7 @@ int main()
     sf::RenderWindow window(
         sf::VideoMode({static_cast<unsigned int>(config.getInt("windowWidth", 1280)),
                        static_cast<unsigned int>(config.getInt("windowHeight", 720))}),
-        "MyEngine - Lesson 1");
+        haveProject ? ("MyEngine Editor - " + project.name) : "MyEngine Editor");
     window.setFramerateLimit(60);
     ImGui::SFML::Init(window);
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;

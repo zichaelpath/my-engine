@@ -4,7 +4,11 @@
 #include "Config.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
+#include "Project.hpp"
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <fstream>
 #include <random>
 
 // The Runtime's game frame (Lesson 33): a small state machine —
@@ -22,6 +26,11 @@ enum class Screen
 
 int main()
 {
+    // The project file (Lesson 41) is read first: it says what
+    // game this is. engine.ini below stays per-machine settings.
+    Project project;
+    bool haveProject = loadProject("project.myengine", project);
+
     Config config;
     config.setDefault("windowWidth", "800");
     config.setDefault("windowHeight", "600");
@@ -37,14 +46,24 @@ int main()
     sf::RenderWindow window(
         sf::VideoMode({static_cast<unsigned int>(config.getInt("windowWidth", 800)),
                        static_cast<unsigned int>(config.getInt("windowHeight", 600))}),
-        "MyEngine Runtime");
+        haveProject ? project.name : "MyEngine Runtime");
     window.setFramerateLimit(60);
 
     Game game;
     if (static_cast<std::uint32_t>(config.getInt("seed", 12345)) != game.seed())
         game.setSeed(static_cast<std::uint32_t>(config.getInt("seed", 12345)));
+    if (haveProject)
+        game.setSeed(project.seed); // the project defines the game; it wins
     if (config.getFloat("noiseScale", 0.01f) != game.noiseFrequency())
         game.setNoiseFrequency(config.getFloat("noiseScale", 0.01f));
+    if (haveProject && !project.startScene.empty())
+    {
+        // A named start scene loads when it exists; a fresh checkout
+        // has no saved scene yet, which is normal, not an error.
+        std::ifstream sceneFile(project.startScene);
+        if (sceneFile && !game.loadScene(project.startScene))
+            Log::warning("Project start scene failed to load: " + project.startScene);
+    }
     game.speed = config.getFloat("playerSpeed", 200.f);
     if (config.getInt("music", 1))
         game.startMusic("assets/music.wav");
@@ -64,7 +83,12 @@ int main()
     };
     sf::Text hud = makeText("", 20, sf::Color::White);
     hud.setPosition({12.f, 8.f});
-    sf::Text gameTitle = makeText("GOLD RUSH", 52, sf::Color(255, 215, 80));
+    // The title is the project's name, shouted (Lesson 41): with no
+    // project file it falls back to the game's built-in name.
+    std::string titleText = haveProject ? project.name : "Gold Rush";
+    std::transform(titleText.begin(), titleText.end(), titleText.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    sf::Text gameTitle = makeText(titleText, 52, sf::Color(255, 215, 80));
     sf::Text titleSub = makeText("", 18, sf::Color::White);
     sf::Text titlePrompt = makeText("Press Enter to play", 22, sf::Color::White);
     sf::Text seedLine = makeText("", 16, sf::Color(180, 180, 180));

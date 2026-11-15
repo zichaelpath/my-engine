@@ -1,0 +1,7 @@
+# MyEngine project file — format 1
+# The game's identity card: hosts read this first. Per-machine
+# settings (window size, volume, speed) live in engine.ini instead.
+format=1
+name=Gold Rush
+seed=12345
+scene=scene.txt

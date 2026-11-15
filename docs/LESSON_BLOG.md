@@ -258,6 +258,12 @@ One honest footnote the devlog records: the normals ride unrotated because the t
 
 The lesson's best moment was a compiler refusal: the four texture functions I tried to add to the loader don't have loadable types — because texture objects are OpenGL **1.1**, from 1997. Textures are older than shaders. They left the loader and are called directly, like `glClear`. The close-up screenshot — plank grain readable, right way up, lit like the terrain around it — is the whole arc in one frame.
 
+## Lesson 41 — The Project File: An Identity Card for a Game
+
+**Built:** Arc 9 opens with the piece everything else in the arc stands on. `project.myengine` — four lines: format, name, seed, start scene — now says what game this is. The Runtime takes its window title, its title-screen shout, its world seed, and its start scene from that file; the Editor reads it for identity; the package script ships it with the game. The duties split cleanly: the project file travels with the game and defines it, `engine.ini` stays on the player's machine with their window and volume, and the project wins conflicts on its own turf.
+
+The verification is my favourite kind — a four-line test card in a scratch folder (`name=Star Salvage`, `seed=777`) turned the *same binary* into a visibly different game, title screen and all. And the loader is strict where it matters: a file from a future format version fails loudly and whole, never half-loads into a subtly wrong game.
+
 ---
 
-_Blog continues from Lesson 41. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 42. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

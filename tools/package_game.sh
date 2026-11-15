@@ -11,7 +11,7 @@
 #
 # SFML is linked statically in this project, so the binary needs no
 # bundled libraries — a release is the binary, its assets, a default
-# engine.ini, and the player readme. Assets resolve relative to the
+# engine.ini, the project file, and the player readme. Assets resolve relative to the
 # working directory, so the game must be launched from its own folder
 # (double-click works; the folder IS the install).
 set -euo pipefail
@@ -56,6 +56,7 @@ music=1
 EOF
 
 cp tools/GoldRush-README.txt "$STAGE/README.txt"
+cp project.myengine "$STAGE/project.myengine"
 echo "$VERSION" > "$STAGE/VERSION.txt"
 
 echo "== Zipping =="
