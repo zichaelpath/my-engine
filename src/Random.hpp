@@ -12,6 +12,7 @@ public:
 
     void reseed(std::uint32_t masterSeed);
     std::uint32_t masterSeed() const {return m_masterSeed; }
+    std::uint32_t derivedSeed(const std::string& streamName) const;
 
     int rangeInt(const std::string& streamName, int minInclusive, int maxInclusive);
     float rangeFloat(const std::string& streamName, float minInclusive, float maxInclusive);
