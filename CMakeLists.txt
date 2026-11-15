@@ -35,13 +35,23 @@ FetchContent_Declare(imgui-sfml
     GIT_TAG v3.0)
 FetchContent_MakeAvailable(imgui-sfml)
 
-add_executable(MyEngine src/main.cpp src/Game.cpp)
+add_executable(MyEngine src/main.cpp)
 
 # NOTE: main.cpp doesn't use ImGui until Lesson 3. The ImGui-SFML link
 # below is the Lesson 3 setup, already in place so the build is ready
 # to configure when the lesson starts.
 target_link_libraries(MyEngine PRIVATE
+    GameLib
+    ImGui-SFML::ImGui-SFML)
+
+add_executable(MyRuntime src/runtime_main.cpp)
+
+target_link_libraries(MyRuntime PRIVATE
+    GameLib)
+
+add_library(GameLib src/Game.cpp)
+
+target_link_libraries(GameLib PUBLIC
     SFML::Graphics
     SFML::Window
-    SFML::System
-    ImGui-SFML::ImGui-SFML)
+    SFML::System)

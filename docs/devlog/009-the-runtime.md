@@ -38,8 +38,9 @@ _(yours to fill in)_
 _(yours to fill in — both executables build; MyRuntime.exe opens a bare window, game playing immediately, resize keeps the world unstretched, Esc closes; editor behaviour unchanged)_
 
 ## Explain-it check
-
-_(yours to fill in)_
+A library can be reused by every executable instead of repeating massive build lists as time goes on. The game's .cpp files are compiled into machine code once; each program just links the finished library rather than compiling those files again and again.
+The runtime has no pause because we were using the pause in the game engine itself to control the flow of the building and debugging. When it comes time to adding a pause menu in any of the games made with this engine, THEN we can let the developers create their own "game pause".
+Lesson 7's job looks as if we dynamically set the game's world size based on the resizing of the window based on the events of the window being resized. even though the resize happens at the game window event level, we still have to pass that size into the game's update function. otherwise you'll get a distorted mess when the game is suddenly maximized.
 
 ## Next step
 
