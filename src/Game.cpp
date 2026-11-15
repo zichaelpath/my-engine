@@ -11,15 +11,34 @@
 
 Game::Game() : m_random(m_seed)
 {
-    m_player.setSize({50.f, 50.f});
-    m_player.setFillColor(sf::Color(80, 200, 120));
-    m_player.setPosition({375.f, 275.f});
-
     m_noise = ValueNoise(m_random.derivedSeed("noise"));
     generateField();
     generateTerrain();
     generateDecor();
+
+    m_playerEntity = spawnEntity("Player", {375.f, 275.f}, {50.f, 50.f},
+                                 sf::Color(80, 200, 120), true);
+    spawnEntity("Crate", {200.f, 150.f}, {40.f, 40.f}, sf::Color(220, 140, 60));
+    spawnEntity("Crate", {560.f, 380.f}, {40.f, 40.f}, sf::Color(220, 140, 60));
+
     Log::info("Game created with seed " + std::to_string(m_seed));
+}
+
+std::size_t Game::spawnEntity(const std::string& name, sf::Vector2f position,
+                              sf::Vector2f size, sf::Color color,
+                              bool playerControlled)
+{
+    Entity entity;
+    entity.name = name;
+    entity.position = position;
+    entity.size = size;
+    entity.color = color;
+    entity.playerControlled = playerControlled;
+    m_entities.push_back(entity);
+    Log::info("Entity spawned: " + name + " at (" +
+              std::to_string(static_cast<int>(position.x)) + ", " +
+              std::to_string(static_cast<int>(position.y)) + ")");
+    return m_entities.size() - 1;
 }
 
 void Game::setSeed(std::uint32_t seed)
@@ -151,10 +170,13 @@ void Game::update(float dt, sf::Vector2f worldSize)
 
     dir = math::normalize(dir);
 
-    sf::Vector2f pos = m_player.getPosition() + dir * speed * dt;
-    pos.x = std::clamp(pos.x, 0.f, std::max(0.f, worldSize.x - 50.f));
-    pos.y = std::clamp(pos.y, 0.f, std::max(0.f, worldSize.y - 50.f));
-    m_player.setPosition(pos);
+    // Movement is a system operating on whichever entity the player
+    // controls — the input code no longer knows a special shape exists.
+    Entity& player = m_entities[m_playerEntity];
+    sf::Vector2f pos = player.position + dir * speed * dt;
+    pos.x = std::clamp(pos.x, 0.f, std::max(0.f, worldSize.x - player.size.x));
+    pos.y = std::clamp(pos.y, 0.f, std::max(0.f, worldSize.y - player.size.y));
+    player.position = pos;
 }
 
 void Game::render(sf::RenderTarget& target) const
@@ -170,10 +192,25 @@ void Game::render(sf::RenderTarget& target) const
         target.draw(block);
     for (const auto& dot : m_dots)
         target.draw(dot);
-    target.draw(m_player);
+
+    // Entities are data; the rectangle is derived from the data each
+    // frame. Two passes so the player always draws on top.
+    sf::RectangleShape shape;
+    for (int pass = 0; pass < 2; ++pass)
+    {
+        for (const auto& entity : m_entities)
+        {
+            if ((pass == 1) != entity.playerControlled)
+                continue;
+            shape.setSize(entity.size);
+            shape.setPosition(entity.position);
+            shape.setFillColor(entity.color);
+            target.draw(shape);
+        }
+    }
 }
 
 sf::Vector2f Game::playerPosition() const
 {
-    return m_player.getPosition();
+    return m_entities[m_playerEntity].position;
 }

@@ -96,6 +96,12 @@ Two small scars, both recorded in the devlog: ImGui's built-in font can't draw a
 
 The config's manners are the real lesson. A missing file isn't an error — the defaults get written out, so the first run creates the file you're meant to edit. A broken line isn't a crash — it's an amber console warning with a line number, and the rest of the file still applies (proven by deliberately breaking line 5). And the math half has the same moral in reverse: SFML ships a `normalized()` that would have saved ten lines, but reading its source first showed it asserts on a zero vector — and "no keys held" is the most common direction in any game. The engine keeps its own zero-guarded version *because* the library was checked. Arc 2's foundations — seeds, noise, logging, config, math — are done.
 
+## Lesson 14 — Entities (Arc 3 Opens)
+
+**Built:** the player lost its privileges. Until now it was a special shape living inside `Game` with its own movement code and its own draw call. Now there's an `Entity` — a plain data struct: name, position, size, colour, a flag for player control — and `Game` owns a list of them. The player is entity zero. Two orange crates joined it through the exact same `spawnEntity` door, and everything since has been loops: movement applies input to *whichever entity is flagged*, rendering derives a rectangle from each entity's data on the fly. Swap the flag to a crate and the crate drives — nothing else changes. That's the whole idea, and the runtime screenshot shows all three citizens on the continent, with the spawn lines in the log to prove they arrived by the same road.
+
+The design restraint is deliberate and the devlog argues it openly: a struct of data, not a class hierarchy and not a full ECS, because the pressure that justifies components — entities needing *different subsets* of data — hasn't arrived yet. It will (crates don't need input; ghosts won't need collision), and the struct will split then, under real pressure instead of speculation. One honest limitation rides along: the crates aren't solid. The player ghosts straight through them, because entities are currently pure data plus rendering. Collision is the very next lesson, and it lands on a system that was built expecting it.
+
 ---
 
-_Blog continues from Lesson 14, where Arc 3 begins. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 15. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

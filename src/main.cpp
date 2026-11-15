@@ -88,6 +88,7 @@ int main()
         ImGui::Text("Frame time: %.3f ms", dt * 1000.f);
         sf::Vector2f p = game.playerPosition();
         ImGui::Text("Player: (%.0f, %.0f)", p.x, p.y);
+        ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
         ImGui::Text("Game time: %.2f s", game.time);
         if (ImGui::Button(playing ? "Pause" : "Play"))
         {
