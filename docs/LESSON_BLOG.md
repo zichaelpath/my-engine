@@ -268,6 +268,12 @@ The verification is my favourite kind — a four-line test card in a scratch fol
 
 **Built:** the release machinery. The engine's version now lives in exactly one place — the `project()` line in CMakeLists — and flows through a generated header into all three hosts, each of which announces "MyEngine 1.0.0" as its first log line. Gold Rush was repackaged as 1.0.0 (the project file rides along now), clean-room verified from an empty folder with a title screen byte-identical to the in-repo run, and the tree is tagged `v1.0.0`. `CHANGELOG.md` tells the release story, and `docs/WINDOWS_BUILD.md` is the walkthrough for the one machine I can't build on — written to be boring, including the DLL step phrased as a check rather than a guess.
 
+## Lesson 43 — The Front Door: Documentation Pass and Final Verification
+
+**Built:** no code — the last lesson is the telling. The README was rewritten from a 42-lesson status log into a front door: what the engine is, both hero screenshots, all four targets at final scope, build and controls for every host, the three file formats, and a closing section on what 1.0 is *not* — no scripting, no physics beyond AABB, no 3D in the editor — because a portfolio that names its limits reads as more credible, not less. Final verification ran the whole tree fresh: clean build, every host up and observed.
+
+The roadmap is complete. Forty-three lessons from an empty `main()` to a tagged 1.0.0: an engine with a deterministic procedural heart, an editor that restores your scene exactly, a shipped game, and a 3D world grown from the 2D one's data. Zac — it's yours. Pull `main`, build it on your machine, and play Gold Rush. The next arc is yours to name.
+
 ---
 
-_Blog continues from Lesson 43. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_The blog ends at Lesson 43 — the roadmap complete, MyEngine 1.0.0 shipped. The devlogs remain the full record._

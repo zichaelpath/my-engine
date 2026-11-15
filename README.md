@@ -1,53 +1,62 @@
 # MyEngine
 
-My own game engine, built from scratch in C++20, one lesson at a time — and documented as it goes. The end goal is to ship it as a portfolio piece: an engine library with an editor and a standalone runtime, the way Godot or Unity are shaped, at my own scale. Procedural generation is a foundation of the engine, not an add-on: the world is a deterministic function of a seed from the very first systems up.
+My own game engine, built from scratch in C++20, one lesson at a time — and documented as it goes. It shipped as a portfolio piece: an engine library, a dockable editor, a standalone runtime with a real game on it, and a raw-OpenGL 3D host, all from one CMake project. Procedural generation is a foundation, not an add-on: the world is a deterministic function of a seed from the very first systems up — same seed, same world, provably (the full tile grid checksums identically before and after the Arc 8 refactor; see Lesson 38's devlog).
 
-**Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
+**Stack:** C++20, CMake, SFML 3.0.2 (windowing, input, audio), Dear ImGui (docking build) + ImGui-SFML for the editor UI, and raw OpenGL 3.3 with a hand-written function loader for the 3D host — no GLAD, no engine framework anywhere.
 
-**Status: Lesson 42 complete — MyEngine 1.0.0.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ · Arc 8 ✅ · Arc 9 (ship it) in progress — the engine has a version (CMake `project()` → generated header → every host's first log line), Gold Rush is packaged as the 1.0.0 release (project file included, clean-room verified), the tree is tagged `v1.0.0`, `CHANGELOG.md` tells the release story, and `docs/WINDOWS_BUILD.md` walks through building on Windows. One documentation pass remains. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 43 complete — the roadmap is finished, and this is MyEngine 1.0.0** (tagged `v1.0.0`). Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ · Arc 8 ✅ · Arc 9 ✅. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md); the release story in [CHANGELOG.md](CHANGELOG.md).
+
+![The game's crate, textured and sun-lit in the 3D host](docs/shots/lesson-40-crate.png)
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 
 ## What exists today
 
-Three targets, built from one CMake project:
+Four targets, one CMake project:
 
-- **GameLib** — the engine/game library: the game world, deterministic procgen (master seed + named RNG streams), value noise with fBm, a logging system, config loading, a small math toolbox, data-driven entities with AABB collision, a camera (centre + visible height, follow with world-edge clamping), and a code-generated sprite sheet with frame animation (walk cycles, facing flips).
-- **MyEngine** — the editor: dockable ImGui panels (Engine Debug, Procgen, Console, Game View), a resizable game view rendered to a texture, play/pause/step time controls, a live seed/noise control panel, a colour-coded console fed by the engine's log, and camera controls (follow toggle, zoom slider, mouse-wheel zoom, right-drag pan).
-- **MyRuntime** — the standalone player: the same GameLib with no editor attached, its own window defaults, and a follow camera.
+- **GameLib** — the engine: deterministic procgen (master seed + named RNG streams, value noise with fBm, an 80×60 tile world with per-type movement speeds), data-driven entities with sprite animation and AABB collision (with per-entity hitboxes), a camera, scene save/load, resource caches with placeholder fallbacks, a logging system, per-machine config, a project file format, and a fully synthesized soundscape — footsteps, splashes, bumps, clicks, pickups, a win jingle, and a music loop, all generated in code. No recorded audio, no licensed assets.
+- **MyEngine** — the editor: dockable ImGui panels (Engine Debug, Procgen, Console, Game View, Hierarchy, Inspector), a resizable game view rendered to a texture, play/pause/step, live seed/noise controls, entity picking, drag-to-move, spawn/delete, snapshot undo/redo, and play-in-editor that restores the scene *exactly* when you stop.
+- **MyRuntime** — the standalone player. It ships **Gold Rush**: collect all 40 gold dots in a seeded world — title, pause, and win screens, a run timer, terrain that helps or hinders you. Packaged as a self-contained zip by `tools/package_game.sh` (Linux) or the PowerShell mirror in [docs/WINDOWS_BUILD.md](docs/WINDOWS_BUILD.md).
+- **MyGL** — the raw-OpenGL host: the same tile world extruded into a sun-lit 3D heightfield (Lambert lighting, textured meshes), flown over with a free camera. The game's crates stand in the 3D world at their 2D positions, placed from the entity list — one world, two renderers, one shared palette.
 
-The world is currently a 1600×1200 procedurally generated continent (one batched vertex array, identical in editor and runtime for the same seed), populated by a player entity, crate entities, and scattered terrain blocks — all solid, all colliding.
+## Build
 
-## Build (Windows, VS Code)
+Dependencies (SFML, ImGui, ImGui-SFML) are fetched and built by CMake itself.
 
-```
-cmake -B Build
-cmake --build Build
-```
-
-Run the editor or the runtime **from the repo root** (asset paths like `assets/crate.tga` resolve relative to the working directory):
+**Linux:**
 
 ```
-Build/Debug/MyEngine.exe
-Build/Debug/MyRuntime.exe
+cmake -B BuildLinux -DCMAKE_BUILD_TYPE=Release
+cmake --build BuildLinux
 ```
+
+**Windows:** see [docs/WINDOWS_BUILD.md](docs/WINDOWS_BUILD.md) — the full walkthrough, including packaging.
+
+Run every host **from the repo root** (asset paths like `assets/crate.tga` resolve relative to the working directory).
 
 ## Controls
 
-- **Move:** WASD or arrow keys (the player entity; diagonal movement is normalised, walls slide)
-- **Quicksave / quickload:** F5 saves the scene to `scene.txt`, F9 loads it back (both hosts; the editor also has Scene buttons)
-- **Runtime:** Esc closes
-- **Editor:** Play/Pause/Step buttons drive game time; the Procgen panel applies seeds and reshuffles terrain/decor streams independently; the Camera follow checkbox, Zoom slider, mouse wheel over the Game View, and right-drag panning control the editor camera
+- **Runtime (Gold Rush):** Enter starts, WASD/arrows move, P or Esc pauses, R on the win screen deals a fresh world, Esc quits. F5/F9 quicksave/quickload the scene.
+- **Editor:** Play/Pause/Step drive game time; click entities in the Game View or Hierarchy to select; drag to move; the Procgen panel applies seeds; mouse wheel zooms, right-drag pans; F5/F9 save/load.
+- **MyGL:** WASD flies, Q/E sink/rise, arrow keys look, Esc quits.
 
-## Configuration
+## Files and formats
 
-Both hosts read an `engine.ini` next to the executable on startup (created with defaults if missing). Keys: `windowWidth`, `windowHeight`, `seed`, `noiseScale`, `playerSpeed`. Malformed lines are logged as warnings and skipped, never fatal.
+- `project.myengine` — the game's identity card (Lesson 41): `format`, `name`, `seed`, `scene`. It travels with the game and defines it; hosts read it first.
+- `engine.ini` — per-machine settings (created with defaults if missing): window size, seed, noise scale, player speed, volume, music. The project file wins on the things it defines.
+- `scene.txt` — a saved scene: seed plus entity list. Terrain is *not* stored — it regenerates from the seed, exactly, every time.
+
+## What 1.0 is not
+
+Honesty is part of the portfolio: there is no scripting language, no physics beyond AABB collision, no networking, no 3D view inside the editor (MyGL is a separate host), and no asset pipeline beyond code-generated or hand-made files. The audio is synthesized and its playback timing is verified by ear on a real machine, not on the headless build rig. Godot is 25 years and hundreds of contributors; this is one developer and 43 lessons — scoped to what a solo dev needs to ship 2D games, and understood all the way down.
 
 ## Documentation
 
-- [docs/ROADMAP.md](docs/ROADMAP.md) — the ~80-lesson, nine-arc plan
+- [docs/ROADMAP.md](docs/ROADMAP.md) — the nine-arc plan (43 lessons as built; the devlog numbering is authoritative)
 - [docs/LESSON_BLOG.md](docs/LESSON_BLOG.md) — the narrative blog of every lesson
 - [docs/devlog/](docs/devlog/) — one devlog per lesson: goal, concept, code built, what broke, verification
 - [docs/shots/](docs/shots/) — the screenshot record, one or more per lesson
+- [docs/WINDOWS_BUILD.md](docs/WINDOWS_BUILD.md) — building and packaging on Windows
+- [CHANGELOG.md](CHANGELOG.md) — release notes
 
-_Upkeep rule: every lesson updates the devlog, the lesson blog, and this README in the same commit as the code._
+_Upkeep rule (kept for all 43 lessons): every lesson updates the devlog, the lesson blog, and this README in the same commit as the code._
