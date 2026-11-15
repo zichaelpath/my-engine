@@ -1,8 +1,12 @@
 #include "Game.hpp"
 
+#include "Log.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 
 Game::Game() : m_random(m_seed)
 {
@@ -14,10 +18,16 @@ Game::Game() : m_random(m_seed)
     generateField();
     generateTerrain();
     generateDecor();
+    Log::info("Game created with seed " + std::to_string(m_seed));
 }
 
 void Game::setSeed(std::uint32_t seed)
 {
+    if (seed == m_seed)
+        Log::warning("Seed " + std::to_string(seed) +
+                     " re-applied: the world regenerates identically");
+    else
+        Log::info("Seed set to " + std::to_string(seed));
     m_seed = seed;
     m_random.reseed(seed);
     m_noise = ValueNoise(m_random.derivedSeed("noise"));
@@ -71,10 +81,18 @@ void Game::generateField()
             m_field.append(v);
         }
     }
+
+    std::ostringstream oss;
+    oss << "Field generated: " << tilesX << 'x' << tilesY
+        << " tiles, noise scale " << std::fixed << std::setprecision(3)
+        << m_noiseFrequency;
+    Log::info(oss.str());
 }
 
 void Game::setNoiseFrequency(float frequency)
 {
+    // Deliberately no log line here: the editor slider fires this
+    // continuously while dragging, and the console would flood.
     m_noiseFrequency = frequency;
     generateField();
 }
@@ -94,6 +112,7 @@ void Game::generateTerrain()
                                      static_cast<std::uint8_t>(shade + 50)));
         m_blocks.push_back(block);
     }
+    Log::info("Terrain generated: " + std::to_string(m_blocks.size()) + " blocks");
 }
 
 void Game::generateDecor()
@@ -108,6 +127,7 @@ void Game::generateDecor()
         dot.setFillColor(sf::Color(220, 180, 60));
         m_dots.push_back(dot);
     }
+    Log::info("Decor generated: " + std::to_string(m_dots.size()) + " dots");
 }
 
 void Game::update(float dt, sf::Vector2f worldSize)

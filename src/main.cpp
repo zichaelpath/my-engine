@@ -3,6 +3,7 @@
 #include <imgui-SFML.h>
 #include <iostream>
 #include "Game.hpp"
+#include "Log.hpp"
 #include <random>
 
 int main()
@@ -104,6 +105,31 @@ int main()
         ImGui::SameLine();
         if (ImGui::Button("Reshuffle decor"))
             game.generateDecor();
+        ImGui::End();
+
+        ImGui::Begin("Console");
+        if (ImGui::Button("Clear"))
+            Log::clear();
+        ImGui::SameLine();
+        static bool autoScroll = true;
+        ImGui::Checkbox("Auto-scroll", &autoScroll);
+        ImGui::BeginChild("ConsoleLog", ImVec2(0.f, 0.f), ImGuiChildFlags_Borders);
+        for (const auto& entry : Log::entries())
+        {
+            ImVec4 color = entry.level == LogLevel::Warning
+                               ? ImVec4(1.f, 0.8f, 0.3f, 1.f)
+                               : entry.level == LogLevel::Error
+                               ? ImVec4(1.f, 0.35f, 0.35f, 1.f)
+                               : ImVec4(0.85f, 0.85f, 0.85f, 1.f);
+            ImGui::PushStyleColor(ImGuiCol_Text, color);
+            ImGui::TextUnformatted(entry.message.c_str());
+            ImGui::PopStyleColor();
+        }
+        static std::size_t lastEntryCount = 0;
+        if (autoScroll && Log::entries().size() != lastEntryCount)
+            ImGui::SetScrollHereY(1.f);
+        lastEntryCount = Log::entries().size();
+        ImGui::EndChild();
         ImGui::End();
 
 
