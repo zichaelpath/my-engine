@@ -132,6 +132,12 @@ Both hosts got F5/F9 quicksave/quickload, and the verification was a proper roun
 
 The before/after crops are the whole argument in two pictures: a strip of water between hand and crate before, hand pressed to the wood after — and an F5 save file recording the new resting place, x=521, as the numeric receipt. The editor also gained a Show hitboxes overlay, because a feel problem you can see is one you can tune. Resources, originally this lesson, slide to Lesson 20 without complaint: dogfood feedback outranks roadmap order, and the roadmap exists to serve the game, not the other way round.
 
+## Lesson 20 — Resources
+
+**Built:** the engine's first resource manager, and with it the crate emigrated to disk. `TextureCache` loads a texture the first time a path is requested and serves the stored copy forever after; the crate now renders from `assets/crate.tga` — a real file, drawn by a small Python TGA-writer kept in `tools/` as the art's reproducible source — while the traveller still comes from the code-built sheet. Two texture sources, one render path. The design details are the quiet kind that matter later: a `std::map` because its references survive insertions, a `const` getter with a mutable cache because that's how a const render method can fetch textures, and failure handled as a *texture* rather than a crash — a missing file stamps the entry with a magenta checkerboard and logs one error.
+
+The fallback got the only honest test there is: run the same binary in a folder with no `assets/` and watch. Both crates turned into magenta checkerboards, the error appeared exactly once, and the game didn't blink. A missing asset that advertises itself on screen is worth ten that fail silently — during development you *want* your mistakes loud and pink. One lesson remains in Arc 4: tilemaps, where the noise field becomes real data — a grid of tile ids — instead of a baked picture.
+
 ---
 
-_Blog continues from Lesson 20. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 21. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

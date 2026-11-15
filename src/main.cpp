@@ -111,6 +111,7 @@ int main()
         sf::Vector2f p = game.playerPosition();
         ImGui::Text("Player: (%.0f, %.0f) frame %d", p.x, p.y, game.playerFrame());
         ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
+        ImGui::Text("Textures cached: %d", static_cast<int>(game.textureCacheSize()));
         ImGui::Text("Camera: (%.0f, %.0f)", camera.center.x, camera.center.y);
         ImGui::Checkbox("Camera follow", &followCam);
         ImGui::Checkbox("Show hitboxes", &game.showHitboxes);

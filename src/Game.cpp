@@ -316,6 +316,17 @@ void Game::render(sf::RenderTarget& target) const
         {
             if ((pass == 1) != entity.playerControlled)
                 continue;
+            if (entity.sprite == sprites::CRATE)
+            {
+                // File-backed: the crate's texture comes from disk,
+                // through the resource cache (Lesson 20). If the file
+                // is missing, the cache hands back the placeholder.
+                sf::Sprite crateSprite(m_resources.get("assets/crate.tga"));
+                crateSprite.setPosition(entity.position);
+                crateSprite.setScale({entity.size.x / 32.f, entity.size.y / 32.f});
+                target.draw(crateSprite);
+                continue;
+            }
             if (entity.sprite == sprites::NONE)
             {
                 shape.setSize(entity.size);
@@ -324,10 +335,8 @@ void Game::render(sf::RenderTarget& target) const
                 target.draw(shape);
                 continue;
             }
-            int baseX = entity.sprite == sprites::PLAYER ? sprites::PLAYER_X
-                                                         : sprites::CRATE_X;
             sprite.setTextureRect(
-                sf::IntRect({baseX + entity.frame * sprites::FRAME, 0},
+                sf::IntRect({sprites::PLAYER_X + entity.frame * sprites::FRAME, 0},
                             {sprites::FRAME, sprites::FRAME}));
             sf::Vector2f scale(entity.size.x / sprites::FRAME,
                                entity.size.y / sprites::FRAME);

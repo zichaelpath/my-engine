@@ -4,6 +4,7 @@
 #include "Entity.hpp"
 #include "Noise.hpp"
 #include "Random.hpp"
+#include "Resources.hpp"
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -26,6 +27,7 @@ public:
     sf::Vector2f playerCenter() const;
     sf::Vector2f worldSize() const { return m_worldSize; }
     int playerFrame() const { return m_entities[m_playerEntity].frame; }
+    std::size_t textureCacheSize() const { return m_resources.size(); }
 
     // Adds an entity to the world and returns its index (its identity:
     // indices stay valid for the world's lifetime; entities are never
@@ -70,6 +72,7 @@ private:
     std::vector<Entity> m_entities;
     std::size_t m_playerEntity = 0;
     sf::Texture m_sheet;
+    TextureCache m_resources;
     std::vector<sf::RectangleShape> m_blocks;
     std::vector<sf::CircleShape> m_dots;
     sf::VertexArray m_field;

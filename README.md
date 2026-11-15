@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 19 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 (scenes & data) in progress — scene save/load is in, and a user-reported feel fix just landed: entities now collide with a dedicated hitbox (the player's is a small feet box) instead of their sprite's bounding square, with a Show hitboxes overlay in the editor. Resources and tilemaps are next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 20 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 (scenes & data) in progress — scene save/load is in, entities collide by hitbox rather than sprite size, and a texture cache now serves file-backed textures (the crate renders from `assets/crate.tga`; a missing file falls back to a magenta checkerboard placeholder instead of crashing). Tilemaps are next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 
@@ -25,7 +25,7 @@ cmake -B Build
 cmake --build Build
 ```
 
-Run the editor or the runtime:
+Run the editor or the runtime **from the repo root** (asset paths like `assets/crate.tga` resolve relative to the working directory):
 
 ```
 Build/Debug/MyEngine.exe
