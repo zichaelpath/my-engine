@@ -43,6 +43,7 @@ public:
 
     float speed = 200.f;
     float clearColor[3] = {30.f / 255.f, 30.f / 255.f, 40.f / 255.f};
+    bool showHitboxes = false; // editor debug overlay (Lesson 19)
     float time = 0.f;
 
 private:

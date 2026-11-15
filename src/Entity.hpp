@@ -27,4 +27,12 @@ struct Entity
     int frame = 0;
     float animTime = 0.f;
     bool flipX = false;
+
+    // Collision (Lesson 19): the hitbox is a rectangle inside the
+    // entity's sprite box — an offset and a size, relative to the
+    // entity's position. A zero size means "the whole entity". The
+    // player uses a small feet box: the sprite's transparent margins
+    // and the head/shoulders no longer collide, only the feet do.
+    sf::Vector2f hitboxOffset{0.f, 0.f};
+    sf::Vector2f hitboxSize{0.f, 0.f};
 };

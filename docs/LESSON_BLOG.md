@@ -126,6 +126,12 @@ That closes Arc 3: the world has things in it, the things are solid, the camera 
 
 Both hosts got F5/F9 quicksave/quickload, and the verification was a proper round-trip: walk the traveller to (542, 455), save, walk away, load — and the debug panel reads (542, 455) again while the console narrates the save, the regeneration, and the load in order. The devlog states the one honest limit in writing: reshuffle history isn't saved, because the file stores the recipe rather than the RNG streams' diary. That's a v1 boundary, named rather than hidden — exactly where it belongs.
 
+## Lesson 19 — The Hitbox Fix (A Detour Zac Ordered)
+
+**Built:** a bug fix that became a lesson, because Zac played the game and reported that the movement hitbox "feels really weird" — and he was right. The diagnosis is the interesting part: the collision system was pixel-perfect (the player rested at exactly x=510 against the crate, the mathematically correct contact plane), and it *still* felt wrong, because the box being collided was the sprite's full 50×50 square while the traveller inside it is only about 34 px wide with transparent margins. Invisible padding stopped him early, invisible corners snagged on scenery his body cleared. The fix separates the two rectangles every game eventually separates: the sprite is what you see, the **hitbox** is what you collide with — in the traveller's case a 28×22 "feet box" at the bottom of the sprite, so his feet tell the truth and his hood can lean over things, which even reads as depth.
+
+The before/after crops are the whole argument in two pictures: a strip of water between hand and crate before, hand pressed to the wood after — and an F5 save file recording the new resting place, x=521, as the numeric receipt. The editor also gained a Show hitboxes overlay, because a feel problem you can see is one you can tune. Resources, originally this lesson, slide to Lesson 20 without complaint: dogfood feedback outranks roadmap order, and the roadmap exists to serve the game, not the other way round.
+
 ---
 
-_Blog continues from Lesson 19. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 20. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

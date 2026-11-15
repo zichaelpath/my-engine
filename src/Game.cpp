@@ -11,6 +11,28 @@
 #include <iomanip>
 #include <sstream>
 
+namespace
+{
+// The collision size of an entity: its hitbox if it has one,
+// otherwise the whole entity box.
+sf::Vector2f hitboxSizeOf(const Entity& e)
+{
+    return e.hitboxSize.x > 0.f ? e.hitboxSize : e.size;
+}
+
+// Hitboxes are a property of the character type for now — the player
+// sprite gets the feet box. Per-instance hitboxes arrive with the
+// Arc 5 inspector, and the scene format grows fields then.
+void applySpriteHitbox(Entity& e)
+{
+    if (e.sprite == sprites::PLAYER)
+    {
+        e.hitboxOffset = {11.f, 28.f};
+        e.hitboxSize = {28.f, 22.f};
+    }
+}
+} // namespace
+
 Game::Game() : m_random(m_seed)
 {
     if (m_sheet.loadFromImage(buildSpriteSheetImage()))
@@ -46,6 +68,7 @@ std::size_t Game::spawnEntity(const std::string& name, sf::Vector2f position,
     entity.color = color;
     entity.playerControlled = playerControlled;
     entity.sprite = sprite;
+    applySpriteHitbox(entity);
     m_entities.push_back(entity);
     Log::info("Entity spawned: " + name + " at (" +
               std::to_string(static_cast<int>(position.x)) + ", " +
@@ -225,30 +248,43 @@ void Game::update(float dt)
         resolveCollisions(player, move.y, false);
     }
 
-    player.position.x =
-        std::clamp(player.position.x, 0.f, std::max(0.f, m_worldSize.x - player.size.x));
-    player.position.y =
-        std::clamp(player.position.y, 0.f, std::max(0.f, m_worldSize.y - player.size.y));
+    // The world bounds hold the hitbox, not the sprite: feet stop at
+    // the edge; the hood may lean past it.
+    sf::Vector2f boxSize = hitboxSizeOf(player);
+    player.position.x = std::clamp(
+        player.position.x, -player.hitboxOffset.x,
+        std::max(-player.hitboxOffset.x,
+                 m_worldSize.x - player.hitboxOffset.x - boxSize.x));
+    player.position.y = std::clamp(
+        player.position.y, -player.hitboxOffset.y,
+        std::max(-player.hitboxOffset.y,
+                 m_worldSize.y - player.hitboxOffset.y - boxSize.y));
 }
 
 void Game::resolveCollisions(Entity& mover, float movement, bool xAxis)
 {
+    // Collision happens between hitboxes, not sprite boxes: the
+    // mover's feet against the other entity's feet (or full box).
     auto pushOut = [&](sf::Vector2f otherPos, sf::Vector2f otherSize) {
-        if (!math::rectsOverlap(mover.position, mover.size, otherPos, otherSize))
+        sf::Vector2f boxSize = hitboxSizeOf(mover);
+        sf::Vector2f boxPos = mover.position + mover.hitboxOffset;
+        if (!math::rectsOverlap(boxPos, boxSize, otherPos, otherSize))
             return;
         if (xAxis)
-            mover.position.x = movement > 0.f ? otherPos.x - mover.size.x
-                                              : otherPos.x + otherSize.x;
+            mover.position.x = movement > 0.f
+                                   ? otherPos.x - mover.hitboxOffset.x - boxSize.x
+                                   : otherPos.x + otherSize.x - mover.hitboxOffset.x;
         else
-            mover.position.y = movement > 0.f ? otherPos.y - mover.size.y
-                                              : otherPos.y + otherSize.y;
+            mover.position.y = movement > 0.f
+                                   ? otherPos.y - mover.hitboxOffset.y - boxSize.y
+                                   : otherPos.y + otherSize.y - mover.hitboxOffset.y;
     };
 
     for (const auto& other : m_entities)
     {
         if (&other == &mover || !other.solid)
             continue;
-        pushOut(other.position, other.size);
+        pushOut(other.position + other.hitboxOffset, hitboxSizeOf(other));
     }
     for (const auto& block : m_blocks)
         pushOut(block.getPosition(), block.getSize());
@@ -309,6 +345,20 @@ void Game::render(sf::RenderTarget& target) const
                 sprite.setScale(scale);
             }
             target.draw(sprite);
+        }
+    }
+
+    if (showHitboxes)
+    {
+        sf::RectangleShape box;
+        box.setFillColor(sf::Color::Transparent);
+        box.setOutlineColor(sf::Color::Red);
+        box.setOutlineThickness(1.f);
+        for (const auto& entity : m_entities)
+        {
+            box.setSize(hitboxSizeOf(entity));
+            box.setPosition(entity.position + entity.hitboxOffset);
+            target.draw(box);
         }
     }
 }
@@ -435,6 +485,8 @@ bool Game::loadScene(const std::string& path)
     m_noiseFrequency = noiseScale;
     regenerateWorld();
     m_entities = loaded;
+    for (auto& e : m_entities)
+        applySpriteHitbox(e);
     m_playerEntity = 0;
     for (std::size_t i = 0; i < m_entities.size(); ++i)
         if (m_entities[i].playerControlled)

@@ -113,6 +113,7 @@ int main()
         ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
         ImGui::Text("Camera: (%.0f, %.0f)", camera.center.x, camera.center.y);
         ImGui::Checkbox("Camera follow", &followCam);
+        ImGui::Checkbox("Show hitboxes", &game.showHitboxes);
         ImGui::SliderFloat("Zoom", &zoom, 0.4f, 3.f);
         ImGui::Text("Game time: %.2f s", game.time);
         if (ImGui::Button(playing ? "Pause" : "Play"))
