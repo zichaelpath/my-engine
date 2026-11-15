@@ -55,6 +55,13 @@ public:
     bool musicPlaying() const;
     float musicOffset() const; // seconds into the track
     const std::string& musicTrack() const { return m_musicTrack; }
+    // The game (Lesson 32, Arc 7): the decor dots are gold. Collect
+    // them all to clear the world; the run timer runs until then.
+    int goldCollected() const { return m_goldCollected; }
+    int goldTotal() const { return m_goldTotal; }
+    bool won() const { return m_won; }
+    float runTime() const { return m_runTime; }
+    void newRun(std::uint32_t seed); // fresh world, fresh run
 
     // Tilemap queries (Lesson 21): the tile id at a world position
     // (-1 outside the world), the tile under the player's feet, and
@@ -130,6 +137,10 @@ private:
     sf::Music m_music;
     std::string m_musicTrack;
     float m_bumpCooldown = 0.f; // bump-sound throttle (Lesson 31)
+    int m_goldCollected = 0;
+    int m_goldTotal = 0;
+    bool m_won = false;
+    float m_runTime = 0.f;
 
     std::vector<int> m_tiles;
     int m_tilesX = 0;

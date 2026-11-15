@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 31 complete — Arc 6 ✅.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ — the engine hears: a sound cache with placeholder fallback, an 8-voice pool, footsteps, splash, collision bump, editor UI clicks, and streamed music — every sound synthesized by `tools/make_sounds.py`. Arc 7 is the payoff: a real game shipped on the engine in the Runtime. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 32 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 (a real game) in progress — and the game exists: **collect all 40 gold dots** scattered by the world generator, against the clock. Collection, win state, and run timer live in `Game`; the Runtime presents them with a bundled-font HUD and a win banner (R starts a fresh world), and the editor shows the same counters. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 

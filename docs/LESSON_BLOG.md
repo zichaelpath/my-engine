@@ -204,6 +204,12 @@ The verification carries an honest asterisk, recorded in full in the devlog: thi
 
 Next is the payoff arc: a real game on this engine. The decor generator has been scattering gold dots since Lesson 10 — time to make them collectible, add a win state and a timer, and ship it in the Runtime.
 
+## Lesson 32 — The Gold Rush: A Real Game
+
+**Built:** the payoff. The gold dots the decor generator has scattered since Lesson 10 are collectible now — walk over one and it's yours, with a rising-pitch pickup blip. Collect all 40 and the world is cleared: the run timer freezes (your time is your score), a win arpeggio plays, and the Runtime shows a banner offering R for a fresh, randomly-seeded world. The rules live in `Game` — the editor's panel shows the same Gold and Run time counters as the Runtime's new bundled-font HUD — because a game rule that only exists in one host isn't an engine feature, it's a demo trick.
+
+Verification was the fun kind: at full-world zoom I detected every dot in the screenshot programmatically and drag-teleported the player onto each with the editor's own drag tool. The counter climbed to 40/40 CLEARED, the console logged the clear at 134.9 s, and the timer provably froze while the game clock ran on. Two dots survived the first pass by a few pixels — collection measures from the *feet*, not the sprite centre — which is exactly the kind of thing you only learn by finishing a world.
+
 ---
 
-_Blog continues from Lesson 32. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 33. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

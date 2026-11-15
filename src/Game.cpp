@@ -130,6 +130,20 @@ void Game::regenerateWorld()
     generateField();
     generateTerrain();
     generateDecor();
+    // A regenerated world is a fresh run (Lesson 32).
+    m_goldCollected = 0;
+    m_won = false;
+    m_runTime = 0.f;
+}
+
+void Game::newRun(std::uint32_t seed)
+{
+    if (seed != m_seed)
+        setSeed(seed); // regenerates (and resets the run) itself
+    else
+        regenerateWorld();
+    Log::info("New run: seed " + std::to_string(m_seed) + " - collect " +
+              std::to_string(m_goldTotal) + " gold");
 }
 
 void Game::generateField()
@@ -272,6 +286,7 @@ void Game::generateDecor()
         dot.setFillColor(sf::Color(220, 180, 60));
         m_dots.push_back(dot);
     }
+    m_goldTotal = static_cast<int>(m_dots.size());
     Log::info("Decor generated: " + std::to_string(m_dots.size()) + " dots");
 }
 
@@ -403,6 +418,37 @@ void Game::update(float dt)
         Log::info("Splash - the player wades in");
     }
     m_lastPlayerTile = tileNow;
+
+    // Gold collection (Lesson 32): the run timer runs until the
+    // world is cleared; a dot is collected when its centre comes
+    // within reach of the player's feet (the hitbox centre).
+    if (!m_won)
+        m_runTime += dt;
+    sf::Vector2f feet = player.position + player.hitboxOffset +
+                        hitboxSizeOf(player) / 2.f;
+    for (std::size_t i = m_dots.size(); i-- > 0;)
+    {
+        float r = m_dots[i].getRadius();
+        sf::Vector2f centre = m_dots[i].getPosition() + sf::Vector2f(r, r);
+        sf::Vector2f d = centre - feet;
+        float reach = r + 16.f;
+        if (d.x * d.x + d.y * d.y < reach * reach)
+        {
+            m_dots[i] = m_dots.back(); // swap-with-last removal
+            m_dots.pop_back();
+            ++m_goldCollected;
+            playSound("assets/pickup.wav",
+                      1.f + 0.02f * static_cast<float>(m_goldCollected % 8));
+            if (m_goldCollected >= m_goldTotal && m_goldTotal > 0)
+            {
+                m_won = true;
+                playSound("assets/win.wav");
+                Log::info("World cleared in " + std::to_string(m_runTime) +
+                          " s - all " + std::to_string(m_goldTotal) +
+                          " gold collected");
+            }
+        }
+    }
 }
 
 void Game::playSound(const std::string& path, float pitch)

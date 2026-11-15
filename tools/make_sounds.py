@@ -96,6 +96,29 @@ def click():
     return out
 
 
+def pickup():
+    """Collecting gold: a bright two-note rise (E6 -> A6)."""
+    out = []
+    for i in range(int(RATE * 0.16)):
+        t = i / RATE
+        freq = 1318.5 if t < 0.07 else 1760.0
+        env = math.exp(-t * 14.0)
+        out.append(math.sin(2.0 * math.pi * freq * t) * env * 0.7)
+    return out
+
+
+def win():
+    """World cleared: a small rising arpeggio (C5 E5 G5 C6)."""
+    notes = [523.25, 659.25, 783.99, 1046.5]
+    out = [0.0] * int(RATE * 0.6)
+    for k, f in enumerate(notes):
+        start = int(RATE * 0.09 * k)
+        for i in range(start, len(out)):
+            t = (i - start) / RATE
+            out[i] += math.sin(2.0 * math.pi * f * t) * math.exp(-t * 7.0) * 0.5
+    return out
+
+
 def music():
     """A 16-second ambient loop at 22050 Hz (half rate keeps the
     file small; pads don't need the top octave).
@@ -181,4 +204,6 @@ if __name__ == "__main__":
     write_wav("assets/splash.wav", splash())
     write_wav("assets/bump.wav", bump())
     write_wav("assets/click.wav", click())
+    write_wav("assets/pickup.wav", pickup())
+    write_wav("assets/win.wav", win())
     music()

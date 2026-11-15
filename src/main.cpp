@@ -163,6 +163,9 @@ int main()
         ImGui::Text("Player: (%.0f, %.0f) frame %d", p.x, p.y, game.playerFrame());
         ImGui::Text("Tile: %s", Game::tileName(game.playerTile()));
         ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
+        ImGui::Text("Gold: %d / %d%s", game.goldCollected(), game.goldTotal(),
+                    game.won() ? " - CLEARED" : "");
+        ImGui::Text("Run time: %.1f s", game.runTime());
         ImGui::Text("Textures cached: %d", static_cast<int>(game.textureCacheSize()));
         ImGui::Text("Sounds played: %d (cache %d)", game.soundsPlayed(),
                     static_cast<int>(game.soundCacheSize()));
