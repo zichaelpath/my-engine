@@ -9,6 +9,19 @@
 #include <string>
 #include <vector>
 
+// Tile ids for the world tilemap (Lesson 21). The noise field is
+// classified into these once at generation; rendering, movement and
+// (later) editing all read the ids, never the raw noise.
+namespace tiles
+{
+constexpr int DeepWater = 0;
+constexpr int Water = 1;
+constexpr int Sand = 2;
+constexpr int Grass = 3;
+constexpr int Forest = 4;
+constexpr int Rock = 5;
+} // namespace tiles
+
 class Game
 {
 public:
@@ -28,6 +41,13 @@ public:
     sf::Vector2f worldSize() const { return m_worldSize; }
     int playerFrame() const { return m_entities[m_playerEntity].frame; }
     std::size_t textureCacheSize() const { return m_resources.size(); }
+
+    // Tilemap queries (Lesson 21): the tile id at a world position
+    // (-1 outside the world), the tile under the player's feet, and
+    // a display name for an id.
+    int tileAtWorld(sf::Vector2f worldPos) const;
+    int playerTile() const;
+    static const char* tileName(int id);
 
     // Adds an entity to the world and returns its index (its identity:
     // indices stay valid for the world's lifetime; entities are never
@@ -73,6 +93,10 @@ private:
     std::size_t m_playerEntity = 0;
     sf::Texture m_sheet;
     TextureCache m_resources;
+
+    std::vector<int> m_tiles;
+    int m_tilesX = 0;
+    int m_tilesY = 0;
     std::vector<sf::RectangleShape> m_blocks;
     std::vector<sf::CircleShape> m_dots;
     sf::VertexArray m_field;

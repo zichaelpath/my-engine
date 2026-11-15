@@ -138,6 +138,12 @@ The before/after crops are the whole argument in two pictures: a strip of water 
 
 The fallback got the only honest test there is: run the same binary in a folder with no `assets/` and watch. Both crates turned into magenta checkerboards, the error appeared exactly once, and the game didn't blink. A missing asset that advertises itself on screen is worth ten that fail silently — during development you *want* your mistakes loud and pink. One lesson remains in Arc 4: tilemaps, where the noise field becomes real data — a grid of tile ids — instead of a baked picture.
 
+## Lesson 21 — Tilemaps (Arc 4 Closes)
+
+**Built:** the terrain stopped being a picture. Generation now classifies the noise into tile ids first — deep water, water, sand, grass, forest, rock, stored in a grid the engine can query — and builds the familiar vertex picture *from* those ids, so the world looks pixel-identical while being something entirely new underneath: data. The first customer arrived immediately. Movement now asks the map what tile is under the player's feet and scales speed by the answer — wading at half pace, sand dragging, rock worse — and the editor gained a Tile readout so you can watch the ground truth change as you walk.
+
+The verification has the best story of the arc: the control run on "grass" came back suspiciously slow, twice, and the brand-new Tile readout is what exonerated the code — the chosen meadow was actually a pond shore, and the run had waded across a lake. Measured properly from inside the western lake, one second of walking covers 108 px against dry land's 200. The instrumentation caught the experiment lying, which is exactly what instrumentation is for. Arc 4 is complete — scenes, resources, hitboxes, tilemaps — and Arc 5 turns the editor from a viewer into a tool: selection first, then hierarchy and inspector.
+
 ---
 
-_Blog continues from Lesson 21. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 22. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

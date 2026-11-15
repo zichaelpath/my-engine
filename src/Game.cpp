@@ -13,6 +13,8 @@
 
 namespace
 {
+constexpr float TILE_SIZE = 20.f;
+
 // The collision size of an entity: its hitbox if it has one,
 // otherwise the whole entity box.
 sf::Vector2f hitboxSizeOf(const Entity& e)
@@ -98,55 +100,104 @@ void Game::regenerateWorld()
 
 void Game::generateField()
 {
-    constexpr float tileSize = 20.f;
-    const int tilesX = static_cast<int>(m_worldSize.x / tileSize);
-    const int tilesY = static_cast<int>(m_worldSize.y / tileSize);
+    m_tilesX = static_cast<int>(m_worldSize.x / TILE_SIZE);
+    m_tilesY = static_cast<int>(m_worldSize.y / TILE_SIZE);
 
+    // Step 1: classify the noise into tile ids — DATA first.
+    auto classify = [](float h) {
+        if (h < 0.35f) return tiles::DeepWater;
+        if (h < 0.45f) return tiles::Water;
+        if (h < 0.50f) return tiles::Sand;
+        if (h < 0.65f) return tiles::Grass;
+        if (h < 0.80f) return tiles::Forest;
+        return tiles::Rock;
+    };
+    m_tiles.assign(static_cast<std::size_t>(m_tilesX * m_tilesY), tiles::Grass);
+    for (int ty = 0; ty < m_tilesY; ++ty)
+        for (int tx = 0; tx < m_tilesX; ++tx)
+        {
+            float h = m_noise.fbm(tx * TILE_SIZE * m_noiseFrequency,
+                                  ty * TILE_SIZE * m_noiseFrequency, 4);
+            m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)] = classify(h);
+        }
+
+    // Step 2: build the picture FROM the data. Id -> colour lives in
+    // exactly one place, so the map and its legend can never drift.
+    auto tileColor = [](int id) {
+        switch (id)
+        {
+            case tiles::DeepWater: return sf::Color(40, 70, 140);
+            case tiles::Water:     return sf::Color(60, 100, 170);
+            case tiles::Sand:      return sf::Color(200, 190, 130);
+            case tiles::Grass:     return sf::Color(90, 160, 80);
+            case tiles::Forest:    return sf::Color(50, 110, 60);
+            default:               return sf::Color(200, 200, 205); // rock
+        }
+    };
     m_field.setPrimitiveType(sf::PrimitiveType::Triangles);
     m_field.clear();
-
-    auto heightToColor = [](float h) {
-        if (h < 0.35f) return sf::Color(40, 70, 140);   // deep water
-        if (h < 0.45f) return sf::Color(60, 100, 170);  // water
-        if (h < 0.50f) return sf::Color(200, 190, 130); // sand
-        if (h < 0.65f) return sf::Color(90, 160, 80);   // grass
-        if (h < 0.80f) return sf::Color(50, 110, 60);   // forest
-        return sf::Color(200, 200, 205);                // rock / snow
-    };
-
-    for (int ty = 0; ty < tilesY; ++ty)
+    for (int ty = 0; ty < m_tilesY; ++ty)
     {
-        for (int tx = 0; tx < tilesX; ++tx)
+        for (int tx = 0; tx < m_tilesX; ++tx)
         {
-            float h = m_noise.fbm(tx * tileSize * m_noiseFrequency,
-                                  ty * tileSize * m_noiseFrequency, 4);
-            sf::Color c = heightToColor(h);
-            float x = tx * tileSize;
-            float y = ty * tileSize;
+            sf::Color c = tileColor(m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)]);
+            float x = tx * TILE_SIZE;
+            float y = ty * TILE_SIZE;
 
             // One tile = two triangles in a single batched vertex array.
             sf::Vertex v;
             v.color = c;
             v.position = {x, y};
             m_field.append(v);
-            v.position = {x + tileSize, y};
+            v.position = {x + TILE_SIZE, y};
             m_field.append(v);
-            v.position = {x, y + tileSize};
+            v.position = {x, y + TILE_SIZE};
             m_field.append(v);
-            v.position = {x + tileSize, y};
+            v.position = {x + TILE_SIZE, y};
             m_field.append(v);
-            v.position = {x + tileSize, y + tileSize};
+            v.position = {x + TILE_SIZE, y + TILE_SIZE};
             m_field.append(v);
-            v.position = {x, y + tileSize};
+            v.position = {x, y + TILE_SIZE};
             m_field.append(v);
         }
     }
 
     std::ostringstream oss;
-    oss << "Field generated: " << tilesX << 'x' << tilesY
+    oss << "Field generated: " << m_tilesX << 'x' << m_tilesY
         << " tiles, noise scale " << std::fixed << std::setprecision(3)
         << m_noiseFrequency;
     Log::info(oss.str());
+}
+
+int Game::tileAtWorld(sf::Vector2f worldPos) const
+{
+    int tx = static_cast<int>(std::floor(worldPos.x / TILE_SIZE));
+    int ty = static_cast<int>(std::floor(worldPos.y / TILE_SIZE));
+    if (tx < 0 || ty < 0 || tx >= m_tilesX || ty >= m_tilesY)
+        return -1;
+    return m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)];
+}
+
+int Game::playerTile() const
+{
+    const Entity& player = m_entities[m_playerEntity];
+    sf::Vector2f feet =
+        player.position + player.hitboxOffset + hitboxSizeOf(player) / 2.f;
+    return tileAtWorld(feet);
+}
+
+const char* Game::tileName(int id)
+{
+    switch (id)
+    {
+        case tiles::DeepWater: return "Deep water";
+        case tiles::Water:     return "Water";
+        case tiles::Sand:      return "Sand";
+        case tiles::Grass:     return "Grass";
+        case tiles::Forest:    return "Forest";
+        case tiles::Rock:      return "Rock";
+        default:               return "Void";
+    }
 }
 
 void Game::setNoiseFrequency(float frequency)
@@ -230,7 +281,21 @@ void Game::update(float dt)
         player.frame = 0;
     }
 
-    sf::Vector2f move = dir * speed * dt;
+    // The tile under the player's feet sets the pace (Lesson 21 —
+    // the tilemap's first gameplay job): wading is slow, sand and
+    // high rock drag, grass is full speed.
+    float terrainFactor = 1.f;
+    switch (playerTile())
+    {
+        case tiles::DeepWater: terrainFactor = 0.45f; break;
+        case tiles::Water:     terrainFactor = 0.55f; break;
+        case tiles::Sand:      terrainFactor = 0.85f; break;
+        case tiles::Forest:    terrainFactor = 0.90f; break;
+        case tiles::Rock:      terrainFactor = 0.70f; break;
+        default: break;
+    }
+
+    sf::Vector2f move = dir * (speed * terrainFactor) * dt;
 
     // Axis-separated collision: move and resolve one axis at a time.
     // A blocked axis never stops the other, so walls slide instead of

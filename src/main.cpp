@@ -110,6 +110,7 @@ int main()
         ImGui::Text("Frame time: %.3f ms", dt * 1000.f);
         sf::Vector2f p = game.playerPosition();
         ImGui::Text("Player: (%.0f, %.0f) frame %d", p.x, p.y, game.playerFrame());
+        ImGui::Text("Tile: %s", Game::tileName(game.playerTile()));
         ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
         ImGui::Text("Textures cached: %d", static_cast<int>(game.textureCacheSize()));
         ImGui::Text("Camera: (%.0f, %.0f)", camera.center.x, camera.center.y);
