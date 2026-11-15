@@ -175,6 +175,29 @@ int main()
         }
         ImGui::End();
 
+        // Hierarchy (Lesson 23): every entity by name; clicking a row
+        // drives the SAME selection the Game View picking writes.
+        ImGui::Begin("Hierarchy");
+        {
+            const auto& list = game.entities();
+            ImGui::Text("Entities: %d", static_cast<int>(list.size()));
+            ImGui::Separator();
+            for (int i = 0; i < static_cast<int>(list.size()); ++i)
+            {
+                const Entity& e = list[static_cast<std::size_t>(i)];
+                // ##<index>: the visible label stays the bare name
+                // while ImGui gets the unique ID duplicates require.
+                std::string label = e.name + "##" + std::to_string(i);
+                if (ImGui::Selectable(label.c_str(), selected == i))
+                {
+                    selected = i;
+                    Log::info("Selected: " + e.name + " (index " +
+                              std::to_string(i) + ")");
+                }
+            }
+        }
+        ImGui::End();
+
         ImGui::Begin("Procgen");
         ImGui::Text("Master seed: %u", game.seed());
         ImGui::InputInt("Seed", &seedInput);

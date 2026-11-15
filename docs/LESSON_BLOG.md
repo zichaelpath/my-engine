@@ -150,6 +150,12 @@ The verification has the best story of the arc: the control run on "grass" came 
 
 Verification had a one-pixel comedy: the first scripted click missed the crate by a hair of world space because the test assumed a slightly wrong view width — the pick honestly reported "empty ground", the aim was recomputed from the camera readout, and the second click landed centre-crate. Next, the Hierarchy panel gives the same selection a second door: a list of every entity, clickable — proving selection is a model, not a mouse trick.
 
+## Lesson 23 — The Hierarchy Panel
+
+**Built:** a Hierarchy panel listing every entity by name — Player, Crate, Crate — where clicking a row selects it. The lesson is deliberately tiny, because its point is architectural: selection turned out to be a *model*, not a mouse trick. One shared index, two independent writers (the Game View picking from last lesson and now this list), and every reader — the yellow outline, the debug readout — lit up for list clicks without a single line changing. Panels are views onto shared state, never owners of private copies; this is the shape the whole editor will follow.
+
+The list also tells a truth the world view hides: the two crates have the *same name*, sitting in adjacent rows like a small accusation. That's what hierarchies are for — exposing scene hygiene problems — and it sets up the next lesson perfectly: the Inspector, where the selected entity's name, position, size, colour and flags become editable, and "Crate / Crate" can finally become "Crate by the lake / Crate at spawn".
+
 ---
 
-_Blog continues from Lesson 23. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 24. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

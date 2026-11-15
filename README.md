@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3 (windowing/input for the 2D phase), Dear ImGui (docking build) + ImGui-SFML for the editor UI. Raw modern OpenGL arrives in Arc 8 for the 3D core.
 
-**Status: Lesson 22 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 (the editor grows up) in progress — selection is in: click any entity in the editor's Game View to select it (yellow highlight, readout in the debug panel). Hierarchy and inspector are next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Lesson 23 complete.** Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 (the editor grows up) in progress — click-to-select is in, and a Hierarchy panel now lists every entity by name, driving the same selection. The Inspector (editable properties) is next. The full plan lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The editor, zoomed out over the 1600x1200 world](docs/shots/lesson-16-editor-zoom.png)
 
