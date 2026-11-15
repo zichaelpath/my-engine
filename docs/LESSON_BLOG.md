@@ -277,3 +277,11 @@ The roadmap is complete. Forty-three lessons from an empty `main()` to a tagged 
 ---
 
 _The blog ends at Lesson 43 — the roadmap complete, MyEngine 1.0.0 shipped. The devlogs remain the full record._
+
+---
+
+# Phase 2
+
+## Lesson 44 — First Contact: The Left-Facing Ghost
+
+Phase 2's first lesson wasn't built; it was *reported*. Zac pulled 1.0.0, built it on Windows, played it — and sent back a screenshot: the player's red hitbox floating a full body-width left of the character. Pixel-measuring his screenshot and then a headless render probe pinned it down: the hitbox was never wrong. Since Lesson 17, the sprite's left-facing flip branch had set an SFML origin on top of the position shift that mirroring already needs, so a left-facing player *drew* one body-width right of where he *collided*. Facing right, picture and body agreed — which is how it hid for 27 lessons. One-line fix, verified by the probe: hood pixels moved from x 438..462 (outside the entity box entirely) to 388..411 (centred over the feet box). His session caught a second real bug on the way: the Windows build died on `KHR/khrplatform.h`, a header Linux had been lending us silently — now vendored from Khronos. Arc 1 is open, and its thesis is already proven: the engine's first real player found in one afternoon what its test screenshots couldn't.

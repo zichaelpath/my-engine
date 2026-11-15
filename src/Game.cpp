@@ -608,7 +608,12 @@ void Game::render(sf::RenderTarget& target) const
                                entity.size.y / sprites::FRAME);
             if (entity.flipX)
             {
-                sprite.setOrigin({static_cast<float>(sprites::FRAME), 0.f});
+                // Mirror in place: the position already carries the
+                // +size.x shift and the negative scale does the flip.
+                // An origin here would shift the sprite a second time
+                // (Lesson 44: with origin FRAME it rendered one full
+                // entity width right of its hitbox when facing left).
+                sprite.setOrigin({0.f, 0.f});
                 sprite.setPosition(entity.position +
                                    sf::Vector2f(entity.size.x, 0.f));
                 sprite.setScale({-scale.x, scale.y});

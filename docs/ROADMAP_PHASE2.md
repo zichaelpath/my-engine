@@ -15,6 +15,8 @@
 - Formats are versioned and fail loudly rather than half-loading (the Lesson 41 rule).
 - Zac's testing gates the phase: Arc 1 begins from *his* Phase 1 playtest findings, and any arc can be re-planned around what he finds.
 
+**Progress — Nov 15, 2026:** Arc 1 is OPEN. Lesson 44 shipped its first two playtest findings: the left-facing sprite displacement (the flip branch's double shift — fixed and probe-verified) and the missing vendored `KHR/khrplatform.h` that broke the Windows build. Still ahead in this arc, in order: Zac's Windows rebuild + audio's first real-hardware listen, the test harness, CI, and 1.0.1.
+
 ## Arc 1 — First Contact (Lessons ~44–48)
 
 *Harden 1.0 against its first real user: its author, on his own machine, as a player.*
