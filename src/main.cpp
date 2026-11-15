@@ -96,6 +96,9 @@ int main()
             seedInput = static_cast<int>(rd());
             game.setSeed(static_cast<std::uint32_t>(seedInput));
         }
+        static float noiseFreq = 0.01f;
+        if (ImGui::SliderFloat("Noise scale", &noiseFreq, 0.004f, 0.03f))
+            game.setNoiseFrequency(noiseFreq);
         if (ImGui::Button("Reshuffle terrain"))
             game.generateTerrain();
         ImGui::SameLine();

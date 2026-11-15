@@ -24,6 +24,17 @@ std::uint32_t Random::hashName(const std::string& name)
     return hash;
 }
 
+std::uint32_t Random::derivedSeed(const std::string& streamName) const
+{
+    // Master seed + name hash, avalanched. Const and draw-free: asking for
+    // a derived seed can never reshuffle any stream.
+    std::uint32_t h = m_masterSeed ^ hashName(streamName);
+    h ^= h >> 16;
+    h *= 0x7FEB352Du;
+    h ^= h >> 15;
+    return h;
+}
+
 std::mt19937& Random::stream(const std::string& name)
 {
     auto it = m_streams.find(name);

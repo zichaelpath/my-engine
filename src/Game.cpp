@@ -10,6 +10,8 @@ Game::Game() : m_random(m_seed)
     m_player.setFillColor(sf::Color(80, 200, 120));
     m_player.setPosition({375.f, 275.f});
 
+    m_noise = ValueNoise(m_random.derivedSeed("noise"));
+    generateField();
     generateTerrain();
     generateDecor();
 }
@@ -18,8 +20,63 @@ void Game::setSeed(std::uint32_t seed)
 {
     m_seed = seed;
     m_random.reseed(seed);
+    m_noise = ValueNoise(m_random.derivedSeed("noise"));
+    generateField();
     generateTerrain();
     generateDecor();
+}
+
+void Game::generateField()
+{
+    constexpr int tilesX = 40;
+    constexpr int tilesY = 30;
+    constexpr float tileSize = 20.f;
+
+    m_field.setPrimitiveType(sf::PrimitiveType::Triangles);
+    m_field.clear();
+
+    auto heightToColor = [](float h) {
+        if (h < 0.35f) return sf::Color(40, 70, 140);   // deep water
+        if (h < 0.45f) return sf::Color(60, 100, 170);  // water
+        if (h < 0.50f) return sf::Color(200, 190, 130); // sand
+        if (h < 0.65f) return sf::Color(90, 160, 80);   // grass
+        if (h < 0.80f) return sf::Color(50, 110, 60);   // forest
+        return sf::Color(200, 200, 205);                // rock / snow
+    };
+
+    for (int ty = 0; ty < tilesY; ++ty)
+    {
+        for (int tx = 0; tx < tilesX; ++tx)
+        {
+            float h = m_noise.fbm(tx * tileSize * m_noiseFrequency,
+                                  ty * tileSize * m_noiseFrequency, 4);
+            sf::Color c = heightToColor(h);
+            float x = tx * tileSize;
+            float y = ty * tileSize;
+
+            // One tile = two triangles in a single batched vertex array.
+            sf::Vertex v;
+            v.color = c;
+            v.position = {x, y};
+            m_field.append(v);
+            v.position = {x + tileSize, y};
+            m_field.append(v);
+            v.position = {x, y + tileSize};
+            m_field.append(v);
+            v.position = {x + tileSize, y};
+            m_field.append(v);
+            v.position = {x + tileSize, y + tileSize};
+            m_field.append(v);
+            v.position = {x, y + tileSize};
+            m_field.append(v);
+        }
+    }
+}
+
+void Game::setNoiseFrequency(float frequency)
+{
+    m_noiseFrequency = frequency;
+    generateField();
 }
 
 void Game::generateTerrain()
@@ -92,11 +149,12 @@ void Game::render(sf::RenderTarget& target) const
         static_cast<std::uint8_t>(clearColor[2] * 255.f));
 
     target.clear(clearCol);
-    target.draw(m_player);
+    target.draw(m_field);
     for (const auto& block : m_blocks)
         target.draw(block);
     for (const auto& dot : m_dots)
         target.draw(dot);
+    target.draw(m_player);
 }
 
 sf::Vector2f Game::playerPosition() const
