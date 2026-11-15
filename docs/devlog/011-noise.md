@@ -28,15 +28,20 @@ _(filled at the start of the lesson; adjust if the build differs)_
 
 ## What broke
 
-_(recorded by Dietrich from the session, if anything does)_
+- **IntelliSense vs `std::lerp`** (on Zac's laptop): VS Code's checker reported `namespace "std" has no member "lerp"` for a legal C++20 call — IntelliSense was parsing the brand-new file with a stale standard setting. The fix taken anyway: the interpolation is now written out by hand (`a + (b - a) * t`), because the core operation of the lesson shouldn't be rented from a one-line library function.
+- **A latent Lesson 10 bug, caught in review**: `Game.hpp` declared `m_random` *before* `m_seed`, but `Random`'s constructor reads `m_seed` — and members initialise in declaration order, so the generator was being seeded from an uninitialised member. (It looked stable because the memory happened to hold the same value each run.) `m_seed` now sits above `m_random`, with a comment recording why. Same review fixed the render order: the player was drawn *under* the blocks and dots; it now draws last.
+- **The handover merge**: Zac had pushed his own `derivedSeed` from his laptop (identical implementation) just before handing the project over. Git auto-merged both copies, producing a duplicate definition; deduped in a follow-up commit and rebuilt clean.
 
 ## Verification
 
-_(recorded by Dietrich from the session)_
+Built with GCC 13 / CMake on Linux (the new build rig: Dietrich's VM, Xvfb display, SFML audio/network modules off) — zero errors. Both hosts run:
+
+- **Runtime** (`docs/shots/lesson-11-runtime.png`): the full 800×600 world — blue water with sand shores, grass, dark forest, grey rock tiles, slate blocks, gold dots, and the player square on top.
+- **Editor** (`docs/shots/lesson-11-editor.png`): Engine Debug at ~60 FPS, Procgen panel showing the Noise scale slider at 0.010, and the Game View showing **the identical layout** to the runtime for seed 12345 — same lake, same blocks, same dots. Determinism across hosts, verified visually.
 
 ## Explain-it check
 
-_(Zac answers in chat; recorded here by Dietrich)_
+_(Superseded by the Nov 15 handover: Zac asked Dietrich to keep building the project solo. The three Lesson 11 questions stay on the record here — why raw RNG makes terrible terrain, why hash the lattice on demand instead of storing a grid, what each fBm octave adds — and the answers live in the Concept section above, in the form the lesson taught them.)_
 
 ## Next step
 
