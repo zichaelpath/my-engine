@@ -210,6 +210,12 @@ Next is the payoff arc: a real game on this engine. The decor generator has been
 
 Verification was the fun kind: at full-world zoom I detected every dot in the screenshot programmatically and drag-teleported the player onto each with the editor's own drag tool. The counter climbed to 40/40 CLEARED, the console logged the clear at 134.9 s, and the timer provably froze while the game clock ran on. Two dots survived the first pass by a few pixels — collection measures from the *feet*, not the sprite centre — which is exactly the kind of thing you only learn by finishing a world.
 
+## Lesson 33 — The Frame: Title, Pause, Win
+
+**Built:** the difference between a demo and a game is the frame around it, so the Runtime got one: a proper state machine with four screens — Title, Playing, Paused, Won — in a single enum. Enter starts the run, P (or Esc) pauses, and winning promotes you to a win screen showing your final time, with R dealing a fresh world. The simulation only advances in Playing, which buys a subtle correctness for free: the speedrun clock *cannot* start before the player does, because the frozen title backdrop never calls update at all. `Game` didn't change by one line — it already knew the rules; the Runtime just learned how to present a session.
+
+The Won screen earned its verification the hard way: a throwaway parallel build tree collapsed (two CMake configures corrupting each other — my mess, documented in the devlog), so the win was proven by temporarily shrinking the world to 3 dots in the real tree, sweeping the map quadrant by quadrant with programmatic dot detection, and keyboard-driving onto each one until the banner froze the clock at 1:40. Then the tweak was reverted — the real game still has all 40.
+
 ---
 
-_Blog continues from Lesson 33. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 34. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

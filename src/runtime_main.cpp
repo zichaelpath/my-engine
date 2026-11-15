@@ -7,6 +7,19 @@
 #include <cstdio>
 #include <random>
 
+// The Runtime's game frame (Lesson 33): a small state machine —
+// Title, Playing, Paused, Won. The simulation only advances in
+// Playing, so the title's backdrop is a frozen world and the run
+// timer cannot start before the player does. Game rules stay in
+// Game; this file only decides which screen presents them.
+enum class Screen
+{
+    Title,
+    Playing,
+    Paused,
+    Won
+};
+
 int main()
 {
     Config config;
@@ -36,28 +49,42 @@ int main()
     if (config.getInt("music", 1))
         game.startMusic("assets/music.wav");
 
-    // HUD text (Lesson 32): one bundled font, loaded once. If it is
-    // missing the game still plays — only the overlay is disabled.
+    // Text (Lesson 32/33): one bundled font, loaded once. If it is
+    // missing the game still plays — only the overlays are disabled.
     sf::Font font;
     bool fontOk = font.openFromFile("assets/DejaVuSans.ttf");
     if (!fontOk)
-        Log::error("Font failed to load: assets/DejaVuSans.ttf (HUD disabled)");
-    sf::Text hud(font, "", 20);
+        Log::error("Font failed to load: assets/DejaVuSans.ttf (overlays disabled)");
+    auto makeText = [&](const std::string& s, unsigned int size, sf::Color fill) {
+        sf::Text t(font, s, size);
+        t.setFillColor(fill);
+        t.setOutlineColor(sf::Color::Black);
+        t.setOutlineThickness(size > 30 ? 3.f : 2.f);
+        return t;
+    };
+    sf::Text hud = makeText("", 20, sf::Color::White);
     hud.setPosition({12.f, 8.f});
-    hud.setFillColor(sf::Color::White);
-    hud.setOutlineColor(sf::Color::Black);
-    hud.setOutlineThickness(2.f);
-    sf::Text banner(font, "You collected all the gold!", 36);
-    banner.setFillColor(sf::Color(255, 215, 80));
-    banner.setOutlineColor(sf::Color::Black);
-    banner.setOutlineThickness(3.f);
-    sf::Text sub(font, "Press R for a new world", 20);
-    sub.setFillColor(sf::Color::White);
-    sub.setOutlineColor(sf::Color::Black);
-    sub.setOutlineThickness(2.f);
+    sf::Text gameTitle = makeText("GOLD RUSH", 52, sf::Color(255, 215, 80));
+    sf::Text titleSub = makeText("", 18, sf::Color::White);
+    sf::Text titlePrompt = makeText("Press Enter to play", 22, sf::Color::White);
+    sf::Text seedLine = makeText("", 16, sf::Color(180, 180, 180));
+    sf::Text pausedTitle = makeText("Paused", 36, sf::Color::White);
+    sf::Text pausedSub = makeText("P to resume - Esc to quit", 18, sf::Color::White);
+    sf::Text banner = makeText("You collected all the gold!", 36, sf::Color(255, 215, 80));
+    sf::Text winTime = makeText("", 22, sf::Color::White);
+    sf::Text sub = makeText("Press R for a new world", 20, sf::Color::White);
+    sf::RectangleShape dim;
+    dim.setFillColor(sf::Color(8, 8, 18, 170));
 
+    Screen screen = Screen::Title;
     Camera camera;
     sf::Clock clock;
+
+    auto centreOn = [&](sf::Text& t, float y) {
+        sf::FloatRect b = t.getLocalBounds();
+        t.setOrigin({b.position.x + b.size.x / 2.f, b.position.y + b.size.y / 2.f});
+        t.setPosition({static_cast<float>(window.getSize().x) / 2.f, y});
+    };
 
     while (window.isOpen())
     {
@@ -72,25 +99,52 @@ int main()
 
             if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
             {
-                if (keyPressed->code == sf::Keyboard::Key::Escape)
-                {
-                    window.close();
-                }
-                if (keyPressed->code == sf::Keyboard::Key::F5)
-                {
+                using Key = sf::Keyboard::Key;
+                if (keyPressed->code == Key::F5)
                     game.saveScene("scene.txt");
-                }
-                if (keyPressed->code == sf::Keyboard::Key::F9)
-                {
+                if (keyPressed->code == Key::F9)
                     game.loadScene("scene.txt");
-                }
-                if (keyPressed->code == sf::Keyboard::Key::R && game.won())
+                // What a key means depends on the screen — that is
+                // the state machine's whole job.
+                switch (screen)
                 {
-                    game.newRun(std::random_device{}());
+                    case Screen::Title:
+                        if (keyPressed->code == Key::Enter)
+                            screen = Screen::Playing;
+                        if (keyPressed->code == Key::Escape)
+                            window.close();
+                        break;
+                    case Screen::Playing:
+                        if (keyPressed->code == Key::P ||
+                            keyPressed->code == Key::Escape)
+                            screen = Screen::Paused;
+                        break;
+                    case Screen::Paused:
+                        if (keyPressed->code == Key::P)
+                            screen = Screen::Playing;
+                        if (keyPressed->code == Key::Escape)
+                            window.close();
+                        break;
+                    case Screen::Won:
+                        if (keyPressed->code == Key::R)
+                        {
+                            game.newRun(std::random_device{}());
+                            screen = Screen::Playing;
+                        }
+                        if (keyPressed->code == Key::Escape)
+                            window.close();
+                        break;
                 }
             }
         }
-        game.update(dt);
+
+        if (screen == Screen::Playing)
+        {
+            game.update(dt);
+            if (game.won())
+                screen = Screen::Won;
+        }
+
         // The camera follows the player, clamped so the view never
         // leaves the world; it is re-derived every frame from the
         // window's current size, so resizes need no event handling.
@@ -98,30 +152,68 @@ int main()
                       sf::Vector2f(window.getSize()));
         window.setView(camera.makeView(sf::Vector2f(window.getSize())));
         game.render(window);
+
         if (fontOk)
         {
-            // HUD in screen space: the default view, drawn after the
-            // world, so it never moves with the camera.
+            // Overlays in screen space: the default view, drawn after
+            // the world, so they never move with the camera.
             window.setView(window.getDefaultView());
-            char buf[96];
-            std::snprintf(buf, sizeof(buf), "Gold: %d / %d    Time: %d:%02d",
-                          game.goldCollected(), game.goldTotal(),
-                          static_cast<int>(game.runTime()) / 60,
-                          static_cast<int>(game.runTime()) % 60);
-            hud.setString(buf);
-            window.draw(hud);
-            if (game.won())
+            float w = static_cast<float>(window.getSize().x);
+            float h = static_cast<float>(window.getSize().y);
+            char buf[128];
+
+            if (screen != Screen::Title)
             {
-                auto centreOn = [&](sf::Text& t, float y) {
-                    sf::FloatRect b = t.getLocalBounds();
-                    t.setOrigin({b.position.x + b.size.x / 2.f,
-                                 b.position.y + b.size.y / 2.f});
-                    t.setPosition(
-                        {static_cast<float>(window.getSize().x) / 2.f, y});
-                };
-                centreOn(banner, static_cast<float>(window.getSize().y) / 2.f - 30.f);
-                centreOn(sub, static_cast<float>(window.getSize().y) / 2.f + 20.f);
+                std::snprintf(buf, sizeof(buf), "Gold: %d / %d    Time: %d:%02d",
+                              game.goldCollected(), game.goldTotal(),
+                              static_cast<int>(game.runTime()) / 60,
+                              static_cast<int>(game.runTime()) % 60);
+                hud.setString(buf);
+                window.draw(hud);
+            }
+
+            if (screen == Screen::Title)
+            {
+                dim.setSize({w, h});
+                window.draw(dim);
+                centreOn(gameTitle, h / 2.f - 80.f);
+                window.draw(gameTitle);
+                std::snprintf(buf, sizeof(buf),
+                              "Collect all %d gold dots - mind the water, it slows you down",
+                              game.goldTotal());
+                titleSub.setString(buf);
+                centreOn(titleSub, h / 2.f - 25.f);
+                window.draw(titleSub);
+                centreOn(titlePrompt, h / 2.f + 25.f);
+                window.draw(titlePrompt);
+                std::snprintf(buf, sizeof(buf), "World seed: %u",
+                              static_cast<unsigned int>(game.seed()));
+                seedLine.setString(buf);
+                centreOn(seedLine, h / 2.f + 70.f);
+                window.draw(seedLine);
+            }
+            else if (screen == Screen::Paused)
+            {
+                dim.setSize({w, h});
+                window.draw(dim);
+                centreOn(pausedTitle, h / 2.f - 20.f);
+                window.draw(pausedTitle);
+                centreOn(pausedSub, h / 2.f + 25.f);
+                window.draw(pausedSub);
+            }
+            else if (screen == Screen::Won)
+            {
+                dim.setSize({w, h});
+                window.draw(dim);
+                centreOn(banner, h / 2.f - 45.f);
                 window.draw(banner);
+                std::snprintf(buf, sizeof(buf), "Time: %d:%02d",
+                              static_cast<int>(game.runTime()) / 60,
+                              static_cast<int>(game.runTime()) % 60);
+                winTime.setString(buf);
+                centreOn(winTime, h / 2.f + 5.f);
+                window.draw(winTime);
+                centreOn(sub, h / 2.f + 50.f);
                 window.draw(sub);
             }
         }
