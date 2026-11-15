@@ -37,6 +37,10 @@ public:
     float time = 0.f;
 
 private:
+    // Pushes the mover out of every collider along one axis, back to
+    // exact contact. Called once per axis per frame (Lesson 15).
+    void resolveCollisions(Entity& mover, float movement, bool xAxis);
+
     // Declaration order is initialisation order: m_seed must be declared
     // before m_random, whose constructor reads it.
     std::uint32_t m_seed = 12345;

@@ -18,4 +18,5 @@ struct Entity
     sf::Vector2f size{50.f, 50.f};
     sf::Color color = sf::Color::White;
     bool playerControlled = false;
+    bool solid = true; // solid entities block movement (Lesson 15)
 };

@@ -33,6 +33,17 @@ inline float smoothstep01(float t)
     return t * t * (3.f - 2.f * t);
 }
 
+// Axis-aligned bounding box overlap: true if the two rectangles
+// (position = top-left corner) share any area. Touching edges do
+// not count as overlapping, which is what lets a mover rest exactly
+// against a wall.
+inline bool rectsOverlap(sf::Vector2f posA, sf::Vector2f sizeA,
+                         sf::Vector2f posB, sf::Vector2f sizeB)
+{
+    return posA.x < posB.x + sizeB.x && posA.x + sizeA.x > posB.x &&
+           posA.y < posB.y + sizeB.y && posA.y + sizeA.y > posB.y;
+}
+
 // Normalise a direction. SFML's Vector2::normalized() asserts on a
 // zero vector (verified in the SFML 3.0.2 source), and "no input" is
 // the most common direction a game ever sees, so the engine goes

@@ -102,6 +102,12 @@ The config's manners are the real lesson. A missing file isn't an error — the 
 
 The design restraint is deliberate and the devlog argues it openly: a struct of data, not a class hierarchy and not a full ECS, because the pressure that justifies components — entities needing *different subsets* of data — hasn't arrived yet. It will (crates don't need input; ghosts won't need collision), and the struct will split then, under real pressure instead of speculation. One honest limitation rides along: the crates aren't solid. The player ghosts straight through them, because entities are currently pure data plus rendering. Collision is the very next lesson, and it lands on a system that was built expecting it.
 
+## Lesson 15 — AABB Collision
+
+**Built:** solidity. Entities gained a `solid` flag, the toolbox gained an overlap test, and movement became axis-separated: apply X, push back to exact contact if anything overlaps; apply Y, same. The colliders are a *set*, not a type — solid entities and Lesson 10's terrain blocks feed the same resolution function through the same (position, size) shape, which is the entity design paying its first dividend. Diagonal-into-wall movement slides instead of sticking, because a blocked axis never cancels the free one.
+
+The verification is the part worth telling: the editor was driven by automated key input — up for a beat, then left, straight at a crate. The screenshot shows the player resting flush against the crate's face, and the debug panel reads **Player: (240, 153)**. That 240 is the crate's right edge, exactly — the contact plane, computed. Without collision the same keys land the player at x≈95, inside the lake on the far side. The build also produced the arc's best error message so far: a missing `};` in `Entity.hpp` made the C++ standard library itself appear to explode, forty errors deep, none of them within a mile of the actual fault. The devlog records the moral — when the STL "breaks", look at the last header you touched.
+
 ---
 
-_Blog continues from Lesson 15. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 16. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

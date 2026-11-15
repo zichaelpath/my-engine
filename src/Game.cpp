@@ -173,10 +173,51 @@ void Game::update(float dt, sf::Vector2f worldSize)
     // Movement is a system operating on whichever entity the player
     // controls — the input code no longer knows a special shape exists.
     Entity& player = m_entities[m_playerEntity];
-    sf::Vector2f pos = player.position + dir * speed * dt;
-    pos.x = std::clamp(pos.x, 0.f, std::max(0.f, worldSize.x - player.size.x));
-    pos.y = std::clamp(pos.y, 0.f, std::max(0.f, worldSize.y - player.size.y));
-    player.position = pos;
+    sf::Vector2f move = dir * speed * dt;
+
+    // Axis-separated collision: move and resolve one axis at a time.
+    // A blocked axis never stops the other, so walls slide instead of
+    // sticking. At this engine's speeds (a few pixels per frame) a
+    // discrete overlap test cannot tunnel; fast projectiles will one
+    // day need swept tests, and will say so when they arrive.
+    if (move.x != 0.f)
+    {
+        player.position.x += move.x;
+        resolveCollisions(player, move.x, true);
+    }
+    if (move.y != 0.f)
+    {
+        player.position.y += move.y;
+        resolveCollisions(player, move.y, false);
+    }
+
+    player.position.x =
+        std::clamp(player.position.x, 0.f, std::max(0.f, worldSize.x - player.size.x));
+    player.position.y =
+        std::clamp(player.position.y, 0.f, std::max(0.f, worldSize.y - player.size.y));
+}
+
+void Game::resolveCollisions(Entity& mover, float movement, bool xAxis)
+{
+    auto pushOut = [&](sf::Vector2f otherPos, sf::Vector2f otherSize) {
+        if (!math::rectsOverlap(mover.position, mover.size, otherPos, otherSize))
+            return;
+        if (xAxis)
+            mover.position.x = movement > 0.f ? otherPos.x - mover.size.x
+                                              : otherPos.x + otherSize.x;
+        else
+            mover.position.y = movement > 0.f ? otherPos.y - mover.size.y
+                                              : otherPos.y + otherSize.y;
+    };
+
+    for (const auto& other : m_entities)
+    {
+        if (&other == &mover || !other.solid)
+            continue;
+        pushOut(other.position, other.size);
+    }
+    for (const auto& block : m_blocks)
+        pushOut(block.getPosition(), block.getSize());
 }
 
 void Game::render(sf::RenderTarget& target) const
