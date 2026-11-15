@@ -2,17 +2,35 @@
 #include <imgui.h>
 #include <imgui-SFML.h>
 #include <iostream>
+#include "Config.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
 #include <random>
 
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode({1280, 720}), "MyEngine - Lesson 1");
+    Config config;
+    config.setDefault("windowWidth", "1280");
+    config.setDefault("windowHeight", "720");
+    config.setDefault("seed", "12345");
+    config.setDefault("noiseScale", "0.01");
+    config.setDefault("playerSpeed", "200");
+    if (!config.load("engine.ini"))
+        config.save("engine.ini");
+
+    sf::RenderWindow window(
+        sf::VideoMode({static_cast<unsigned int>(config.getInt("windowWidth", 1280)),
+                       static_cast<unsigned int>(config.getInt("windowHeight", 720))}),
+        "MyEngine - Lesson 1");
     window.setFramerateLimit(60);
     ImGui::SFML::Init(window);
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     Game game;
+    if (static_cast<std::uint32_t>(config.getInt("seed", 12345)) != game.seed())
+        game.setSeed(static_cast<std::uint32_t>(config.getInt("seed", 12345)));
+    if (config.getFloat("noiseScale", 0.01f) != game.noiseFrequency())
+        game.setNoiseFrequency(config.getFloat("noiseScale", 0.01f));
+    game.speed = config.getFloat("playerSpeed", 200.f);
 
     sf::Clock clock;
     int frames = 0;
@@ -86,7 +104,7 @@ int main()
 
         ImGui::Begin("Procgen");
         ImGui::Text("Master seed: %u", game.seed());
-        static int seedInput = 12345;
+        static int seedInput = static_cast<int>(game.seed());
         ImGui::InputInt("Seed", &seedInput);
         if (ImGui::Button("Apply seed"))
             game.setSeed(static_cast<std::uint32_t>(seedInput));
@@ -97,7 +115,7 @@ int main()
             seedInput = static_cast<int>(rd());
             game.setSeed(static_cast<std::uint32_t>(seedInput));
         }
-        static float noiseFreq = 0.01f;
+        static float noiseFreq = game.noiseFrequency();
         if (ImGui::SliderFloat("Noise scale", &noiseFreq, 0.004f, 0.03f))
             game.setNoiseFrequency(noiseFreq);
         if (ImGui::Button("Reshuffle terrain"))

@@ -1,5 +1,7 @@
 #include "Noise.hpp"
 
+#include "Math.hpp"
+
 #include <cmath>
 
 namespace
@@ -15,12 +17,6 @@ std::uint32_t mix32(std::uint32_t v)
     v ^= v >> 16;
     return v;
 }
-
-// Smoothstep: eases 0..1 so interpolation has no hard seams.
-float smooth(float t)
-{
-    return t * t * (3.f - 2.f * t);
-}
 } // namespace
 
 float ValueNoise::lattice(int x, int y) const
@@ -35,18 +31,17 @@ float ValueNoise::sample(float x, float y) const
 {
     int xi = static_cast<int>(std::floor(x));
     int yi = static_cast<int>(std::floor(y));
-    float tx = smooth(x - static_cast<float>(xi));
-    float ty = smooth(y - static_cast<float>(yi));
+    float tx = math::smoothstep01(x - static_cast<float>(xi));
+    float ty = math::smoothstep01(y - static_cast<float>(yi));
 
     float topLeft = lattice(xi, yi);
     float topRight = lattice(xi + 1, yi);
     float bottomLeft = lattice(xi, yi + 1);
     float bottomRight = lattice(xi + 1, yi + 1);
 
-    // Linear interpolation written out: a + (b - a) * t.
-    float top = topLeft + (topRight - topLeft) * tx;
-    float bottom = bottomLeft + (bottomRight - bottomLeft) * tx;
-    return top + (bottom - top) * ty;
+    float top = math::lerp(topLeft, topRight, tx);
+    float bottom = math::lerp(bottomLeft, bottomRight, tx);
+    return math::lerp(top, bottom, ty);
 }
 
 float ValueNoise::fbm(float x, float y, int octaves) const

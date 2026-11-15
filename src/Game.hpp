@@ -18,6 +18,7 @@ public:
     void generateField();
     void setNoiseFrequency(float frequency);
     std::uint32_t seed() const { return m_seed; }
+    float noiseFrequency() const { return m_noiseFrequency; }
     sf::Vector2f playerPosition() const;
 
     float speed = 200.f;

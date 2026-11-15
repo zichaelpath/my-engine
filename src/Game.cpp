@@ -1,6 +1,7 @@
 #include "Game.hpp"
 
 #include "Log.hpp"
+#include "Math.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -148,12 +149,7 @@ void Game::update(float dt, sf::Vector2f worldSize)
         sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
         dir.x += 1.f;
 
-    const float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-    if (len > 0.f)
-    {
-        dir.x /= len;
-        dir.y /= len;
-    }
+    dir = math::normalize(dir);
 
     sf::Vector2f pos = m_player.getPosition() + dir * speed * dt;
     pos.x = std::clamp(pos.x, 0.f, std::max(0.f, worldSize.x - 50.f));
