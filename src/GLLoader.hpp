@@ -47,6 +47,7 @@ inline PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer = nullptr;
 inline PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray = nullptr;
 inline PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation = nullptr;
 inline PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv = nullptr;
+inline PFNGLUNIFORM3FPROC glUniform3f = nullptr;
 
 // Fills every pointer above from the current context's driver.
 // Returns false (and logs each miss) if any function is missing —

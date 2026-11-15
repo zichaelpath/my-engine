@@ -60,6 +60,7 @@ bool loadGLFunctions()
     load("glEnableVertexAttribArray", glEnableVertexAttribArray);
     load("glGetUniformLocation", glGetUniformLocation);
     load("glUniformMatrix4fv", glUniformMatrix4fv);
+    load("glUniform3f", glUniform3f);
 
     if (ok)
         Log::info("OpenGL functions loaded");

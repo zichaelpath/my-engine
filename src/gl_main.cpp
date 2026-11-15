@@ -9,12 +9,12 @@
 #include <string>
 #include <vector>
 
-// MyGL (Lessons 35-38) — the raw OpenGL host. Lesson 38 is the
-// merger: the Gold Rush tile world (same Game, same seed, same
-// palette) extruded into a 3D heightfield — one flat top per tile at
-// its type's height, skirt walls on every step — flown over with
-// Lesson 37's camera. Controls: WASD move, Q/E down/up, arrows
-// look, Esc quit.
+// MyGL (Lessons 35-39) — the raw OpenGL host. Lesson 39 lights the
+// heightfield for real: every face carries a normal, and the
+// fragment shader shades it against a directional sun (plus an
+// ambient floor) — replacing the fake darkened-skirt trick from
+// Lesson 38. Controls: WASD move, Q/E down/up, arrows look,
+// Esc quit.
 
 namespace
 {
@@ -22,23 +22,32 @@ namespace
 const char* kVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aColor;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec3 aColor;
 uniform mat4 uMVP;
 out vec3 vColor;
+out vec3 vNormal;
 void main()
 {
     gl_Position = uMVP * vec4(aPos, 1.0);
     vColor = aColor;
+    vNormal = aNormal;
 }
 )";
 
 const char* kFragmentShader = R"(
 #version 330 core
 in vec3 vColor;
+in vec3 vNormal;
+uniform vec3 uSunDir;
 out vec4 FragColor;
 void main()
 {
-    FragColor = vec4(vColor, 1.0);
+    // Lambert diffuse: a face square to the sun takes full light,
+    // a face edge-on or turned away falls to the ambient floor.
+    float diffuse = max(dot(normalize(vNormal), uSunDir), 0.0);
+    float light = 0.35 + 0.65 * diffuse;
+    FragColor = vec4(vColor * light, 1.0);
 }
 )";
 
@@ -76,24 +85,30 @@ float tileHeight(int id)
     }
 }
 
-// The heightfield mesh: position + colour per vertex, a plain
-// triangle list. Tops take the tile's palette colour; skirts are
-// the same colour darkened, a cheap depth cue until real lighting.
+// The heightfield mesh: position + normal + colour per vertex, a
+// plain triangle list. Every face of this mesh is axis-aligned, so
+// its normal is known exactly at build time — tops point +Y, skirts
+// point along their axis. (A general mesh would compute normals
+// from cross products of its triangles; here that would only
+// rediscover what the builder already knows.)
 std::vector<float> buildTerrain(const Game& game)
 {
     std::vector<float> verts;
-    auto push = [&verts](float x, float y, float z, float r, float g, float b) {
-        verts.insert(verts.end(), {x, y, z, r, g, b});
+    auto push = [&verts](float x, float y, float z, float nx, float ny, float nz,
+                         float r, float g, float b) {
+        verts.insert(verts.end(), {x, y, z, nx, ny, nz, r, g, b});
     };
-    // Corners in perimeter order; emits (a,b,c) and (a,c,d).
+    // Corners in perimeter order; emits (a,b,c) and (a,c,d), all
+    // with the face's normal.
     auto quad = [&push](const float a[3], const float b[3], const float c[3],
-                        const float d[3], float r, float g, float bl) {
-        push(a[0], a[1], a[2], r, g, bl);
-        push(b[0], b[1], b[2], r, g, bl);
-        push(c[0], c[1], c[2], r, g, bl);
-        push(a[0], a[1], a[2], r, g, bl);
-        push(c[0], c[1], c[2], r, g, bl);
-        push(d[0], d[1], d[2], r, g, bl);
+                        const float d[3], float nx, float ny, float nz,
+                        float r, float g, float bl) {
+        push(a[0], a[1], a[2], nx, ny, nz, r, g, bl);
+        push(b[0], b[1], b[2], nx, ny, nz, r, g, bl);
+        push(c[0], c[1], c[2], nx, ny, nz, r, g, bl);
+        push(a[0], a[1], a[2], nx, ny, nz, r, g, bl);
+        push(c[0], c[1], c[2], nx, ny, nz, r, g, bl);
+        push(d[0], d[1], d[2], nx, ny, nz, r, g, bl);
     };
 
     const float base = -0.8f; // skirt bottom at the map's edge
@@ -118,11 +133,8 @@ std::vector<float> buildTerrain(const Game& game)
             const float B[3] = {x1, height, z0};
             const float C[3] = {x1, height, z1};
             const float D[3] = {x0, height, z1};
-            quad(A, D, C, B, r, g, b); // top, facing +Y
+            quad(A, D, C, B, 0.f, 1.f, 0.f, r, g, b); // top, facing +Y
 
-            const float sr = r * 0.72f;
-            const float sg = g * 0.72f;
-            const float sb = b * 0.72f;
             auto neighbourHeight = [&](int nx, int ny) {
                 int nid = game.tileAt(nx, ny);
                 return nid < 0 ? base : tileHeight(nid);
@@ -136,7 +148,7 @@ std::vector<float> buildTerrain(const Game& game)
                 const float q[3] = {x1, nh, z0};
                 const float s[3] = {x1, height, z0};
                 const float t2[3] = {x1, height, z1};
-                quad(p, q, s, t2, sr, sg, sb);
+                quad(p, q, s, t2, 1.f, 0.f, 0.f, r, g, b);
             }
             nh = neighbourHeight(tx - 1, ty);
             if (nh < height)
@@ -145,7 +157,7 @@ std::vector<float> buildTerrain(const Game& game)
                 const float q[3] = {x0, nh, z1};
                 const float s[3] = {x0, height, z1};
                 const float t2[3] = {x0, height, z0};
-                quad(p, q, s, t2, sr, sg, sb);
+                quad(p, q, s, t2, -1.f, 0.f, 0.f, r, g, b);
             }
             nh = neighbourHeight(tx, ty + 1);
             if (nh < height)
@@ -154,7 +166,7 @@ std::vector<float> buildTerrain(const Game& game)
                 const float q[3] = {x1, nh, z1};
                 const float s[3] = {x1, height, z1};
                 const float t2[3] = {x0, height, z1};
-                quad(p, q, s, t2, sr, sg, sb);
+                quad(p, q, s, t2, 0.f, 0.f, 1.f, r, g, b);
             }
             nh = neighbourHeight(tx, ty - 1);
             if (nh < height)
@@ -163,7 +175,7 @@ std::vector<float> buildTerrain(const Game& game)
                 const float q[3] = {x0, nh, z0};
                 const float s[3] = {x0, height, z0};
                 const float t2[3] = {x1, height, z0};
-                quad(p, q, s, t2, sr, sg, sb);
+                quad(p, q, s, t2, 0.f, 0.f, -1.f, r, g, b);
             }
         }
     }
@@ -213,18 +225,23 @@ int main()
     glDeleteShader(vertex);
     glDeleteShader(fragment);
     GLint mvpLocation = glGetUniformLocation(program, "uMVP");
-    if (mvpLocation < 0)
+    GLint sunLocation = glGetUniformLocation(program, "uSunDir");
+    if (mvpLocation < 0 || sunLocation < 0)
     {
-        Log::error("Uniform uMVP not found in the shader program");
+        Log::error("A required uniform was not found in the shader program");
         return 1;
     }
-    Log::info("Shader program linked; uMVP located");
+    // The sun: low in the west, slightly south — direction TOWARD
+    // it, normalized once here; the shader dots it with each face's
+    // normal. Static this lesson; moving it is a Lesson 40 topic.
+    Vec3 sunDir = normalized(Vec3{-0.55f, 0.75f, 0.35f});
+    Log::info("Shader program linked; uniforms located");
 
     // The world, from the same Game the 2D hosts play (default seed
     // 12345 — the Gold Rush world), extruded by tile type.
     Game game;
     std::vector<float> terrain = buildTerrain(game);
-    const GLsizei terrainVertexCount = static_cast<GLsizei>(terrain.size() / 6);
+    const GLsizei terrainVertexCount = static_cast<GLsizei>(terrain.size() / 9);
     Log::info("Terrain built: " + std::to_string(terrainVertexCount / 3) +
               " triangles from a " + std::to_string(game.tilesX()) + "x" +
               std::to_string(game.tilesY()) + " tile grid");
@@ -237,11 +254,17 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(terrain.size() * sizeof(float)),
                  terrain.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
+    // Vertex layout: position (0), normal (1), colour (2) — nine
+    // floats per vertex. The shader's layout qualifiers and these
+    // offsets are two halves of one contract.
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
                           reinterpret_cast<const void*>(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+                          reinterpret_cast<const void*>(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -318,6 +341,7 @@ int main()
         // matrix is the identity — one draw for the whole world.
         Mat4 mvp = projection * view;
         glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, mvp.data());
+        glUniform3f(sunLocation, sunDir.x, sunDir.y, sunDir.z);
         glDrawArrays(GL_TRIANGLES, 0, terrainVertexCount);
         window.display();
     }

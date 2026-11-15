@@ -246,6 +246,12 @@ Next is the merger this arc has been promising: the Gold Rush tile world, extrud
 
 The lesson also produced my favourite verification so far: a pixel-diff against an old screenshot suggested the world had changed, so instead of arguing with a picture I compiled a probe against Lesson 32's code from a git worktree and compared full-grid checksums — identical, cell for cell. The screenshot had been framed through a leftover config; the world never moved. Instruments over eyeballs, again.
 
+## Lesson 39 — Sunlight: Normals and a Directional Light
+
+**Built:** real light. Every face of the heightfield now carries its exact normal (the mesh is axis-aligned, so the builder *knows* them — tops point up, skirts point along their axis), and the fragment shader runs Lambert's law against a western sun: one dot product, an ambient floor so shadow sides stay readable, and Lesson 38's hand-darkened skirt trick deleted — fakes don't get layered over, they get replaced. The low screenshot is the proof: individual blocks in the lake show a lit face and an ambient face, and the shading direction agrees across the whole map, which only a directional light does. The loader census grew by one (`glUniform3f`, the sun's channel).
+
+One honest footnote the devlog records: the normals ride unrotated because the terrain's model is the identity — the day a rotated model carries normals, they'll need the inverse-transpose. Noted, not dodged.
+
 ---
 
-_Blog continues from Lesson 39. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 40. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
