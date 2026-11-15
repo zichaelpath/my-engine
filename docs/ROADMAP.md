@@ -2,7 +2,7 @@
 
 _The living plan. Lesson counts are honest estimates, not promises; dogfooding (building a real game on the engine in Arc 7) is expected to reorder later arcs. Updated as arcs complete._
 
-**Where we are:** Arc 1 complete (Lessons 1–9). The engine today: an editor with dockable panels and a resizable game view, play/pause/step time controls, the game as a library (`GameLib`), and a standalone runtime. One square, honestly earned.
+**Where we are:** Lessons 1–16 complete. Arc 1 ✅, Arc 2 ✅, Arc 3 in progress (entities, AABB collision, and the camera are in; sprites & animation are next). The engine today: `GameLib` + editor + runtime, a deterministic 1600×1200 procgen world, data-driven entities that collide, and a follow/zoom camera in both hosts.
 
 **The honest scale:** Godot is ~25 years and hundreds of contributors. This roadmap does not chase feature-for-feature parity. The target is the depth a solo developer actually uses to ship real 2D games — rendering, entities, scenes, collision, audio, procgen, a real editor — every piece understood from the inside, plus the first 3D steps. That is roughly **80 lessons** to the end of Arc 9.
 
