@@ -1,14 +1,17 @@
 #include <SFML/Window.hpp>
 #include "GLLoader.hpp"
 #include "Log.hpp"
+#include "Mat4.hpp"
 #include <array>
+#include <cmath>
+#include <cstdint>
 #include <string>
 
-// MyGL (Lesson 35) — the engine's third host and Arc 8's beachhead:
-// a raw OpenGL 3.3 core window beside the SFML-rendered ones. SFML
-// is demoted to what it is good at here — window, context, events —
-// and every pixel is drawn by our own shader pipeline: source ->
-// compile -> link -> buffers -> draw. The 2D hosts are untouched.
+// MyGL (Lessons 35-36) — the raw OpenGL host. Lesson 36 grows the
+// gradient triangle into a spinning cube: indexed geometry (8 shared
+// corners, 36 indices), the depth test, and the MVP chain — model
+// rotation, view translation, perspective projection — computed per
+// frame by the engine's own Mat4 and uploaded as a uniform.
 
 namespace
 {
@@ -17,10 +20,11 @@ const char* kVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aColor;
+uniform mat4 uMVP;
 out vec3 vColor;
 void main()
 {
-    gl_Position = vec4(aPos, 1.0);
+    gl_Position = uMVP * vec4(aPos, 1.0);
     vColor = aColor;
 }
 )";
@@ -35,9 +39,6 @@ void main()
 }
 )";
 
-// Compiles one shader stage; on failure, logs the driver's own
-// message (the info log) and returns 0. Shader bugs are found in
-// these logs or not at all — there is no stack trace in GLSL land.
 GLuint compileShader(GLenum type, const char* source, const char* stageName)
 {
     GLuint shader = glCreateShader(type);
@@ -98,31 +99,61 @@ int main()
     }
     glDeleteShader(vertex);
     glDeleteShader(fragment);
-    Log::info("Shader program linked");
+    GLint mvpLocation = glGetUniformLocation(program, "uMVP");
+    if (mvpLocation < 0)
+    {
+        Log::error("Uniform uMVP not found in the shader program");
+        return 1;
+    }
+    Log::info("Shader program linked; uMVP located");
 
-    // One triangle, position and colour interleaved per vertex. The
-    // fragment colour is interpolated across the face by the GPU —
-    // the gradient is the proof the whole pipeline is alive.
-    const std::array<float, 18> vertices = {
-        // position          colour
-        -0.6f, -0.5f, 0.0f, 1.0f, 0.25f, 0.2f, // bottom-left, red
-        0.6f, -0.5f, 0.0f, 0.25f, 1.0f, 0.35f, // bottom-right, green
-        0.0f, 0.55f, 0.0f, 0.3f, 0.45f, 1.0f,  // top, blue
+    // The cube: 8 corners, each coloured by its own coordinates
+    // (position + 0.5), so the whole RGB space shows on the surface.
+    // Faces share corners through the index buffer — 36 indices
+    // instead of 36 duplicated vertices.
+    const std::array<float, 48> vertices = {
+        // position              colour (position + 0.5)
+        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+        0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
+        0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 1.0f,
+        0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f,
+        -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 1.0f,
+    };
+    // Outward-facing, counter-clockwise seen from outside each face.
+    const std::array<std::uint32_t, 36> indices = {
+        4, 5, 6, 4, 6, 7, // front (+z)
+        1, 0, 3, 1, 3, 2, // back (-z)
+        5, 1, 2, 5, 2, 6, // right (+x)
+        0, 4, 7, 0, 7, 3, // left (-x)
+        7, 6, 2, 7, 2, 3, // top (+y)
+        0, 1, 5, 0, 5, 4, // bottom (-y)
     };
     GLuint vao = 0;
     GLuint vbo = 0;
+    GLuint ebo = 0;
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(float)),
                  vertices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(std::uint32_t)),
+                 indices.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
                           reinterpret_cast<const void*>(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    glEnable(GL_DEPTH_TEST);
+
+    sf::Clock clock;
     while (window.isOpen())
     {
         while (const std::optional event = window.pollEvent())
@@ -133,14 +164,28 @@ int main()
                 if (key->code == sf::Keyboard::Key::Escape)
                     window.close();
         }
+        float t = clock.getElapsedTime().asSeconds();
 
         sf::Vector2u size = window.getSize();
+        float aspect = size.y > 0 ? static_cast<float>(size.x) / static_cast<float>(size.y)
+                                  : 1.f;
         glViewport(0, 0, static_cast<GLsizei>(size.x), static_cast<GLsizei>(size.y));
+
+        // The chain, read right to left: the cube spins in its own
+        // space (model), the world slides back so the camera can see
+        // it (view), and the frustum squeezes it into the cube of
+        // clip space (projection).
+        Mat4 model = Mat4::rotationY(t * 0.9f) * Mat4::rotationX(t * 0.6f);
+        Mat4 view = Mat4::translation(0.f, 0.f, -2.6f);
+        Mat4 projection = Mat4::perspective(60.f * 3.14159265f / 180.f, aspect, 0.1f, 100.f);
+        Mat4 mvp = projection * view * model;
+
         glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(program);
+        glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, mvp.data());
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
         window.display();
     }
     return 0;

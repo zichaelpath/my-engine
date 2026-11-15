@@ -228,6 +228,12 @@ Thirty-four lessons ago this was an empty window. It's now an engine with an edi
 
 Next: the triangle grows up — an indexed cube, depth testing, and the model/view/projection matrix chain.
 
+## Lesson 36 — The Cube: Depth, Indices, and the MVP Chain
+
+**Built:** the triangle grows up. The cube is 8 corners shared by 36 indices (the colours flow *across* the edges in the screenshot because the faces literally share vertices), the depth test keeps a per-pixel distance image so the back faces lose to the front ones, and the spin comes from the classic chain — model × view × projection — computed by a new header-only `Mat4` written for the engine: column-major, right-handed, -Z forward, no library. The loader grew by exactly two lines (the uniform functions the MVP travels through), keeping its census honest.
+
+Next: a flyable camera — lookAt, WASD, and a field of cubes to move through — then the merger: the 2D tile world, extruded into 3D.
+
 ---
 
-_Blog continues from Lesson 36. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 37. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
