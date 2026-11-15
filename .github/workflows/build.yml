@@ -1,0 +1,53 @@
+name: build
+
+# Every push to main builds the whole engine on Linux and Windows
+# and runs the MyTests harness (Lesson 46). A red X here means the
+# engine broke, on a machine that is not the author's and not the
+# build rig's — which is exactly the point.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev libxext-dev libxfixes-dev libxrandr-dev \
+            libxcursor-dev libxi-dev libudev-dev libgl1-mesa-dev \
+            libfreetype-dev libogg-dev libvorbis-dev libflac-dev \
+            xvfb
+
+      - name: Configure
+        run: cmake -B BuildLinux -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build BuildLinux -j4
+
+      - name: Test (under a virtual display — the engine core owns GL resources)
+        run: |
+          xvfb-run -a ./BuildLinux/MyTests | tee /tmp/tests.log
+          grep -q "0 failed" /tmp/tests.log
+          grep -qE "[1-9][0-9]* passed" /tmp/tests.log
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B Build
+
+      - name: Build
+        run: cmake --build Build --config Release --parallel
+
+      - name: Test
+        run: Build\Release\MyTests.exe
