@@ -13,7 +13,7 @@ class Game
 public:
     Game();
 
-    void update(float dt, sf::Vector2f worldSize);
+    void update(float dt);
     void render(sf::RenderTarget& target) const;
     void setSeed(std::uint32_t seed);
     void generateTerrain();
@@ -23,6 +23,8 @@ public:
     std::uint32_t seed() const { return m_seed; }
     float noiseFrequency() const { return m_noiseFrequency; }
     sf::Vector2f playerPosition() const;
+    sf::Vector2f playerCenter() const;
+    sf::Vector2f worldSize() const { return m_worldSize; }
 
     // Adds an entity to the world and returns its index (its identity:
     // indices stay valid for the world's lifetime; entities are never
@@ -47,6 +49,11 @@ private:
     Random m_random;
     ValueNoise m_noise{0};
     float m_noiseFrequency = 0.01f;
+
+    // The world's size is the game's own fact (Lesson 16): generation,
+    // movement clamps, and camera clamps all read this — never the
+    // size of any canvas the world happens to be drawn on.
+    sf::Vector2f m_worldSize{1600.f, 1200.f};
 
     std::vector<Entity> m_entities;
     std::size_t m_playerEntity = 0;

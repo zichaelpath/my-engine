@@ -2,9 +2,11 @@
 #include <imgui.h>
 #include <imgui-SFML.h>
 #include <iostream>
+#include "Camera.hpp"
 #include "Config.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
+#include <algorithm>
 #include <random>
 
 int main()
@@ -31,6 +33,10 @@ int main()
     if (config.getFloat("noiseScale", 0.01f) != game.noiseFrequency())
         game.setNoiseFrequency(config.getFloat("noiseScale", 0.01f));
     game.speed = config.getFloat("playerSpeed", 200.f);
+
+    Camera camera;
+    bool followCam = true;
+    float zoom = 1.f;
 
     sf::Clock clock;
     int frames = 0;
@@ -89,6 +95,9 @@ int main()
         sf::Vector2f p = game.playerPosition();
         ImGui::Text("Player: (%.0f, %.0f)", p.x, p.y);
         ImGui::Text("Entities: %d", static_cast<int>(game.entities().size()));
+        ImGui::Text("Camera: (%.0f, %.0f)", camera.center.x, camera.center.y);
+        ImGui::Checkbox("Camera follow", &followCam);
+        ImGui::SliderFloat("Zoom", &zoom, 0.4f, 3.f);
         ImGui::Text("Game time: %.2f s", game.time);
         if (ImGui::Button(playing ? "Pause" : "Play"))
         {
@@ -153,14 +162,22 @@ int main()
 
 
         if (playing || stepClicked)
-            game.update(dt, sf::Vector2f(gameView.getSize()));
+            game.update(dt);
 
         sf::Vector2u wantSize(panelSize);
         if (wantSize.x > 0 && wantSize.y > 0 && wantSize != gameView.getSize())
-        {
             gameView.resize(wantSize);
-            gameView.setView(sf::View(sf::FloatRect({0.f, 0.f}, sf::Vector2f(wantSize))));
-        }
+
+        // The Game View's camera: follows the player unless told not
+        // to; zoom sets the visible height; the view is rebuilt every
+        // frame from the texture's current size.
+        camera.viewHeight = 600.f / zoom;
+        sf::Vector2f canvasSize(gameView.getSize());
+        if (followCam)
+            camera.follow(game.playerCenter(), game.worldSize(), canvasSize);
+        else
+            camera.clampToWorld(game.worldSize(), canvasSize);
+        gameView.setView(camera.makeView(canvasSize));
 
         game.render(gameView);
         gameView.display();
@@ -170,6 +187,22 @@ int main()
         if (avail.x > 0.f && avail.y > 0.f)
             panelSize = sf::Vector2(avail.x, avail.y);
         ImGui::Image(gameView, panelSize);
+        if (ImGui::IsWindowHovered())
+        {
+            // Mouse wheel zooms; right-drag grabs the world and pans
+            // (disable Camera follow to stay where you pan to).
+            float wheel = ImGui::GetIO().MouseWheel;
+            if (wheel != 0.f)
+                zoom = std::clamp(zoom * (1.f + wheel * 0.1f), 0.4f, 3.f);
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Right))
+            {
+                ImVec2 drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
+                sf::Vector2f view = camera.viewSize(panelSize);
+                camera.center -= sf::Vector2f(drag.x * view.x / panelSize.x,
+                                              drag.y * view.y / panelSize.y);
+                ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
+            }
+        }
         ImGui::End();
         ImGui::PopStyleVar();
 

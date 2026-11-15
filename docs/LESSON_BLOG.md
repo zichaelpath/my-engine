@@ -108,6 +108,12 @@ The design restraint is deliberate and the devlog argues it openly: a struct of 
 
 The verification is the part worth telling: the editor was driven by automated key input — up for a beat, then left, straight at a crate. The screenshot shows the player resting flush against the crate's face, and the debug panel reads **Player: (240, 153)**. That 240 is the crate's right edge, exactly — the contact plane, computed. Without collision the same keys land the player at x≈95, inside the lake on the far side. The build also produced the arc's best error message so far: a missing `};` in `Entity.hpp` made the C++ standard library itself appear to explode, forty errors deep, none of them within a mile of the actual fault. The devlog records the moral — when the STL "breaks", look at the last header you touched.
 
+## Lesson 16 — The Camera (Arc 3, Part 3)
+
+**Built:** the world outgrew the screen. `Game` now owns a world size — 1600×1200 — and generation, movement, and clamping all read it; `update` doesn't take a size from anyone anymore. That closes the question Zac himself opened back in Lesson 10, when he spotted generation hardcoding 800×600 while movement followed the canvas: the canvas is now fully demoted to a window you look through, never a boundary. On top of that sits `Camera` — a centre and a visible height, nothing more. Width derives from the canvas aspect (distortion is impossible), zoom *is* the visible height changing, and follow is centre-on-target plus a clamp that keeps the view inside the world.
+
+The screenshots carry the proof three ways. The runtime at spawn shows the familiar continent — same noise, same coordinates — except it now continues past every edge of the window. Drive into the corner and the framing doesn't move a pixel: the camera parks at the world's edge and the player walks off-centre to stand in the corner, which is the clamp working exactly as designed. In the editor, six mouse-wheel clicks over the Game View pull the zoom to 0.531 and nearly the whole 1600×1200 world fits on screen at once, dark bands of honest nothing beyond its edges. The runtime also quietly deleted its window-resize handler this lesson — when the view is re-derived every frame, there is nothing left for the handler to maintain. Arc 3 has one lesson left: sprites and animation, and the coloured rectangles retire.
+
 ---
 
-_Blog continues from Lesson 16. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 17. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

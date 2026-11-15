@@ -58,9 +58,9 @@ void Game::setSeed(std::uint32_t seed)
 
 void Game::generateField()
 {
-    constexpr int tilesX = 40;
-    constexpr int tilesY = 30;
     constexpr float tileSize = 20.f;
+    const int tilesX = static_cast<int>(m_worldSize.x / tileSize);
+    const int tilesY = static_cast<int>(m_worldSize.y / tileSize);
 
     m_field.setPrimitiveType(sf::PrimitiveType::Triangles);
     m_field.clear();
@@ -120,12 +120,12 @@ void Game::setNoiseFrequency(float frequency)
 void Game::generateTerrain()
 {
     m_blocks.clear();
-    for (int i = 0; i < 12; ++i)
+    for (int i = 0; i < 24; ++i)
     {
         float size = m_random.rangeFloat("terrain", 20.f, 60.f);
         sf::RectangleShape block(sf::Vector2f(size, size));
-        block.setPosition({m_random.rangeFloat("terrain", 0.f, 800.f - size),
-                           m_random.rangeFloat("terrain", 0.f, 600.f - size)});
+        block.setPosition({m_random.rangeFloat("terrain", 0.f, m_worldSize.x - size),
+                           m_random.rangeFloat("terrain", 0.f, m_worldSize.y - size)});
         int shade = m_random.rangeInt("terrain", 80, 130);
         block.setFillColor(sf::Color(static_cast<std::uint8_t>(shade),
                                      static_cast<std::uint8_t>(shade + 20),
@@ -138,19 +138,19 @@ void Game::generateTerrain()
 void Game::generateDecor()
 {
     m_dots.clear();
-    for (int i = 0; i < 20; ++i)
+    for (int i = 0; i < 40; ++i)
     {
         float r = m_random.rangeFloat("decor", 3.f, 7.f);
         sf::CircleShape dot(r);
-        dot.setPosition({m_random.rangeFloat("decor", 0.f, 800.f - 2.f * r),
-                         m_random.rangeFloat("decor", 0.f, 600.f - 2.f * r)});
+        dot.setPosition({m_random.rangeFloat("decor", 0.f, m_worldSize.x - 2.f * r),
+                         m_random.rangeFloat("decor", 0.f, m_worldSize.y - 2.f * r)});
         dot.setFillColor(sf::Color(220, 180, 60));
         m_dots.push_back(dot);
     }
     Log::info("Decor generated: " + std::to_string(m_dots.size()) + " dots");
 }
 
-void Game::update(float dt, sf::Vector2f worldSize)
+void Game::update(float dt)
 {
     time += dt;
 
@@ -192,9 +192,9 @@ void Game::update(float dt, sf::Vector2f worldSize)
     }
 
     player.position.x =
-        std::clamp(player.position.x, 0.f, std::max(0.f, worldSize.x - player.size.x));
+        std::clamp(player.position.x, 0.f, std::max(0.f, m_worldSize.x - player.size.x));
     player.position.y =
-        std::clamp(player.position.y, 0.f, std::max(0.f, worldSize.y - player.size.y));
+        std::clamp(player.position.y, 0.f, std::max(0.f, m_worldSize.y - player.size.y));
 }
 
 void Game::resolveCollisions(Entity& mover, float movement, bool xAxis)
@@ -254,4 +254,10 @@ void Game::render(sf::RenderTarget& target) const
 sf::Vector2f Game::playerPosition() const
 {
     return m_entities[m_playerEntity].position;
+}
+
+sf::Vector2f Game::playerCenter() const
+{
+    const Entity& player = m_entities[m_playerEntity];
+    return player.position + player.size / 2.f;
 }

@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include "Camera.hpp"
 #include "Config.hpp"
 #include "Game.hpp"
 
@@ -25,6 +26,7 @@ int main()
     if (config.getFloat("noiseScale", 0.01f) != game.noiseFrequency())
         game.setNoiseFrequency(config.getFloat("noiseScale", 0.01f));
     game.speed = config.getFloat("playerSpeed", 200.f);
+    Camera camera;
     sf::Clock clock;
 
     while (window.isOpen())
@@ -45,13 +47,14 @@ int main()
                     window.close();
                 }
             }
-            
-            if (const auto* resized = event->getIf<sf::Event::Resized>())
-            {
-                window.setView(sf::View(sf::FloatRect({0.f, 0.f}, sf::Vector2f(resized->size))));
-            }
         }
-        game.update(dt, sf::Vector2f(window.getSize()));
+        game.update(dt);
+        // The camera follows the player, clamped so the view never
+        // leaves the world; it is re-derived every frame from the
+        // window's current size, so resizes need no event handling.
+        camera.follow(game.playerCenter(), game.worldSize(),
+                      sf::Vector2f(window.getSize()));
+        window.setView(camera.makeView(sf::Vector2f(window.getSize())));
         game.render(window);
         window.display();
     }
