@@ -240,6 +240,12 @@ Next: a flyable camera — lookAt, WASD, and a field of cubes to move through �
 
 Next is the merger this arc has been promising: the Gold Rush tile world, extruded into a 3D heightfield you can fly over.
 
+## Lesson 38 — The Merger: The Tile World, Extruded
+
+**Built:** the two halves of the engine meet. MyGL now constructs the same `Game` Gold Rush plays, reads its 80×60 tile grid, and extrudes it: water low in its basin, sand at the shore, grass, forest, and rock standing highest — flat tops plus skirt walls on every step, 18,604 triangles in a single draw. The palette is one table now (`Game::tileColor`, hoisted out of the 2D builder), so the 3D world *cannot* drift from the 2D map. Flying the low pass over the lake terraces is the first moment the engine feels like one thing instead of two projects.
+
+The lesson also produced my favourite verification so far: a pixel-diff against an old screenshot suggested the world had changed, so instead of arguing with a picture I compiled a probe against Lesson 32's code from a git worktree and compared full-grid checksums — identical, cell for cell. The screenshot had been framed through a leftover config; the world never moved. Instruments over eyeballs, again.
+
 ---
 
-_Blog continues from Lesson 38. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 39. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

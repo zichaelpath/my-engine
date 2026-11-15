@@ -69,6 +69,14 @@ public:
     int tileAtWorld(sf::Vector2f worldPos) const;
     int playerTile() const;
     static const char* tileName(int id);
+    // Grid-space access (Lesson 38): dimensions, the id at a grid
+    // cell (-1 outside), and the one palette both renderers share —
+    // hoisted out of the 2D field builder so the 3D heightfield is
+    // coloured by the same table, not a copy of it.
+    int tilesX() const { return m_tilesX; }
+    int tilesY() const { return m_tilesY; }
+    int tileAt(int tx, int ty) const;
+    static sf::Color tileColor(int id);
 
     // Adds an entity to the world and returns its index (its identity:
     // indices stay valid for the world's lifetime; entities are never

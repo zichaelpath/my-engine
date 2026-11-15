@@ -170,18 +170,8 @@ void Game::generateField()
         }
 
     // Step 2: build the picture FROM the data. Id -> colour lives in
-    // exactly one place, so the map and its legend can never drift.
-    auto tileColor = [](int id) {
-        switch (id)
-        {
-            case tiles::DeepWater: return sf::Color(40, 70, 140);
-            case tiles::Water:     return sf::Color(60, 100, 170);
-            case tiles::Sand:      return sf::Color(200, 190, 130);
-            case tiles::Grass:     return sf::Color(90, 160, 80);
-            case tiles::Forest:    return sf::Color(50, 110, 60);
-            default:               return sf::Color(200, 200, 205); // rock
-        }
-    };
+    // exactly one place (Game::tileColor), so the map and its legend
+    // can never drift.
     m_field.setPrimitiveType(sf::PrimitiveType::Triangles);
     m_field.clear();
     for (int ty = 0; ty < m_tilesY; ++ty)
@@ -221,9 +211,30 @@ int Game::tileAtWorld(sf::Vector2f worldPos) const
 {
     int tx = static_cast<int>(std::floor(worldPos.x / TILE_SIZE));
     int ty = static_cast<int>(std::floor(worldPos.y / TILE_SIZE));
+    return tileAt(tx, ty);
+}
+
+int Game::tileAt(int tx, int ty) const
+{
     if (tx < 0 || ty < 0 || tx >= m_tilesX || ty >= m_tilesY)
         return -1;
     return m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)];
+}
+
+// The one palette (Lesson 38 hoisted it here from the field
+// builder): the 2D vertex field and the 3D heightfield both read
+// their colours from this table.
+sf::Color Game::tileColor(int id)
+{
+    switch (id)
+    {
+        case tiles::DeepWater: return sf::Color(40, 70, 140);
+        case tiles::Water:     return sf::Color(60, 100, 170);
+        case tiles::Sand:      return sf::Color(200, 190, 130);
+        case tiles::Grass:     return sf::Color(90, 160, 80);
+        case tiles::Forest:    return sf::Color(50, 110, 60);
+        default:               return sf::Color(200, 200, 205); // rock
+    }
 }
 
 int Game::playerTile() const

@@ -60,19 +60,16 @@ target_link_libraries(GameLib PUBLIC
 # --- OpenGL (Lesson 35, Arc 8) ---
 # GLLoader is the engine's own function loader: post-1.1 entry points
 # resolved at runtime from the driver (see src/GLLoader.hpp). It uses
-# Log from GameLib. The platform GL library is the only link — on
-# Linux the X11/GLX proc-address path, on Windows wglGetProcAddress.
+# Log from GameLib. OpenGL::GL carries both the platform library
+# (libGL / opengl32) and — the part that bit in Lesson 38 — the
+# include path for <GL/gl.h>, wherever this machine keeps it.
+find_package(OpenGL REQUIRED)
+
 add_library(GLLoader src/GLLoader.cpp)
 
 target_include_directories(GLLoader PUBLIC src vendor)
 
-target_link_libraries(GLLoader PUBLIC GameLib)
-
-if(WIN32)
-    target_link_libraries(GLLoader PUBLIC opengl32)
-else()
-    target_link_libraries(GLLoader PUBLIC GL)
-endif()
+target_link_libraries(GLLoader PUBLIC GameLib OpenGL::GL)
 
 # MyGL: the raw-OpenGL host. SFML provides the window/context/events
 # only (sf::Window, not RenderWindow — no SFML rendering state).
