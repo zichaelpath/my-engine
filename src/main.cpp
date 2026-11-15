@@ -327,6 +327,7 @@ int main()
                 if (ImGui::Selectable(label.c_str(), selected == i))
                 {
                     selected = i;
+                    game.playSound("assets/click.wav"); // UI feedback (Lesson 31)
                     Log::info("Selected: " + e.name + " (index " +
                               std::to_string(i) + ")");
                 }
@@ -522,6 +523,7 @@ int main()
                 selected = pickEntity(game, world);
                 if (selected >= 0)
                 {
+                    game.playSound("assets/click.wav"); // UI feedback (Lesson 31)
                     Log::info("Selected: " +
                               game.entities()[static_cast<std::size_t>(selected)].name +
                               " (index " + std::to_string(selected) + ")");

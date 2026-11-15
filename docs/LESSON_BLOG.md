@@ -198,6 +198,12 @@ SFML 3's audio API broke two of my from-memory assumptions (sounds are born with
 
 The verification carries an honest asterisk, recorded in full in the devlog: this build VM has no audio device at all (and SFML 3 turns out to use miniaudio, not OpenAL), so the stream reports Playing and the controls provably work, but the playback offset can't advance without something consuming samples. The hearing test, like the sound effects', happens on Zac's machine.
 
+## Lesson 31 — Bump and Click (Arc 6 Closes)
+
+**Built:** the last two sounds. The bump needs no new collision plumbing: the resolver already computes the truth every frame — the player *asked* for so many pixels and *got* fewer — so a displacement deficit on either axis means contact, with crates and terrain blocks alike, and a short cooldown keeps a held push from machine-gunning the knock. The editor's selection tick borrows the game's sound pool, a small coupling named in the devlog with its graduation condition (a third consumer earns the pool its own Audio service). With that, Arc 6 is done: every sound in the engine — steps, splash, bump, click, music, even the placeholder blip — is synthesized from math by one tools script.
+
+Next is the payoff arc: a real game on this engine. The decor generator has been scattering gold dots since Lesson 10 — time to make them collectible, add a win state and a timer, and ship it in the Runtime.
+
 ---
 
-_Blog continues from Lesson 31. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._
+_Blog continues from Lesson 32. Since the handover, Dietrich builds and keeps every record; Zac pulls when he's ready._

@@ -68,6 +68,34 @@ def splash():
     return out
 
 
+def bump():
+    """A short woody knock for walking into something solid."""
+    n = int(RATE * 0.07)
+    out = []
+    phase = 0.0
+    for i in range(n):
+        t = i / RATE
+        env = math.exp(-t * 70.0)
+        freq = 200.0 - 1400.0 * t
+        if freq < 90.0:
+            freq = 90.0
+        phase += 2.0 * math.pi * freq / RATE
+        click = random.uniform(-1.0, 1.0) * math.exp(-t * 300.0)
+        out.append((math.sin(phase) * 0.85 + click * 0.3) * env)
+    return out
+
+
+def click():
+    """A tiny UI tick for editor selections."""
+    n = int(RATE * 0.03)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        env = math.exp(-t * 160.0)
+        out.append(math.sin(2.0 * math.pi * 2100.0 * t) * env * 0.6)
+    return out
+
+
 def music():
     """A 16-second ambient loop at 22050 Hz (half rate keeps the
     file small; pads don't need the top octave).
@@ -151,4 +179,6 @@ if __name__ == "__main__":
     random.seed(20261115)  # the sounds are deterministic too
     write_wav("assets/step.wav", step())
     write_wav("assets/splash.wav", splash())
+    write_wav("assets/bump.wav", bump())
+    write_wav("assets/click.wav", click())
     music()

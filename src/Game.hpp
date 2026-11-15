@@ -129,6 +129,7 @@ private:
     int m_lastPlayerTile = -1; // splash edge detection (-1 = unknown)
     sf::Music m_music;
     std::string m_musicTrack;
+    float m_bumpCooldown = 0.f; // bump-sound throttle (Lesson 31)
 
     std::vector<int> m_tiles;
     int m_tilesX = 0;

@@ -336,6 +336,7 @@ void Game::update(float dt)
     // sticking. At this engine's speeds (a few pixels per frame) a
     // discrete overlap test cannot tunnel; fast projectiles will one
     // day need swept tests, and will say so when they arrive.
+    sf::Vector2f beforeMove = player.position;
     if (move.x != 0.f)
     {
         player.position.x += move.x;
@@ -345,6 +346,22 @@ void Game::update(float dt)
     {
         player.position.y += move.y;
         resolveCollisions(player, move.y, false);
+    }
+
+    // Bump (Lesson 31): if an axis asked for more travel than the
+    // world allowed, the player ran into something. The displacement
+    // comparison sees every collider (entities and terrain blocks
+    // resolve through the same path), and a cooldown keeps a held
+    // push from machine-gunning the sound.
+    m_bumpCooldown -= dt;
+    bool blockedX = move.x != 0.f &&
+                    std::abs(player.position.x - beforeMove.x) < std::abs(move.x) - 0.001f;
+    bool blockedY = move.y != 0.f &&
+                    std::abs(player.position.y - beforeMove.y) < std::abs(move.y) - 0.001f;
+    if ((blockedX || blockedY) && m_bumpCooldown <= 0.f)
+    {
+        playSound("assets/bump.wav");
+        m_bumpCooldown = 0.25f;
     }
 
     // The world bounds hold the hitbox, not the sprite: feet stop at
