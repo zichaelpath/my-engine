@@ -30,6 +30,11 @@ void Config::setDefault(const std::string& key, const std::string& value)
     m_values[key] = value;
 }
 
+void Config::set(const std::string& key, const std::string& value)
+{
+    m_values[key] = value;
+}
+
 bool Config::load(const std::string& path)
 {
     std::ifstream file(path);

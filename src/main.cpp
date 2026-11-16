@@ -55,6 +55,7 @@ int main()
     config.setDefault("playerSpeed", "200");
     config.setDefault("volume", "80");
     config.setDefault("music", "1");
+    config.setDefault("popGameView", "0"); // editor layout (L84)
     if (!config.load("engine.ini"))
         config.save("engine.ini");
 
@@ -109,6 +110,25 @@ int main()
     int paintTile = tiles::Grass;
     bool paintErase = false;
     int brushSize = 1; // 1 or 3 (a square brush)
+    // Pop-out Game View (Lesson 84): the world in its own OS
+    // window. One render path (the gameView texture); the pop
+    // window is a display surface plus a second input source,
+    // unified with the docked panel through ViewPointer.
+    sf::RenderWindow popWindow;
+    bool popOpen = false;
+    sf::Vector2i prevPopMouse;
+    bool prevPopRight = false;
+    struct ViewPointer
+    {
+        bool active = false;   // the pointer is over the view
+        bool clicked = false;  // left button went down this frame
+        bool down = false;     // left button is held
+        bool released = false; // left button went up this frame
+        bool rightDown = false;
+        float wheel = 0.f;
+        sf::Vector2i px;       // pointer in texture pixels
+        sf::Vector2i rightDelta; // movement while right is held
+    };
     // Play-test session (Lesson 28): a snapshot taken when the test
     // starts; stopping the test restores it exactly.
     bool testing = false;
@@ -179,6 +199,31 @@ int main()
 
     sf::RenderTexture gameView(sf::Vector2u(800, 600));
     sf::Vector2f panelSize{800.f, 600.f};
+
+    // Pop-out plumbing (Lesson 84): opening records the layout
+    // preference in engine.ini; closing the OS window docks.
+    auto openPop = [&]() {
+        if (popOpen)
+            return;
+        popWindow.create(sf::VideoMode({960, 540}),
+                         "MyEngine - Game View");
+        popWindow.setFramerateLimit(60);
+        popOpen = true;
+        config.set("popGameView", "1");
+        config.save("engine.ini");
+        Log::info("Game View popped out into its own window");
+    };
+    auto closePop = [&]() {
+        if (!popOpen)
+            return;
+        popWindow.close();
+        popOpen = false;
+        config.set("popGameView", "0");
+        config.save("engine.ini");
+        Log::info("Game View docked");
+    };
+    if (config.getBool("popGameView", false))
+        openPop(); // the layout the author left last time
 
     bool playing = true;
 
@@ -1031,7 +1076,54 @@ int main()
         if (playing || stepClicked)
             game.update(dt);
 
-        sf::Vector2u wantSize(panelSize);
+        // The frame's unified view pointer (Lesson 84): when the
+        // Game View is popped out, its window's events are
+        // drained and its mouse polled into the same shape the
+        // docked panel produces from ImGui — the interaction
+        // code below cannot tell the two apart.
+        ViewPointer viewPtr;
+        if (popOpen)
+        {
+            while (const std::optional ev = popWindow.pollEvent())
+            {
+                if (ev->is<sf::Event::Closed>())
+                    closePop();
+                else if (const auto* mb =
+                             ev->getIf<sf::Event::MouseButtonPressed>();
+                         mb && mb->button == sf::Mouse::Button::Left)
+                    viewPtr.clicked = true;
+                else if (const auto* mr =
+                             ev->getIf<sf::Event::MouseButtonReleased>();
+                         mr && mr->button == sf::Mouse::Button::Left)
+                    viewPtr.released = true;
+                else if (const auto* mw =
+                             ev->getIf<sf::Event::MouseWheelScrolled>())
+                    viewPtr.wheel += mw->delta;
+            }
+            if (popOpen) // the drain may have just docked it
+            {
+                const sf::Vector2i m =
+                    sf::Mouse::getPosition(popWindow);
+                viewPtr.px = m;
+                viewPtr.down = sf::Mouse::isButtonPressed(
+                    sf::Mouse::Button::Left);
+                viewPtr.rightDown = sf::Mouse::isButtonPressed(
+                    sf::Mouse::Button::Right);
+                viewPtr.active =
+                    m.x >= 0 && m.y >= 0 &&
+                    m.x < static_cast<int>(popWindow.getSize().x) &&
+                    m.y < static_cast<int>(popWindow.getSize().y);
+                if (viewPtr.rightDown && prevPopRight)
+                    viewPtr.rightDelta = m - prevPopMouse;
+                prevPopMouse = m;
+                prevPopRight = viewPtr.rightDown;
+            }
+        }
+
+        sf::Vector2u wantSize(
+            popOpen ? popWindow.getSize()
+                    : sf::Vector2u(static_cast<unsigned int>(panelSize.x),
+                                   static_cast<unsigned int>(panelSize.y)));
         if (wantSize.x > 0 && wantSize.y > 0 && wantSize != gameView.getSize())
             gameView.resize(wantSize);
 
@@ -1066,134 +1158,179 @@ int main()
             gameView.draw(highlight);
         }
         gameView.display();
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-        ImGui::Begin("Game View");
-        ImVec2 avail = ImGui::GetContentRegionAvail();
-        if (avail.x > 0.f && avail.y > 0.f)
-            panelSize = sf::Vector2(avail.x, avail.y);
-        ImVec2 imagePos = ImGui::GetCursorScreenPos();
-        ImGui::Image(gameView, panelSize);
-        if (ImGui::IsWindowHovered())
+        if (popOpen)
         {
-            // Terrain painting (Lesson 83): in paint mode the
-            // left button paints a stroke — one undo snapshot at
-            // the grab, tiles applied while the button is down.
-            if (paintMode)
+            // The popped window shows the same texture, 1:1 (it
+            // was resized to the window above).
+            popWindow.clear(sf::Color::Black);
+            sf::Sprite frame(gameView.getTexture());
+            popWindow.draw(frame);
+            popWindow.display();
+        }
+
+        // Everything the pointer can do to the view (Lessons
+        // 25/83), written once against ViewPointer: the docked
+        // panel and the popped window feed it identically.
+        auto interactWithView = [&](const ViewPointer& ptr) {
+            const sf::Vector2f canvas(gameView.getSize());
+            auto toWorld = [&]() {
+                return gameView.mapPixelToCoords(ptr.px);
+            };
+            if (ptr.active)
             {
-                auto paintAt = [&](sf::Vector2f world) {
-                    const int cx = static_cast<int>(
-                        std::floor(world.x / Game::TILE_SIZE));
-                    const int cy = static_cast<int>(
-                        std::floor(world.y / Game::TILE_SIZE));
-                    const int r = brushSize / 2;
-                    for (int ty = cy - r; ty <= cy + r; ++ty)
-                        for (int tx = cx - r; tx <= cx + r; ++tx)
-                        {
-                            if (paintErase)
-                                game.eraseTileOverride(tx, ty);
-                            else
-                                game.setTile(tx, ty, paintTile);
-                        }
-                };
-                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                // Terrain painting (Lesson 83): in paint mode
+                // the left button paints a stroke — one undo
+                // snapshot at the grab, tiles while held.
+                if (paintMode)
                 {
-                    pushUndo(); // one snapshot per stroke
-                    painting = true;
-                    ImVec2 mouse = ImGui::GetMousePos();
-                    paintAt(gameView.mapPixelToCoords(
-                        {static_cast<int>(mouse.x - imagePos.x),
-                         static_cast<int>(mouse.y - imagePos.y)}));
+                    auto paintAt = [&](sf::Vector2f world) {
+                        const int cx = static_cast<int>(
+                            std::floor(world.x / Game::TILE_SIZE));
+                        const int cy = static_cast<int>(
+                            std::floor(world.y / Game::TILE_SIZE));
+                        const int r = brushSize / 2;
+                        for (int ty = cy - r; ty <= cy + r; ++ty)
+                            for (int tx = cx - r; tx <= cx + r; ++tx)
+                            {
+                                if (paintErase)
+                                    game.eraseTileOverride(tx, ty);
+                                else
+                                    game.setTile(tx, ty, paintTile);
+                            }
+                    };
+                    if (ptr.clicked)
+                    {
+                        pushUndo(); // one snapshot per stroke
+                        painting = true;
+                        paintAt(toWorld());
+                    }
+                    else if (painting && ptr.down)
+                        paintAt(toWorld());
                 }
-                else if (painting &&
-                         ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                // Left click picks (Lesson 25): a successful
+                // pick starts a drag; the grab offset is kept so
+                // the entity doesn't jump to the cursor. Paint
+                // mode owns the button instead (Lesson 83).
+                if (!paintMode && ptr.clicked)
                 {
-                    ImVec2 mouse = ImGui::GetMousePos();
-                    paintAt(gameView.mapPixelToCoords(
-                        {static_cast<int>(mouse.x - imagePos.x),
-                         static_cast<int>(mouse.y - imagePos.y)}));
+                    const sf::Vector2f world = toWorld();
+                    selected = pickEntity(game, world);
+                    if (selected >= 0)
+                    {
+                        game.playSound("assets/click.wav");
+                        Log::info(
+                            "Selected: " +
+                            game.entities()[static_cast<std::size_t>(selected)].name +
+                            " (index " + std::to_string(selected) +
+                            ")");
+                        pushUndo(); // one snapshot per drag
+                        dragging = true;
+                        dragOffset =
+                            game.entities()[static_cast<std::size_t>(selected)]
+                                .position -
+                            world;
+                    }
+                    else
+                        Log::info("Selection cleared");
+                }
+                // Wheel zooms; right-drag pans (disable Camera
+                // follow to stay where you pan to).
+                if (ptr.wheel != 0.f)
+                    zoom = std::clamp(zoom * (1.f + ptr.wheel * 0.1f),
+                                      0.4f, 3.f);
+                if (ptr.rightDown &&
+                    (ptr.rightDelta.x != 0 || ptr.rightDelta.y != 0))
+                {
+                    const sf::Vector2f view =
+                        camera.viewSize(canvas);
+                    camera.center -= sf::Vector2f(
+                        ptr.rightDelta.x * view.x / canvas.x,
+                        ptr.rightDelta.y * view.y / canvas.y);
                 }
             }
-            if (painting &&
-                ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            if (painting && !ptr.down)
             {
                 painting = false;
                 Log::info("Paint stroke done (" +
                           std::to_string(game.tileOverrideCount()) +
                           " painted tiles)");
             }
-            // Left click picks: panel pixels -> world via the view the
-            // texture was rendered with, then a topmost-first search.
-            // A successful pick also starts a drag (Lesson 25): the
-            // grab offset is kept so the entity doesn't jump to centre
-            // itself on the cursor. Paint mode owns the button
-            // instead (Lesson 83).
-            if (!paintMode && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            // Drag-to-move continues outside the active check: a
+            // drag that leaves the view mid-pull still tracks,
+            // and the drop is caught wherever it happens. The
+            // move is logged once, on drop — never per frame.
+            if (dragging)
             {
-                ImVec2 mouse = ImGui::GetMousePos();
-                sf::Vector2f world = gameView.mapPixelToCoords(
-                    {static_cast<int>(mouse.x - imagePos.x),
-                     static_cast<int>(mouse.y - imagePos.y)});
-                selected = pickEntity(game, world);
-                if (selected >= 0)
+                const bool valid =
+                    selected >= 0 &&
+                    selected < static_cast<int>(game.entities().size());
+                if (valid && ptr.down)
+                    game.entities()[static_cast<std::size_t>(selected)]
+                        .position = toWorld() + dragOffset;
+                if (ptr.released || !ptr.down)
                 {
-                    game.playSound("assets/click.wav"); // UI feedback (Lesson 31)
-                    Log::info("Selected: " +
-                              game.entities()[static_cast<std::size_t>(selected)].name +
-                              " (index " + std::to_string(selected) + ")");
-                    pushUndo(); // one snapshot per drag, taken at the grab
-                    dragging = true;
-                    dragOffset =
-                        game.entities()[static_cast<std::size_t>(selected)].position -
-                        world;
+                    dragging = false;
+                    if (valid)
+                    {
+                        const Entity& e = game.entities()
+                            [static_cast<std::size_t>(selected)];
+                        Log::info(
+                            "Moved " + e.name + " to (" +
+                            std::to_string(static_cast<int>(e.position.x)) +
+                            ", " +
+                            std::to_string(static_cast<int>(e.position.y)) +
+                            ")");
+                    }
                 }
-                else
-                    Log::info("Selection cleared");
             }
-            // Mouse wheel zooms; right-drag grabs the world and pans
-            // (disable Camera follow to stay where you pan to).
-            float wheel = ImGui::GetIO().MouseWheel;
-            if (wheel != 0.f)
-                zoom = std::clamp(zoom * (1.f + wheel * 0.1f), 0.4f, 3.f);
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Right))
+        };
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+        ImGui::Begin("Game View");
+        if (popOpen)
+        {
+            ImGui::PopStyleVar();
+            ImGui::TextWrapped(
+                "The Game View is popped out into its own window "
+                "- drag it to a second monitor. Picking, dragging, "
+                "painting and panning all work there.");
+            if (ImGui::Button("Dock Game View"))
+                closePop();
+            interactWithView(viewPtr);
+        }
+        else
+        {
+            if (ImGui::Button("Pop out Game View"))
+                openPop();
+            ImVec2 avail = ImGui::GetContentRegionAvail();
+            if (avail.x > 0.f && avail.y > 0.f)
+                panelSize = sf::Vector2(avail.x, avail.y);
+            ImVec2 imagePos = ImGui::GetCursorScreenPos();
+            ImGui::Image(gameView, panelSize);
+            // The docked pointer, in the same shape (Lesson 84).
+            ViewPointer ptr;
+            ptr.active = ImGui::IsWindowHovered();
+            const ImVec2 mouse = ImGui::GetMousePos();
+            ptr.px = {static_cast<int>(mouse.x - imagePos.x),
+                      static_cast<int>(mouse.y - imagePos.y)};
+            ptr.clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+            ptr.down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+            ptr.released =
+                ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+            ptr.rightDown = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+            ptr.wheel = ptr.active ? ImGui::GetIO().MouseWheel : 0.f;
+            if (ptr.rightDown)
             {
-                ImVec2 drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
-                sf::Vector2f view = camera.viewSize(panelSize);
-                camera.center -= sf::Vector2f(drag.x * view.x / panelSize.x,
-                                              drag.y * view.y / panelSize.y);
+                const ImVec2 drag =
+                    ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
+                ptr.rightDelta = {static_cast<int>(drag.x),
+                                  static_cast<int>(drag.y)};
                 ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
             }
-        }
-        // Drag-to-move continues outside the hover check: a drag that
-        // leaves the panel mid-pull still tracks, and the release is
-        // caught wherever it happens. The move is logged once, on
-        // drop — never per frame.
-        if (dragging)
-        {
-            bool valid = selected >= 0 &&
-                         selected < static_cast<int>(game.entities().size());
-            if (valid && ImGui::IsMouseDown(ImGuiMouseButton_Left))
-            {
-                ImVec2 mouse = ImGui::GetMousePos();
-                sf::Vector2f world = gameView.mapPixelToCoords(
-                    {static_cast<int>(mouse.x - imagePos.x),
-                     static_cast<int>(mouse.y - imagePos.y)});
-                game.entities()[static_cast<std::size_t>(selected)].position =
-                    world + dragOffset;
-            }
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-            {
-                dragging = false;
-                if (valid)
-                {
-                    const Entity& e = game.entities()[static_cast<std::size_t>(selected)];
-                    Log::info("Moved " + e.name + " to (" +
-                              std::to_string(static_cast<int>(e.position.x)) + ", " +
-                              std::to_string(static_cast<int>(e.position.y)) + ")");
-                }
-            }
+            interactWithView(ptr);
+            ImGui::PopStyleVar();
         }
         ImGui::End();
-        ImGui::PopStyleVar();
 
         window.clear(sf::Color(25, 25, 25));
         ImGui::SFML::Render(window);

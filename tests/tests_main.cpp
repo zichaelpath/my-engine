@@ -2206,6 +2206,26 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- Config records a choice and persists it (Lesson 84) -----------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("config-set");
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        const std::string path = (dir / "engine.ini").string();
+        Config config;
+        config.setDefault("popGameView", "0");
+        config.set("popGameView", "1"); // the pop-out button's write
+        config.save(path);
+        Config back;
+        const bool restored = back.load(path) &&
+                              back.getBool("popGameView", false);
+        check(restored,
+              "config: a set() choice survives save and reload "
+              "(the editor's layout preferences)");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

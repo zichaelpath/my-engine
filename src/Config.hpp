@@ -14,6 +14,10 @@ class Config
 public:
     void setDefault(const std::string& key, const std::string& value);
 
+    // Sets a value in memory (a host recording a user's choice,
+    // Lesson 84); call save() to persist it.
+    void set(const std::string& key, const std::string& value);
+
     // Returns true if the file existed and was read.
     bool load(const std::string& path);
 
