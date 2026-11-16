@@ -465,3 +465,7 @@ Shadow mapping lands, the 3D host's biggest visual step. The scene renders twice
 ## Lesson 91 — Meshes as Assets: The Crate Is a File Now
 
 The GL host's loose piles of handles become a Mesh class — move-only owner of a VAO/VBO/EBO, layout declared once, one draw() call — and the crate stops being a hand-typed float array in gl_main.cpp. It is assets/crate.obj now, loaded by a real OBJ parser: v/vt/vn forms, fan triangulation, (v, vt, vn) deduplication, computed flat normals for bare faces, negative indices honoured. The loader is deliberately CPU-side, so the harness tests it headless — including the shipped crate, which must load as exactly the 24-vertex unit cube it replaces. The refactor's proof is a non-difference: the frame differs from Lesson 90's in zero of 120,000 pixels. Sixty-seven checks green.
+
+## Lesson 92 — Sky & Atmosphere: The World Gets a Horizon
+
+The dark void is gone. A gradient sky dome — a positions-only UV sphere built on the day-old Mesh class, re-centred on the camera every frame, drawn first with depth writes off — paints zenith-to-horizon-to-ground-haze by view direction, and both lit programs now end with a distance-fog mix. The whole trick is agreement: fog colour, horizon colour and clear colour are one constant, so the heightfield's far edge dissolves into the sky instead of ending against it. A small honest catch along the way: fog needs the length the specular code had been normalizing away, so both shaders now keep the raw view vector. Sixty-seven checks green, and the world finally sits in somewhere.

@@ -59,6 +59,9 @@ uniform vec3 uSunDir;
 uniform vec3 uCameraPos;
 uniform mat4 uLightSpace;
 uniform sampler2D uShadowMap;
+uniform vec3 uFogColor;
+uniform float uFogNear;
+uniform float uFogFar;
 out vec4 FragColor;
 float shadowAmount(vec3 worldPos, vec3 n, vec3 sunDir)
 {
@@ -92,11 +95,20 @@ void main()
     // between sun and view directions — a tight, bright highlight
     // where the surface mirrors the sun into the camera. vSpec
     // carries this material's (shininess, strength).
-    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    vec3 viewVec = uCameraPos - vWorldPos;
+    float viewDist = length(viewVec);
+    vec3 viewDir = viewVec / viewDist;
     vec3 halfVec = normalize(uSunDir + viewDir);
     float spec = pow(max(dot(n, halfVec), 0.0), vSpec.x) * vSpec.y
                  * direct;
-    FragColor = vec4(vColor * light + spec, 1.0);
+    vec3 lit = vColor * light + spec;
+    // Distance fog (Lesson 92): the lit colour hands over to
+    // the horizon colour across [uFogNear, uFogFar] — the same
+    // colour the sky dome paints at eye level, so the world's
+    // edge dissolves into the sky instead of ending against it.
+    float fogFactor = clamp((viewDist - uFogNear) /
+                            (uFogFar - uFogNear), 0.0, 1.0);
+    FragColor = vec4(mix(lit, uFogColor, fogFactor), 1.0);
 }
 )";
 
@@ -141,6 +153,9 @@ uniform float uSpecStrength;
 uniform sampler2D uTexture;
 uniform mat4 uLightSpace;
 uniform sampler2D uShadowMap;
+uniform vec3 uFogColor;
+uniform float uFogNear;
+uniform float uFogFar;
 out vec4 FragColor;
 float shadowAmount(vec3 worldPos, vec3 n, vec3 sunDir)
 {
@@ -166,12 +181,16 @@ void main()
     float diffuse = max(dot(n, uSunDir), 0.0);
     float direct = 1.0 - shadowAmount(vWorldPos, n, uSunDir);
     float light = 0.35 + 0.65 * diffuse * direct;
-    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    vec3 viewVec = uCameraPos - vWorldPos;
+    float viewDist = length(viewVec);
+    vec3 viewDir = viewVec / viewDist;
     vec3 halfVec = normalize(uSunDir + viewDir);
     float spec = pow(max(dot(n, halfVec), 0.0), uShininess)
                  * uSpecStrength * direct;
-    FragColor = vec4(texture(uTexture, vUV).rgb * light + spec,
-                     1.0);
+    vec3 lit = texture(uTexture, vUV).rgb * light + spec;
+    float fogFactor = clamp((viewDist - uFogNear) /
+                            (uFogFar - uFogNear), 0.0, 1.0);
+    FragColor = vec4(mix(lit, uFogColor, fogFactor), 1.0);
 }
 )";
 
@@ -192,6 +211,41 @@ const char* kDepthFragmentShader = R"(
 #version 330 core
 void main()
 {
+}
+)";
+
+// The sky program (Lesson 92): no lighting at all — a gradient
+// over direction. The dome's object-space position IS the view
+// direction (the dome is centred on the camera), so the
+// fragment colours by height: zenith above, horizon at eye
+// level, ground haze below.
+const char* kSkyVertexShader = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+uniform mat4 uMVP;
+out vec3 vDir;
+void main()
+{
+    vDir = aPos;
+    gl_Position = uMVP * vec4(aPos, 1.0);
+}
+)";
+
+const char* kSkyFragmentShader = R"(
+#version 330 core
+in vec3 vDir;
+uniform vec3 uZenith;
+uniform vec3 uHorizon;
+uniform vec3 uGround;
+out vec4 FragColor;
+void main()
+{
+    float h = normalize(vDir).y;
+    vec3 col = h >= 0.0
+        ? mix(uHorizon, uZenith, pow(h, 0.55))
+        : mix(uHorizon, uGround,
+              pow(clamp(-h * 2.2, 0.0, 1.0), 0.7));
+    FragColor = vec4(col, 1.0);
 }
 )";
 
@@ -237,6 +291,45 @@ GLuint createProgram(const char* vertexSource, const char* fragmentSource)
         return 0;
     }
     return program;
+}
+
+// The sky dome (Lesson 92): a UV sphere of radius 1, positions
+// only — latitude rings x longitude sectors, indexed. It is
+// drawn scaled around the camera, so its geometry never needs
+// detail: the gradient shader does all the work.
+Mesh buildSkyDome()
+{
+    std::vector<float> verts;
+    std::vector<std::uint32_t> indices;
+    const int rings = 12;
+    const int sectors = 24;
+    const float pi = 3.14159265f;
+    for (int r = 0; r <= rings; ++r)
+    {
+        const float phi = pi * static_cast<float>(r) /
+                          static_cast<float>(rings); // 0 at +Y
+        for (int s = 0; s <= sectors; ++s)
+        {
+            const float theta = 2.f * pi * static_cast<float>(s) /
+                                static_cast<float>(sectors);
+            verts.insert(verts.end(),
+                         {std::sin(phi) * std::cos(theta),
+                          std::cos(phi),
+                          std::sin(phi) * std::sin(theta)});
+        }
+    }
+    for (int r = 0; r < rings; ++r)
+        for (int s = 0; s < sectors; ++s)
+        {
+            const std::uint32_t a =
+                static_cast<std::uint32_t>(r * (sectors + 1) + s);
+            const std::uint32_t b = a + 1;
+            const std::uint32_t c =
+                a + static_cast<std::uint32_t>(sectors + 1);
+            const std::uint32_t d = c + 1;
+            indices.insert(indices.end(), {a, c, b, b, c, d});
+        }
+    return Mesh(verts, {{0, 3}}, indices);
 }
 
 // Height per tile type (Lesson 38): water sits below the land it
@@ -401,7 +494,10 @@ int main()
     GLuint texProgram = createProgram(kTexVertexShader, kTexFragmentShader);
     GLuint depthProgram = createProgram(kDepthVertexShader,
                                         kDepthFragmentShader);
-    if (program == 0 || texProgram == 0 || depthProgram == 0)
+    GLuint skyProgram = createProgram(kSkyVertexShader,
+                                      kSkyFragmentShader);
+    if (program == 0 || texProgram == 0 || depthProgram == 0 ||
+        skyProgram == 0)
         return 1;
     GLint mvpLocation = glGetUniformLocation(program, "uMVP");
     GLint modelLocation = glGetUniformLocation(program, "uModel");
@@ -421,6 +517,20 @@ int main()
     GLint texShadowSamplerLocation =
         glGetUniformLocation(texProgram, "uShadowMap");
     GLint depthMvpLocation = glGetUniformLocation(depthProgram, "uMVP");
+    GLint fogColorLocation = glGetUniformLocation(program, "uFogColor");
+    GLint fogNearLocation = glGetUniformLocation(program, "uFogNear");
+    GLint fogFarLocation = glGetUniformLocation(program, "uFogFar");
+    GLint texFogColorLocation =
+        glGetUniformLocation(texProgram, "uFogColor");
+    GLint texFogNearLocation =
+        glGetUniformLocation(texProgram, "uFogNear");
+    GLint texFogFarLocation =
+        glGetUniformLocation(texProgram, "uFogFar");
+    GLint skyMvpLocation = glGetUniformLocation(skyProgram, "uMVP");
+    GLint skyZenithLocation = glGetUniformLocation(skyProgram, "uZenith");
+    GLint skyHorizonLocation =
+        glGetUniformLocation(skyProgram, "uHorizon");
+    GLint skyGroundLocation = glGetUniformLocation(skyProgram, "uGround");
     if (mvpLocation < 0 || modelLocation < 0 || sunLocation < 0 ||
         camLocation < 0 || lightSpaceLocation < 0 ||
         shadowSamplerLocation < 0 || texMvpLocation < 0 ||
@@ -428,11 +538,26 @@ int main()
         texCamLocation < 0 || texShineLocation < 0 ||
         texSpecLocation < 0 || texSamplerLocation < 0 ||
         texLightSpaceLocation < 0 || texShadowSamplerLocation < 0 ||
-        depthMvpLocation < 0)
+        depthMvpLocation < 0 || fogColorLocation < 0 ||
+        fogNearLocation < 0 || fogFarLocation < 0 ||
+        texFogColorLocation < 0 || texFogNearLocation < 0 ||
+        texFogFarLocation < 0 || skyMvpLocation < 0 ||
+        skyZenithLocation < 0 || skyHorizonLocation < 0 ||
+        skyGroundLocation < 0)
     {
         Log::error("A required uniform was not found in a shader program");
         return 1;
     }
+
+    // The atmosphere's palette (Lesson 92): one horizon colour
+    // shared by the sky dome, the fog and the clear colour, so
+    // all three agree about where the world ends.
+    const Vec3 skyZenith{0.19f, 0.36f, 0.66f};
+    const Vec3 skyHorizon{0.74f, 0.82f, 0.92f};
+    const Vec3 skyGround{0.36f, 0.38f, 0.42f};
+    const float fogNear = 55.f;
+    const float fogFar = 140.f;
+    Mesh skyDome = buildSkyDome();
     // The sun: low in the west, slightly south — direction TOWARD
     // it, normalized once here; the shaders dot it with each face's
     // normal.
@@ -653,8 +778,29 @@ int main()
         // texture unit 1 (unit 0 stays the crates' colour map).
         glViewport(0, 0, static_cast<GLsizei>(size.x),
                    static_cast<GLsizei>(size.y));
-        glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
+        glClearColor(skyHorizon.x, skyHorizon.y, skyHorizon.z, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // The sky first (Lesson 92): the dome follows the camera
+        // and writes no depth, so everything else draws over it.
+        glUseProgram(skyProgram);
+        {
+            Mat4 skyModel =
+                Mat4::translation(cameraPos.x, cameraPos.y,
+                                  cameraPos.z) *
+                Mat4::scaling(260.f, 260.f, 260.f);
+            Mat4 skyMvp = projection * view * skyModel;
+            glUniformMatrix4fv(skyMvpLocation, 1, GL_FALSE,
+                               skyMvp.data());
+            glUniform3f(skyZenithLocation, skyZenith.x, skyZenith.y,
+                        skyZenith.z);
+            glUniform3f(skyHorizonLocation, skyHorizon.x,
+                        skyHorizon.y, skyHorizon.z);
+            glUniform3f(skyGroundLocation, skyGround.x, skyGround.y,
+                        skyGround.z);
+            glDepthMask(GL_FALSE);
+            skyDome.draw();
+            glDepthMask(GL_TRUE);
+        }
         glUseProgram(program);
         // The terrain is built in world coordinates, so its model
         // matrix is the identity — one draw for the whole world.
@@ -666,6 +812,10 @@ int main()
         glUniform3f(camLocation, cameraPos.x, cameraPos.y, cameraPos.z);
         glUniformMatrix4fv(lightSpaceLocation, 1, GL_FALSE,
                            lightSpace.data());
+        glUniform3f(fogColorLocation, skyHorizon.x, skyHorizon.y,
+                    skyHorizon.z);
+        glUniform1f(fogNearLocation, fogNear);
+        glUniform1f(fogFarLocation, fogFar);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, shadowMap);
         glUniform1i(shadowSamplerLocation, 1);
@@ -690,6 +840,10 @@ int main()
             glUniform1i(texSamplerLocation, 0);
             glUniformMatrix4fv(texLightSpaceLocation, 1, GL_FALSE,
                                lightSpace.data());
+            glUniform3f(texFogColorLocation, skyHorizon.x,
+                        skyHorizon.y, skyHorizon.z);
+            glUniform1f(texFogNearLocation, fogNear);
+            glUniform1f(texFogFarLocation, fogFar);
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, shadowMap);
             glUniform1i(texShadowSamplerLocation, 1);
