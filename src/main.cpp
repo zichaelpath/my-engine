@@ -18,6 +18,19 @@
 #include <fstream>
 #include <random>
 
+// A scene path's base name without extension ("scenes/a.scene"
+// -> "a"): how a scene names the Spawn a traveller from it
+// lands on (Lessons 78/86).
+std::string sceneBaseOf(const std::string& path)
+{
+    std::string base = path;
+    if (auto slash = base.find_last_of('/'); slash != std::string::npos)
+        base = base.substr(slash + 1);
+    if (auto dot = base.find_last_of('.'); dot != std::string::npos)
+        base = base.substr(0, dot);
+    return base;
+}
+
 // Editor picking (Lesson 22): the index of the topmost entity whose
 // sprite box contains the world point, or -1. Topmost = draw order
 // reversed: the player draws last, then later spawns above earlier.
@@ -130,10 +143,18 @@ int main()
         sf::Vector2i rightDelta; // movement while right is held
     };
     // Play-test session (Lesson 28): a snapshot taken when the test
-    // starts; stopping the test restores it exactly.
+    // starts; stopping the test restores it exactly. Since
+    // Lesson 86 the snapshot is scene-aware: a test may travel
+    // (doors, goals), so Stop also knows where the test started
+    // and what its world's recipe was.
     bool testing = false;
     std::vector<Entity> testSnapshot;
+    std::map<std::pair<int, int>, int> testSnapshotTiles;
     float testSnapshotTime = 0.f;
+    std::string testStartScene; // the editor's scene at Play
+    std::string testScene;      // where the test currently is
+    std::uint32_t testSeed = 0;
+    float testNoise = 0.01f;
 
     // Procgen panel state, hoisted so scene loading can re-sync it.
     int seedInput = static_cast<int>(game.seed());
@@ -327,7 +348,12 @@ int main()
             if (ImGui::Button("Play test (snapshot scene)"))
             {
                 testSnapshot = game.entities();
+                testSnapshotTiles = game.tileOverrides();
                 testSnapshotTime = game.time;
+                testStartScene = currentScene;
+                testScene = currentScene;
+                testSeed = game.seed();
+                testNoise = game.noiseFrequency();
                 testing = true;
                 playing = true; // a test starts running
                 Log::info("Play test started - scene snapshot taken");
@@ -337,14 +363,36 @@ int main()
         {
             if (ImGui::Button("Stop test (restore scene)"))
             {
+                // Back to the starting world first (Lesson 86):
+                // reload its file when it has one, regenerate
+                // its recipe when it doesn't — then the snapshot
+                // reimposes the exact pre-test state on top.
+                if (testScene != testStartScene)
+                {
+                    if (!testStartScene.empty() && haveProject)
+                    {
+                        game.loadScene(
+                            projectPath(project, testStartScene));
+                        seedInput = static_cast<int>(game.seed());
+                        noiseFreq = game.noiseFrequency();
+                    }
+                    else
+                    {
+                        game.setSeed(testSeed);
+                        game.setNoiseFrequency(testNoise);
+                    }
+                }
                 game.replaceEntities(testSnapshot);
+                game.setTileOverrides(testSnapshotTiles);
                 game.time = testSnapshotTime;
                 testing = false;
                 selected = -1;
                 dragging = false;
                 Log::info("Play test stopped - scene restored");
             }
-            ImGui::Text("TESTING: changes are discarded on Stop");
+            ImGui::Text("TESTING in %s: changes are discarded on Stop",
+                        testScene.empty() ? "(untitled)"
+                                          : testScene.c_str());
         }
         ImGui::Text("Game time: %.2f s", game.time);
         if (ImGui::Button(playing ? "Pause" : "Resume"))
@@ -1164,6 +1212,53 @@ int main()
 
         if (playing || stepClicked)
             game.update(dt);
+
+        // Play-test travel (Lesson 86): a test plays the game the
+        // way the Runtime does — a touched Goal completes the
+        // level and travels onward through the campaign, a
+        // touched door goes where it names. The editor's own
+        // current scene is untouched; testScene tracks the test.
+        if (testing && haveProject)
+        {
+            if (game.goalTouched())
+            {
+                game.clearGoalTouched();
+                Log::info("Play test: Goal reached in " +
+                          (testScene.empty() ? std::string("(untitled)")
+                                             : testScene));
+                const auto it = std::find(project.scenes.begin(),
+                                          project.scenes.end(),
+                                          testScene);
+                if (it != project.scenes.end() &&
+                    it + 1 != project.scenes.end())
+                {
+                    const std::string next = *(it + 1);
+                    if (game.loadScene(projectPath(project, next)))
+                    {
+                        game.placePlayerAtSpawn(sceneBaseOf(testScene));
+                        testScene = next;
+                        Log::info("Play test: travelled onward to " +
+                                  next);
+                    }
+                }
+                else
+                    Log::info(
+                        "Play test: that was the final level's Goal "
+                        "- campaign complete");
+            }
+            if (!game.pendingExit().empty())
+            {
+                const std::string target = game.pendingExit();
+                if (game.loadScene(projectPath(project, target)))
+                {
+                    game.placePlayerAtSpawn(sceneBaseOf(testScene));
+                    testScene = target;
+                    Log::info("Play test: door to " + target);
+                }
+                else
+                    game.clearPendingExit();
+            }
+        }
 
         // The frame's unified view pointer (Lesson 84): when the
         // Game View is popped out, its window's events are

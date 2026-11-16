@@ -4,7 +4,7 @@ My own game engine, built from scratch in C++20, one lesson at a time — and do
 
 **Stack:** C++20, CMake, SFML 3.0.2 (windowing, input, audio), Dear ImGui (docking build) + ImGui-SFML for the editor UI, and raw OpenGL 3.3 with a hand-written function loader for the 3D host — no GLAD, no engine framework anywhere.
 
-**Status: Phase 2 underway — Lesson 85 complete (Arc 8: The Editor Grows Up underway)** (Arc 1: First Contact — the playtest-hardening arc). **MyEngine 1.0.0** (tagged `v1.0.0`) is the Phase 1 release: Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ · Arc 8 ✅ · Arc 9 ✅. The Phase 1 plan lives in [docs/ROADMAP.md](docs/ROADMAP.md), Phase 2's in [docs/ROADMAP_PHASE2.md](docs/ROADMAP_PHASE2.md); the release story in [CHANGELOG.md](CHANGELOG.md).
+**Status: Phase 2 underway — Lesson 86 complete (Arc 8: The Editor Grows Up underway)** (Arc 1: First Contact — the playtest-hardening arc). **MyEngine 1.0.0** (tagged `v1.0.0`) is the Phase 1 release: Arc 1 ✅ · Arc 2 ✅ · Arc 3 ✅ · Arc 4 ✅ · Arc 5 ✅ · Arc 6 ✅ · Arc 7 ✅ · Arc 8 ✅ · Arc 9 ✅. The Phase 1 plan lives in [docs/ROADMAP.md](docs/ROADMAP.md), Phase 2's in [docs/ROADMAP_PHASE2.md](docs/ROADMAP_PHASE2.md); the release story in [CHANGELOG.md](CHANGELOG.md).
 
 ![The game's crate, textured and sun-lit in the 3D host](docs/shots/lesson-40-crate.png)
 
