@@ -704,6 +704,95 @@ int main()
             }
         }
 
+        // The Levels panel (Lesson 85): the project's declared
+        // scene list — Arc 7's geography, editable. Order here
+        // IS the campaign order and the first entry is the start
+        // scene; every change writes the project card at once,
+        // so the list on disk and the list on screen never drift.
+        ImGui::Begin("Levels");
+        {
+            if (!haveProject)
+            {
+                ImGui::TextWrapped(
+                    "Open a project folder to manage its levels.");
+            }
+            else
+            {
+                auto syncAndSave = [&]() {
+                    project.startScene = project.scenes.empty()
+                                             ? ""
+                                             : project.scenes[0];
+                    saveProject(project);
+                };
+                if (project.scenes.empty())
+                    ImGui::TextWrapped(
+                        "No scenes declared in this project yet.");
+                for (int i = 0; i < static_cast<int>(project.scenes.size());
+                     ++i)
+                {
+                    const std::string& scene =
+                        project.scenes[static_cast<std::size_t>(i)];
+                    const bool isCurrent = scene == currentScene;
+                    ImGui::PushID(i);
+                    ImGui::Text("%s%d. %s", isCurrent ? "> " : "  ",
+                                i + 1, scene.c_str());
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Open") && !isCurrent)
+                    {
+                        if (loadSceneIntoEditor(
+                                projectPath(project, scene)))
+                            currentScene = scene;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("^") && i > 0)
+                    {
+                        std::swap(
+                            project.scenes[static_cast<std::size_t>(i)],
+                            project.scenes[static_cast<std::size_t>(i - 1)]);
+                        syncAndSave();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("v") &&
+                        i + 1 < static_cast<int>(project.scenes.size()))
+                    {
+                        std::swap(
+                            project.scenes[static_cast<std::size_t>(i)],
+                            project.scenes[static_cast<std::size_t>(i + 1)]);
+                        syncAndSave();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("X"))
+                    {
+                        project.scenes.erase(
+                            project.scenes.begin() + i);
+                        syncAndSave();
+                        ImGui::PopID();
+                        break; // the list changed under the loop
+                    }
+                    ImGui::PopID();
+                }
+                const bool canAdd =
+                    !currentScene.empty() &&
+                    std::find(project.scenes.begin(),
+                              project.scenes.end(),
+                              currentScene) == project.scenes.end();
+                if (canAdd)
+                {
+                    ImGui::Separator();
+                    if (ImGui::Button("Add current scene to the list"))
+                    {
+                        project.scenes.push_back(currentScene);
+                        syncAndSave();
+                    }
+                }
+                ImGui::Separator();
+                ImGui::TextWrapped(
+                    "The first scene is the start; the rest unlock "
+                    "in order in a campaign (Lesson 79).");
+            }
+        }
+        ImGui::End();
+
         // The Terrain panel (Lesson 83): painting is a mode, a
         // palette and a brush. Painted tiles are overrides over
         // the generated field, stored in the scene file; the

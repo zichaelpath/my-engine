@@ -2226,6 +2226,38 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- The Levels panel's contract: reorder persists (Lesson 85) -----
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("levels-panel");
+        fs::remove_all(dir);
+        Project p;
+        createProjectFolder(dir.string(), "Levels", p);
+        p.scenes = {"scenes/a.scene", "scenes/b.scene",
+                    "scenes/c.scene"};
+        p.startScene = p.scenes[0];
+        saveProject(p);
+        // The panel's operations, verbatim: swap two entries,
+        // re-sync the start to the first, save; remove the
+        // middle entry, save again.
+        std::swap(p.scenes[0], p.scenes[1]);
+        p.startScene = p.scenes[0];
+        saveProject(p);
+        p.scenes.erase(p.scenes.begin() + 1);
+        p.startScene = p.scenes[0];
+        saveProject(p);
+        Project back;
+        const bool ok = loadProjectFolder(dir.string(), back) &&
+                        back.scenes.size() == 2 &&
+                        back.scenes[0] == "scenes/b.scene" &&
+                        back.scenes[1] == "scenes/c.scene" &&
+                        back.startScene == "scenes/b.scene";
+        check(ok, "levels: reordering and removing scenes, with "
+                  "the start re-synced, persists through the "
+                  "project card");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;
