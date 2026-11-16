@@ -1100,6 +1100,28 @@ int main()
         fs::remove(outside);
     }
 
+    // --- Scenes live in the project as files (Lesson 64) ---------------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("scene-place");
+        fs::remove_all(dir);
+        Project sceneProject;
+        const bool made = createProjectFolder(dir.string(), "Scene Game",
+                                              sceneProject);
+        Game sg;
+        const std::size_t before = sg.entities().size();
+        const std::string sceneFile =
+            projectPath(sceneProject, "scenes/level1.scene");
+        const bool saved = sg.saveScene(sceneFile);
+        sg.newRun(777); // a different world entirely
+        const bool loadedBack = sg.loadScene(sceneFile);
+        check(made && saved && loadedBack &&
+                  sg.entities().size() == before &&
+                  fs::exists(dir / "scenes" / "level1.scene"),
+              "scenes: a scene saves into scenes/ and loads back whole");
+        fs::remove_all(dir);
+    }
+
     // --- The Lesson 44 regression: a flipped sprite stays home -------
 #if defined(__linux__)
     if (std::getenv("DISPLAY") == nullptr)

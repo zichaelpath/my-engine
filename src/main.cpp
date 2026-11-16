@@ -100,6 +100,60 @@ int main()
     int seedInput = static_cast<int>(game.seed());
     float noiseFreq = game.noiseFrequency();
 
+    // The current scene file (Lesson 64): a project-relative path
+    // ("scenes/level1.scene"), empty when the scene is untitled or
+    // lives outside the project. Saving goes here; the Project
+    // panel sets a stale flag when the tree needs a refresh.
+    std::string currentScene;
+    bool projectListingStale = false;
+
+    // A panel that wants the file browser sets browserRequest to
+    // a purpose (Lessons 62/64); the browser's own state lives
+    // with its draw code further down the frame and consumes the
+    // request there.
+    int browserRequest = 0;
+    std::string browserStartDir;
+
+    // Loads a scene and performs the editor's post-load ritual —
+    // one definition, used by F9, the Scene buttons, the file
+    // browser, and double-clicking a scene in the Project panel:
+    // the procgen fields re-sync to the loaded world, the
+    // selection and history of the OLD scene are discarded (they
+    // index into a list that no longer exists), and any play-test
+    // snapshot is stale by definition.
+    auto loadSceneIntoEditor = [&](const std::string& path) {
+        if (!game.loadScene(path))
+            return false;
+        seedInput = static_cast<int>(game.seed());
+        noiseFreq = game.noiseFrequency();
+        selected = -1;
+        dragging = false;
+        undoStack.clear();
+        redoStack.clear();
+        testing = false;
+        return true;
+    };
+
+    // Where Save writes (Lesson 64): the current scene when there
+    // is one; a first save inside a project adopts
+    // scenes/untitled.scene as current; with no project at all,
+    // the Phase 1 behaviour — plain scene.txt — is preserved.
+    auto saveCurrentScene = [&]() {
+        std::string target = "scene.txt";
+        if (!currentScene.empty())
+            target = haveProject ? projectPath(project, currentScene)
+                                 : currentScene;
+        else if (haveProject)
+        {
+            currentScene = "scenes/untitled.scene";
+            std::filesystem::create_directories(
+                projectPath(project, "scenes"));
+            target = projectPath(project, currentScene);
+        }
+        if (game.saveScene(target))
+            projectListingStale = true;
+    };
+
     sf::Clock clock;
     int frames = 0;
     float fpsTimer = 0.f;
@@ -144,20 +198,18 @@ int main()
                 }
                 if (keyPressed->code == sf::Keyboard::Key::F5)
                 {
-                    game.saveScene("scene.txt");
+                    saveCurrentScene();
                 }
                 if (keyPressed->code == sf::Keyboard::Key::F9)
                 {
-                    if (game.loadScene("scene.txt"))
-                    {
-                        seedInput = static_cast<int>(game.seed());
-                        noiseFreq = game.noiseFrequency();
-                        selected = -1; // the entity list was replaced
-                        dragging = false;
-                        undoStack.clear(); // history belongs to the old scene
-                        redoStack.clear();
-                        testing = false; // and any test snapshot is stale
-                    }
+                    // Reload the current scene (or the legacy file).
+                    const std::string target =
+                        !currentScene.empty()
+                            ? (haveProject
+                                   ? projectPath(project, currentScene)
+                                   : currentScene)
+                            : "scene.txt";
+                    loadSceneIntoEditor(target);
                 }
             }
         }
@@ -243,23 +295,35 @@ int main()
         ImGui::ColorEdit3("Clear color", game.clearColor);
         ImGui::SliderFloat("Speed", &game.speed, 50.f, 600.f);
         ImGui::SeparatorText("Scene");
+        ImGui::TextDisabled("Current: %s",
+                            currentScene.empty() ? "(untitled)"
+                                                 : currentScene.c_str());
         if (ImGui::Button("Save scene (F5)"))
         {
-            game.saveScene("scene.txt");
+            saveCurrentScene();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Load scene (F9)"))
+        if (ImGui::Button("Save as..."))
         {
-            if (game.loadScene("scene.txt"))
-            {
-                seedInput = static_cast<int>(game.seed());
-                noiseFreq = game.noiseFrequency();
-                selected = -1; // the entity list was replaced
-                        dragging = false;
-                        undoStack.clear(); // history belongs to the old scene
-                        redoStack.clear();
-                        testing = false; // and any test snapshot is stale
-            }
+            browserRequest = 3;
+            browserStartDir =
+                haveProject ? projectPath(project, "scenes") : ".";
+        }
+        if (ImGui::Button("Reload scene (F9)"))
+        {
+            const std::string target =
+                !currentScene.empty()
+                    ? (haveProject ? projectPath(project, currentScene)
+                                   : currentScene)
+                    : "scene.txt";
+            loadSceneIntoEditor(target);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load..."))
+        {
+            browserRequest = 4;
+            browserStartDir =
+                haveProject ? projectPath(project, "scenes") : ".";
         }
         ImGui::End();
 
@@ -539,6 +603,30 @@ int main()
         static std::vector<ProjectEntry> listing;
         static bool listingDirty = true;
         static std::string selectedFile;
+        static char dialogNameBuf[128] = "untitled.scene";
+        if (projectListingStale)
+        {
+            listingDirty = true;
+            projectListingStale = false;
+        }
+        if (browserRequest != 0)
+        {
+            dialogPurpose = browserRequest;
+            dialogDir = browserStartDir;
+            dialogSelected.clear();
+            dialogNeedsOpen = true;
+            browserRequest = 0;
+            if (dialogPurpose == 3)
+            {
+                const std::string leaf =
+                    currentScene.empty()
+                        ? "untitled.scene"
+                        : currentScene.substr(
+                              currentScene.find_last_of('/') + 1);
+                std::snprintf(dialogNameBuf, sizeof(dialogNameBuf), "%s",
+                              leaf.c_str());
+            }
+        }
 
         // The Project panel (Lesson 61): the place, visible — a
         // tree over listProjectFiles, rebuilt on Refresh, with the
@@ -589,9 +677,20 @@ int main()
                 ImGui::Indent(depth * 14.f);
                 if (entry.isDirectory)
                     ImGui::TextDisabled("%s/", leaf.c_str());
-                else if (ImGui::Selectable((leaf + "###" + rel).c_str(),
-                                            selectedFile == rel))
-                    selectedFile = rel;
+                else
+                {
+                    if (ImGui::Selectable((leaf + "###" + rel).c_str(),
+                                          selectedFile == rel))
+                        selectedFile = rel;
+                    // Double-clicking a scene file loads it
+                    // (Lesson 64) and makes it the current scene.
+                    const bool sceneFile = rel.ends_with(".scene") ||
+                                           leaf == "scene.txt";
+                    if (sceneFile && ImGui::IsItemHovered() &&
+                        ImGui::IsMouseDoubleClicked(0) &&
+                        loadSceneIntoEditor(projectPath(project, rel)))
+                        currentScene = rel;
+                }
                 ImGui::Unindent(depth * 14.f);
             }
             if (!selectedFile.empty())
@@ -645,11 +744,19 @@ int main()
                         dialogSelected.clear();
                     }
                 }
-                else if (dialogPurpose == 2)
+                else if (dialogPurpose == 2 || dialogPurpose == 4)
                 {
                     if (ImGui::Selectable(label.c_str(),
                                           dialogSelected == entry.fullPath))
                         dialogSelected = entry.fullPath;
+                }
+                else if (dialogPurpose == 3)
+                {
+                    // Clicking an existing scene offers its name
+                    // as the Save-as name (standard dialog manners).
+                    if (ImGui::Selectable(label.c_str(), false))
+                        std::snprintf(dialogNameBuf, sizeof(dialogNameBuf),
+                                      "%s", entry.name.c_str());
                 }
                 else
                 {
@@ -681,16 +788,33 @@ int main()
                         }
                         listingDirty = true;
                         selectedFile.clear();
+                        currentScene.clear(); // a new project, a new scene
                     }
                     dialogOpen = false;
                     ImGui::CloseCurrentPopup();
                 }
             }
-            else if (dialogPurpose == 2)
+            else if (dialogPurpose == 2 || dialogPurpose == 4)
             {
                 if (ImGui::Button("Choose file") && !dialogSelected.empty())
                 {
                     dialogResult = dialogSelected;
+                    dialogFinished = true;
+                    dialogOpen = false;
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            else if (dialogPurpose == 3)
+            {
+                ImGui::InputText("##sceneName", dialogNameBuf,
+                                 sizeof(dialogNameBuf));
+                ImGui::SameLine();
+                if (ImGui::Button("Save here"))
+                {
+                    std::string name = dialogNameBuf;
+                    if (name.find('.') == std::string::npos)
+                        name += ".scene";
+                    dialogResult = dialogDir + "/" + name;
                     dialogFinished = true;
                     dialogOpen = false;
                     ImGui::CloseCurrentPopup();
@@ -705,12 +829,22 @@ int main()
             ImGui::EndPopup();
         }
 
-        // The browser's file-mode result lands here (Lesson 63):
-        // the chosen file is imported into the project, and the
-        // panel refreshes and selects what arrived.
+        // The browser's results land here: purpose 2 imports the
+        // chosen file into the project (Lesson 63); purposes 3
+        // and 4 save and load scenes (Lesson 64), adopting the
+        // file as the current scene when it lives in the project.
         if (dialogFinished)
         {
             dialogFinished = false;
+            auto relativize = [&](const std::string& abs) {
+                if (haveProject && !project.root.empty())
+                {
+                    const std::string prefix = project.root + "/";
+                    if (abs.rfind(prefix, 0) == 0)
+                        return abs.substr(prefix.size());
+                }
+                return std::string();
+            };
             if (dialogPurpose == 2 && haveProject)
             {
                 const std::string landed = importAsset(project, dialogResult);
@@ -719,6 +853,20 @@ int main()
                     listingDirty = true;
                     selectedFile = landed;
                 }
+            }
+            else if (dialogPurpose == 3)
+            {
+                if (game.saveScene(dialogResult))
+                {
+                    currentScene = relativize(dialogResult);
+                    projectListingStale = true;
+                    listingDirty = true;
+                }
+            }
+            else if (dialogPurpose == 4)
+            {
+                if (loadSceneIntoEditor(dialogResult))
+                    currentScene = relativize(dialogResult);
             }
         }
 
