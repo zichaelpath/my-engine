@@ -18,6 +18,7 @@
 #include "Game.hpp"
 #include "Particles.hpp"
 #include "Project.hpp"
+#include "SaveData.hpp"
 #include "ScriptHost.hpp"
 #include "Ui.hpp"
 #include "Tween.hpp"
@@ -2037,6 +2038,55 @@ int main()
               "ui widgets: buttons hit-test and gate on enabled, "
               "hover visibly brightens, panels carry their rect, "
               "labels centre on request");
+    }
+
+    // --- Save files: the player's persistent state (Lesson 81) ---------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("save-data");
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        SaveData s;
+        s.campaign.reset({"scenes/a.scene", "scenes/b.scene"});
+        s.campaign.complete(0);
+        s.hasCampaign = true;
+        const bool firstBest = s.recordTime(12345, 83.5f);
+        const bool worseIgnored = !s.recordTime(12345, 91.0f);
+        const bool betterTakes = s.recordTime(12345, 80.25f);
+        const bool heightBest = s.recordHeight(432) &&
+                                !s.recordHeight(400) &&
+                                s.templeBestHeight == 432;
+        s.setSetting("shake", "off");
+        const bool written = writeSave(dir.string(), s);
+        SaveData back;
+        const bool loaded = loadSave(dir.string(), back);
+        const bool roundTrip =
+            loaded && back.hasCampaign &&
+            back.campaign.levels == s.campaign.levels &&
+            back.campaign.isCompleted(0) &&
+            !back.campaign.isCompleted(1) &&
+            back.campaign.current == 1 &&
+            std::abs(back.bestTime(12345) - 80.25f) < 0.01f &&
+            back.templeBestHeight == 432 &&
+            back.setting("shake", "on") == "off" &&
+            back.setting("missing", "fallback") == "fallback";
+        // A save from a different format is refused whole, and
+        // a folder with no save is a normal first run.
+        writeFile(dir / "save.dat", "format=99\ntempleBest=5\n");
+        SaveData refused;
+        const bool formatRefused = !loadSave(dir.string(), refused) &&
+                                   refused.templeBestHeight == 0;
+        fs::remove(dir / "save.dat");
+        SaveData none;
+        const bool missingOk = !loadSave(dir.string(), none);
+        check(written && firstBest && worseIgnored && betterTakes &&
+                  heightBest && roundTrip && formatRefused &&
+                  missingOk,
+              "save files: campaign progress, best times, best "
+              "height and settings round-trip through save.dat; "
+              "worse results never overwrite a best; other "
+              "formats are refused");
+        fs::remove_all(dir);
     }
 
     // --- Scenes live in the project as files (Lesson 64) ---------------

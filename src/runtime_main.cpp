@@ -6,6 +6,7 @@
 #include "Game.hpp"
 #include "Log.hpp"
 #include "Project.hpp"
+#include "SaveData.hpp"
 #include "Ui.hpp"
 #include "Version.hpp"
 #include <algorithm>
@@ -50,6 +51,32 @@ int main(int argc, char** argv)
     if (campaignMode)
         campaign.reset(project.scenes);
     int selectedLevel = 0;
+
+    // The player's save (Lesson 81): campaign progress, best
+    // times and heights, per-player settings — restored when the
+    // saved campaign still matches this project's level list.
+    SaveData save;
+    const bool haveSave = haveProject && loadSave(project.root, save);
+    if (campaignMode && haveSave && save.hasCampaign &&
+        save.campaign.levels == project.scenes)
+    {
+        campaign = save.campaign;
+        selectedLevel =
+            campaign.finished() ? 0 : campaign.nextLevel();
+        Log::info("Campaign progress restored from the save");
+    }
+    bool shakeOn = save.setting("shake", "on") != "off";
+    bool newBest = false; // the end screens' celebration line
+    auto persist = [&]() {
+        if (!haveProject)
+            return;
+        if (campaignMode)
+        {
+            save.campaign = campaign;
+            save.hasCampaign = true;
+        }
+        writeSave(project.root, save);
+    };
 
     Config config;
     config.setDefault("windowWidth", "800");
@@ -147,6 +174,7 @@ int main(int argc, char** argv)
     ui::Label campaignScore(font, "", 22, sf::Color::White);
     ui::Button campaignAgainButton(font, "Play it again");
     ui::Button campaignTitleButton(font, "Title");
+    ui::Label bestLine(font, "", 20, sf::Color(255, 215, 80));
     ui::Panel dimPanel;
 
     Screen screen = Screen::Title;
@@ -189,18 +217,21 @@ int main(int argc, char** argv)
     };
     auto newRunAction = [&]() {
         game.newRun(std::random_device{}());
+        newBest = false;
         screen = Screen::Playing;
     };
     auto climbAgainAction = [&]() {
         // The same temple, climbed again (Lesson 76): the
         // project seed re-deals the identical mountain.
         game.buildAscent(project.seed, 5);
+        newBest = false;
         screen = Screen::Playing;
     };
     auto campaignAgainAction = [&]() {
         // The whole campaign again (Lesson 79).
         campaign.reset(project.scenes);
         selectedLevel = 0;
+        persist(); // the reset is progress too (Lesson 81)
         const std::string target = campaign.levels[0];
         if (game.loadScene(projectPath(project, target)))
         {
@@ -244,6 +275,16 @@ int main(int argc, char** argv)
                             --selectedLevel;
                         if (keyPressed->code == Key::Enter)
                             startPlay();
+                        if (keyPressed->code == Key::K)
+                        {
+                            // A per-player preference (Lesson 81):
+                            // camera shake, saved in save.dat —
+                            // not engine.ini's machine settings.
+                            shakeOn = !shakeOn;
+                            save.setSetting("shake",
+                                            shakeOn ? "on" : "off");
+                            persist();
+                        }
                         if (keyPressed->code == Key::Escape)
                             window.close();
                         break;
@@ -343,9 +384,22 @@ int main(int argc, char** argv)
         {
             game.update(dt);
             if (game.won())
+            {
+                // A finished run is a best-time candidate
+                // (Lesson 81): recorded per world seed.
+                newBest = save.recordTime(game.seed(), game.runTime());
+                if (newBest)
+                    persist();
                 screen = Screen::Won;
+            }
             if (game.caught())
+            {
+                newBest = save.recordHeight(
+                    static_cast<int>(game.heightReached()));
+                if (newBest)
+                    persist();
                 screen = Screen::Caught;
+            }
             // A touched Goal (Lesson 79): the campaign records
             // the completion and the player travels onward to
             // the next uncompleted level — or the campaign ends.
@@ -354,6 +408,7 @@ int main(int argc, char** argv)
                 const std::string from = sceneBase(currentScene);
                 campaign.completeCurrent();
                 game.clearGoalTouched();
+                persist(); // progress hits the disk as it happens
                 if (campaign.finished())
                     screen = Screen::CampaignComplete;
                 else
@@ -407,7 +462,8 @@ int main(int argc, char** argv)
         camera.follow(game.playerCenter(), game.playerVelocity(), dt,
                       game.worldSize(), sf::Vector2f(window.getSize()));
         sf::View worldView = camera.makeView(sf::Vector2f(window.getSize()));
-        worldView.move(game.shakeOffset()); // camera feel (Lesson 51)
+        if (shakeOn)
+            worldView.move(game.shakeOffset()); // camera feel (L51)
         window.setView(worldView);
         game.render(window);
 
@@ -479,7 +535,9 @@ int main(int argc, char** argv)
                               ascent ? "Temple seed: %u" : "World seed: %u",
                               static_cast<unsigned int>(
                                   ascent ? project.seed : game.seed()));
-                seedLine.setText(buf);
+                seedLine.setText(std::string(buf) +
+                                 (shakeOn ? "  -  Shake: on (K)"
+                                          : "  -  Shake: off (K)"));
                 seedLine.centreOn(w / 2.f, h / 2.f + 70.f);
                 seedLine.draw(window);
                 // The level list (Lesson 79), rebuilt from
@@ -531,12 +589,27 @@ int main(int argc, char** argv)
                 dimPanel.draw(window);
                 banner.centreOn(w / 2.f, h / 2.f - 45.f);
                 banner.draw(window);
-                std::snprintf(buf, sizeof(buf), "Time: %d:%02d",
-                              static_cast<int>(game.runTime()) / 60,
-                              static_cast<int>(game.runTime()) % 60);
+                const float best = save.bestTime(game.seed());
+                if (best > 0.f)
+                    std::snprintf(buf, sizeof(buf),
+                                  "Time: %d:%02d    Best: %d:%02d",
+                                  static_cast<int>(game.runTime()) / 60,
+                                  static_cast<int>(game.runTime()) % 60,
+                                  static_cast<int>(best) / 60,
+                                  static_cast<int>(best) % 60);
+                else
+                    std::snprintf(buf, sizeof(buf), "Time: %d:%02d",
+                                  static_cast<int>(game.runTime()) / 60,
+                                  static_cast<int>(game.runTime()) % 60);
                 winTime.setText(buf);
                 winTime.centreOn(w / 2.f, h / 2.f + 5.f);
                 winTime.draw(window);
+                if (newBest)
+                {
+                    bestLine.setText("New best time!");
+                    bestLine.centreOn(w / 2.f, h / 2.f + 100.f);
+                    bestLine.draw(window);
+                }
                 wonAgainButton.placeCentred(w / 2.f, h / 2.f + 40.f,
                                             200.f, 42.f);
                 wonAgainButton.setHovered(
@@ -548,11 +621,23 @@ int main(int argc, char** argv)
                 dimPanel.draw(window);
                 caughtTitle.centreOn(w / 2.f, h / 2.f - 45.f);
                 caughtTitle.draw(window);
-                std::snprintf(buf, sizeof(buf), "Height: %d",
-                              static_cast<int>(game.heightReached()));
+                if (save.templeBestHeight > 0)
+                    std::snprintf(buf, sizeof(buf),
+                                  "Height: %d    Best: %d",
+                                  static_cast<int>(game.heightReached()),
+                                  save.templeBestHeight);
+                else
+                    std::snprintf(buf, sizeof(buf), "Height: %d",
+                                  static_cast<int>(game.heightReached()));
                 caughtScore.setText(buf);
                 caughtScore.centreOn(w / 2.f, h / 2.f + 5.f);
                 caughtScore.draw(window);
+                if (newBest)
+                {
+                    bestLine.setText("New best height!");
+                    bestLine.centreOn(w / 2.f, h / 2.f + 100.f);
+                    bestLine.draw(window);
+                }
                 caughtAgainButton.placeCentred(w / 2.f, h / 2.f + 40.f,
                                                220.f, 42.f);
                 caughtAgainButton.setHovered(
