@@ -63,3 +63,17 @@ struct ProjectEntry
 // .gitkeep and its kin are plumbing, not project content. An
 // empty root (or a missing one) lists nothing.
 std::vector<ProjectEntry> listProjectFiles(const Project& project);
+
+// One entry in a single directory (Lesson 62): the file browser's
+// data. listDirectory returns directories first, then files, each
+// sorted by name, hidden entries skipped — the order every file
+// dialog on earth uses, so the browser feels familiar. A missing
+// or unreadable directory lists nothing.
+struct DirEntry
+{
+    std::string name;
+    std::string fullPath;
+    bool isDirectory = false;
+    std::uintmax_t size = 0;
+};
+std::vector<DirEntry> listDirectory(const std::string& path);

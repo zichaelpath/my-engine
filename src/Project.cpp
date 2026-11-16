@@ -223,3 +223,31 @@ std::vector<ProjectEntry> listProjectFiles(const Project& project)
               });
     return entries;
 }
+
+std::vector<DirEntry> listDirectory(const std::string& path)
+{
+    namespace fs = std::filesystem;
+    std::vector<DirEntry> dirs, files;
+    std::error_code ec;
+    for (auto it = fs::directory_iterator(path, ec); !ec && it != fs::directory_iterator();
+         it.increment(ec))
+    {
+        const std::string name = it->path().filename().string();
+        if (!name.empty() && name.front() == '.')
+            continue;
+        DirEntry entry;
+        entry.name = name;
+        entry.fullPath = it->path().generic_string();
+        entry.isDirectory = it->is_directory();
+        if (!entry.isDirectory)
+            entry.size = it->file_size(ec);
+        (entry.isDirectory ? dirs : files).push_back(entry);
+    }
+    auto byName = [](const DirEntry& a, const DirEntry& b) {
+        return a.name < b.name;
+    };
+    std::sort(dirs.begin(), dirs.end(), byName);
+    std::sort(files.begin(), files.end(), byName);
+    dirs.insert(dirs.end(), files.begin(), files.end());
+    return dirs;
+}

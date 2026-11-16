@@ -12,6 +12,8 @@
 #include "SpriteSheet.hpp"
 #include <algorithm>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <random>
 
 // Editor picking (Lesson 22): the index of the topmost entity whose
@@ -521,6 +523,23 @@ int main()
             game.buildClimberTest();
         ImGui::End();
 
+        // File browser dialog state (Lesson 62): one modal serves
+        // every choosing the editor needs. purpose 1 picks a
+        // project FOLDER; purpose 2 picks a FILE and reports it
+        // through dialogResult/dialogFinished for its consumer
+        // (Import, Lesson 63). The Project panel's listing state
+        // lives here too, so the dialog can refresh it.
+        static bool dialogOpen = false;
+        static bool dialogNeedsOpen = false;
+        static int dialogPurpose = 0;
+        static std::string dialogDir;
+        static std::string dialogSelected;
+        static std::string dialogResult;
+        static bool dialogFinished = false;
+        static std::vector<ProjectEntry> listing;
+        static bool listingDirty = true;
+        static std::string selectedFile;
+
         // The Project panel (Lesson 61): the place, visible — a
         // tree over listProjectFiles, rebuilt on Refresh, with the
         // selected file's facts below. Files are Selectables whose
@@ -528,6 +547,13 @@ int main()
         // files with the same leaf name in different folders can
         // never collide.
         ImGui::Begin("Project");
+        if (ImGui::Button("Open project folder..."))
+        {
+            dialogPurpose = 1;
+            dialogDir = project.root.empty() ? "." : project.root;
+            dialogSelected.clear();
+            dialogNeedsOpen = true;
+        }
         if (!haveProject)
         {
             ImGui::TextDisabled(
@@ -535,9 +561,6 @@ int main()
         }
         else
         {
-            static std::vector<ProjectEntry> listing;
-            static bool listingDirty = true;
-            static std::string selectedFile;
             ImGui::Text("%s", project.name.c_str());
             ImGui::SameLine();
             if (ImGui::SmallButton("Refresh"))
@@ -576,6 +599,103 @@ int main()
             }
         }
         ImGui::End();
+
+        // The file browser modal (Lesson 62). An in-editor browser
+        // — portable to every platform the engine runs on, with no
+        // native-dialog dependency. Directories navigate on click;
+        // the footer confirms what the purpose came for.
+        if (dialogNeedsOpen)
+        {
+            ImGui::OpenPopup("File Browser");
+            dialogNeedsOpen = false;
+            dialogOpen = true;
+        }
+        if (dialogOpen && ImGui::BeginPopupModal("File Browser"))
+        {
+            ImGui::TextWrapped("%s", dialogDir.c_str());
+            if (ImGui::Button(".. up"))
+            {
+                const auto parent =
+                    std::filesystem::path(dialogDir).parent_path();
+                if (!parent.empty())
+                {
+                    dialogDir = parent.generic_string();
+                    dialogSelected.clear();
+                }
+            }
+            ImGui::Separator();
+            ImGui::BeginChild("browserEntries", {0, -42});
+            for (const auto& entry : listDirectory(dialogDir))
+            {
+                const std::string label = entry.name + "###" + entry.fullPath;
+                if (entry.isDirectory)
+                {
+                    if (ImGui::Selectable((entry.name + "/###" + entry.fullPath)
+                                              .c_str()))
+                    {
+                        dialogDir = entry.fullPath;
+                        dialogSelected.clear();
+                    }
+                }
+                else if (dialogPurpose == 2)
+                {
+                    if (ImGui::Selectable(label.c_str(),
+                                          dialogSelected == entry.fullPath))
+                        dialogSelected = entry.fullPath;
+                }
+                else
+                {
+                    ImGui::TextDisabled("%s", entry.name.c_str());
+                }
+            }
+            ImGui::EndChild();
+            ImGui::Separator();
+            if (dialogPurpose == 1)
+            {
+                if (ImGui::Button("Open this folder as project"))
+                {
+                    Project opened;
+                    if (loadProjectFolder(dialogDir, opened))
+                    {
+                        // Opening a project adopts it whole: the
+                        // panel's place, the world's seed, and its
+                        // start scene when it has one.
+                        project = opened;
+                        haveProject = true;
+                        game.newRun(project.seed);
+                        if (!project.startScene.empty())
+                        {
+                            const std::string scenePath =
+                                projectPath(project, project.startScene);
+                            std::ifstream sceneFile(scenePath);
+                            if (sceneFile)
+                                game.loadScene(scenePath);
+                        }
+                        listingDirty = true;
+                        selectedFile.clear();
+                    }
+                    dialogOpen = false;
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            else if (dialogPurpose == 2)
+            {
+                if (ImGui::Button("Choose file") && !dialogSelected.empty())
+                {
+                    dialogResult = dialogSelected;
+                    dialogFinished = true;
+                    dialogOpen = false;
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                dialogOpen = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
 
         ImGui::Begin("Console");
         if (ImGui::Button("Clear"))

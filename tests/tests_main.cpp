@@ -1062,6 +1062,18 @@ int main()
                   has("project.myengine", false) && !has(".hidden", false) &&
                   heroSize == 7 && listProjectFiles(Project{}).empty(),
               "project: the tree lists files, skips hidden, sizes honestly");
+
+        // One directory, the file browser's view (Lesson 62):
+        // directories first, then files, each by name; hidden
+        // entries skipped; a missing directory lists nothing.
+        const auto entries = listDirectory(dir.string());
+        std::vector<std::string> names;
+        for (const auto& e : entries)
+            names.push_back(std::string(e.isDirectory ? "d:" : "f:") + e.name);
+        check(names == std::vector<std::string>{"d:assets", "d:scenes",
+                                                "d:scripts", "f:project.myengine"} &&
+                  listDirectory("/nonexistent-place-62").empty(),
+              "dialog: one directory lists dirs first, then files, by name");
         fs::remove_all(dir);
     }
 
