@@ -62,6 +62,7 @@ bool loadGLFunctions()
     load("glUniformMatrix4fv", glUniformMatrix4fv);
     load("glUniform3f", glUniform3f);
     load("glUniform1i", glUniform1i);
+    load("glUniform1f", glUniform1f);
     load("glGenerateMipmap", glGenerateMipmap);
 
     if (ok)

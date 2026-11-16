@@ -49,6 +49,7 @@ inline PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation = nullptr;
 inline PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv = nullptr;
 inline PFNGLUNIFORM3FPROC glUniform3f = nullptr;
 inline PFNGLUNIFORM1IPROC glUniform1i = nullptr;
+inline PFNGLUNIFORM1FPROC glUniform1f = nullptr;
 inline PFNGLGENERATEMIPMAPPROC glGenerateMipmap = nullptr;
 // Note: glGenTextures/glBindTexture/glTexImage2D/glTexParameteri
 // are NOT here — texture objects are OpenGL 1.1 (1997), so they are

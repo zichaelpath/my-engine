@@ -17,6 +17,11 @@
 // the Game's own crate entities stand on the terrain at their
 // world positions, UV-mapped and sun-lit. Controls: WASD move,
 // Q/E down/up, arrows look, Esc quit.
+//
+// Phase 2's Arc 9 (Lessons 89+) grows this host from demo to
+// renderer. Lesson 89: Blinn-Phong specular — highlights need
+// the world position and the camera, so both programs now carry
+// a model matrix and a camera uniform alongside the MVP.
 
 namespace
 {
@@ -26,14 +31,20 @@ const char* kVertexShader = R"(
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec3 aColor;
+layout (location = 3) in vec2 aSpec;
 uniform mat4 uMVP;
+uniform mat4 uModel;
 out vec3 vColor;
 out vec3 vNormal;
+out vec3 vWorldPos;
+out vec2 vSpec;
 void main()
 {
     gl_Position = uMVP * vec4(aPos, 1.0);
     vColor = aColor;
-    vNormal = aNormal;
+    vNormal = mat3(uModel) * aNormal;
+    vWorldPos = (uModel * vec4(aPos, 1.0)).xyz;
+    vSpec = aSpec;
 }
 )";
 
@@ -41,15 +52,26 @@ const char* kFragmentShader = R"(
 #version 330 core
 in vec3 vColor;
 in vec3 vNormal;
+in vec3 vWorldPos;
+in vec2 vSpec;
 uniform vec3 uSunDir;
+uniform vec3 uCameraPos;
 out vec4 FragColor;
 void main()
 {
     // Lambert diffuse: a face square to the sun takes full light,
     // a face edge-on or turned away falls to the ambient floor.
-    float diffuse = max(dot(normalize(vNormal), uSunDir), 0.0);
+    vec3 n = normalize(vNormal);
+    float diffuse = max(dot(n, uSunDir), 0.0);
     float light = 0.35 + 0.65 * diffuse;
-    FragColor = vec4(vColor * light, 1.0);
+    // Blinn-Phong specular (Lesson 89): the halfway vector
+    // between sun and view directions — a tight, bright highlight
+    // where the surface mirrors the sun into the camera. vSpec
+    // carries this material's (shininess, strength).
+    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    vec3 halfVec = normalize(uSunDir + viewDir);
+    float spec = pow(max(dot(n, halfVec), 0.0), vSpec.x) * vSpec.y;
+    FragColor = vec4(vColor * light + spec, 1.0);
 }
 )";
 
@@ -61,13 +83,16 @@ layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aUV;
 uniform mat4 uMVP;
+uniform mat4 uModel;
 out vec3 vNormal;
 out vec2 vUV;
+out vec3 vWorldPos;
 void main()
 {
     gl_Position = uMVP * vec4(aPos, 1.0);
-    vNormal = aNormal;
+    vNormal = mat3(uModel) * aNormal;
     vUV = aUV;
+    vWorldPos = (uModel * vec4(aPos, 1.0)).xyz;
 }
 )";
 
@@ -75,14 +100,24 @@ const char* kTexFragmentShader = R"(
 #version 330 core
 in vec3 vNormal;
 in vec2 vUV;
+in vec3 vWorldPos;
 uniform vec3 uSunDir;
+uniform vec3 uCameraPos;
+uniform float uShininess;
+uniform float uSpecStrength;
 uniform sampler2D uTexture;
 out vec4 FragColor;
 void main()
 {
-    float diffuse = max(dot(normalize(vNormal), uSunDir), 0.0);
+    vec3 n = normalize(vNormal);
+    float diffuse = max(dot(n, uSunDir), 0.0);
     float light = 0.35 + 0.65 * diffuse;
-    FragColor = vec4(texture(uTexture, vUV).rgb * light, 1.0);
+    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    vec3 halfVec = normalize(uSunDir + viewDir);
+    float spec = pow(max(dot(n, halfVec), 0.0), uShininess)
+                 * uSpecStrength;
+    FragColor = vec4(texture(uTexture, vUV).rgb * light + spec,
+                     1.0);
 }
 )";
 
@@ -180,6 +215,23 @@ float tileHeight(int id)
     }
 }
 
+// Specular character per tile type (Lesson 89): the Blinn-Phong
+// (shininess exponent, strength). Water is the mirror of this
+// world — a high exponent keeps its highlight tight and its
+// strength near full; grass barely answers at all.
+void tileSpec(int id, float& shininess, float& strength)
+{
+    switch (id)
+    {
+        case tiles::DeepWater: shininess = 90.f; strength = 0.95f; break;
+        case tiles::Water:     shininess = 64.f; strength = 0.85f; break;
+        case tiles::Sand:      shininess = 10.f; strength = 0.20f; break;
+        case tiles::Grass:     shininess = 6.f;  strength = 0.12f; break;
+        case tiles::Forest:    shininess = 8.f;  strength = 0.15f; break;
+        default:               shininess = 20.f; strength = 0.30f; break; // rock
+    }
+}
+
 // The heightfield mesh: position + normal + colour per vertex, a
 // plain triangle list. Every face of this mesh is axis-aligned, so
 // its normal is known exactly at build time — tops point +Y, skirts
@@ -190,20 +242,22 @@ std::vector<float> buildTerrain(const Game& game)
 {
     std::vector<float> verts;
     auto push = [&verts](float x, float y, float z, float nx, float ny, float nz,
-                         float r, float g, float b) {
-        verts.insert(verts.end(), {x, y, z, nx, ny, nz, r, g, b});
+                         float r, float g, float b, float shin, float strength) {
+        verts.insert(verts.end(),
+                     {x, y, z, nx, ny, nz, r, g, b, shin, strength});
     };
     // Corners in perimeter order; emits (a,b,c) and (a,c,d), all
     // with the face's normal.
     auto quad = [&push](const float a[3], const float b[3], const float c[3],
                         const float d[3], float nx, float ny, float nz,
-                        float r, float g, float bl) {
-        push(a[0], a[1], a[2], nx, ny, nz, r, g, bl);
-        push(b[0], b[1], b[2], nx, ny, nz, r, g, bl);
-        push(c[0], c[1], c[2], nx, ny, nz, r, g, bl);
-        push(a[0], a[1], a[2], nx, ny, nz, r, g, bl);
-        push(c[0], c[1], c[2], nx, ny, nz, r, g, bl);
-        push(d[0], d[1], d[2], nx, ny, nz, r, g, bl);
+                        float r, float g, float bl, float shin,
+                        float strength) {
+        push(a[0], a[1], a[2], nx, ny, nz, r, g, bl, shin, strength);
+        push(b[0], b[1], b[2], nx, ny, nz, r, g, bl, shin, strength);
+        push(c[0], c[1], c[2], nx, ny, nz, r, g, bl, shin, strength);
+        push(a[0], a[1], a[2], nx, ny, nz, r, g, bl, shin, strength);
+        push(c[0], c[1], c[2], nx, ny, nz, r, g, bl, shin, strength);
+        push(d[0], d[1], d[2], nx, ny, nz, r, g, bl, shin, strength);
     };
 
     const float base = -0.8f; // skirt bottom at the map's edge
@@ -215,6 +269,8 @@ std::vector<float> buildTerrain(const Game& game)
         {
             int id = game.tileAt(tx, ty);
             float height = tileHeight(id);
+            float shin = 0.f, specStrength = 0.f;
+            tileSpec(id, shin, specStrength);
             sf::Color c = Game::tileColor(id);
             float r = c.r / 255.f;
             float g = c.g / 255.f;
@@ -228,7 +284,7 @@ std::vector<float> buildTerrain(const Game& game)
             const float B[3] = {x1, height, z0};
             const float C[3] = {x1, height, z1};
             const float D[3] = {x0, height, z1};
-            quad(A, D, C, B, 0.f, 1.f, 0.f, r, g, b); // top, facing +Y
+            quad(A, D, C, B, 0.f, 1.f, 0.f, r, g, b, shin, specStrength); // top, facing +Y
 
             auto neighbourHeight = [&](int nx, int ny) {
                 int nid = game.tileAt(nx, ny);
@@ -243,7 +299,7 @@ std::vector<float> buildTerrain(const Game& game)
                 const float q[3] = {x1, nh, z0};
                 const float s[3] = {x1, height, z0};
                 const float t2[3] = {x1, height, z1};
-                quad(p, q, s, t2, 1.f, 0.f, 0.f, r, g, b);
+                quad(p, q, s, t2, 1.f, 0.f, 0.f, r, g, b, shin, specStrength);
             }
             nh = neighbourHeight(tx - 1, ty);
             if (nh < height)
@@ -252,7 +308,7 @@ std::vector<float> buildTerrain(const Game& game)
                 const float q[3] = {x0, nh, z1};
                 const float s[3] = {x0, height, z1};
                 const float t2[3] = {x0, height, z0};
-                quad(p, q, s, t2, -1.f, 0.f, 0.f, r, g, b);
+                quad(p, q, s, t2, -1.f, 0.f, 0.f, r, g, b, shin, specStrength);
             }
             nh = neighbourHeight(tx, ty + 1);
             if (nh < height)
@@ -261,7 +317,7 @@ std::vector<float> buildTerrain(const Game& game)
                 const float q[3] = {x1, nh, z1};
                 const float s[3] = {x1, height, z1};
                 const float t2[3] = {x0, height, z1};
-                quad(p, q, s, t2, 0.f, 0.f, 1.f, r, g, b);
+                quad(p, q, s, t2, 0.f, 0.f, 1.f, r, g, b, shin, specStrength);
             }
             nh = neighbourHeight(tx, ty - 1);
             if (nh < height)
@@ -270,7 +326,7 @@ std::vector<float> buildTerrain(const Game& game)
                 const float q[3] = {x0, nh, z0};
                 const float s[3] = {x0, height, z0};
                 const float t2[3] = {x1, height, z0};
-                quad(p, q, s, t2, 0.f, 0.f, -1.f, r, g, b);
+                quad(p, q, s, t2, 0.f, 0.f, -1.f, r, g, b, shin, specStrength);
             }
         }
     }
@@ -306,12 +362,21 @@ int main()
     if (program == 0 || texProgram == 0)
         return 1;
     GLint mvpLocation = glGetUniformLocation(program, "uMVP");
+    GLint modelLocation = glGetUniformLocation(program, "uModel");
     GLint sunLocation = glGetUniformLocation(program, "uSunDir");
+    GLint camLocation = glGetUniformLocation(program, "uCameraPos");
     GLint texMvpLocation = glGetUniformLocation(texProgram, "uMVP");
+    GLint texModelLocation = glGetUniformLocation(texProgram, "uModel");
     GLint texSunLocation = glGetUniformLocation(texProgram, "uSunDir");
+    GLint texCamLocation = glGetUniformLocation(texProgram, "uCameraPos");
+    GLint texShineLocation = glGetUniformLocation(texProgram, "uShininess");
+    GLint texSpecLocation = glGetUniformLocation(texProgram, "uSpecStrength");
     GLint texSamplerLocation = glGetUniformLocation(texProgram, "uTexture");
-    if (mvpLocation < 0 || sunLocation < 0 || texMvpLocation < 0 ||
-        texSunLocation < 0 || texSamplerLocation < 0)
+    if (mvpLocation < 0 || modelLocation < 0 || sunLocation < 0 ||
+        camLocation < 0 || texMvpLocation < 0 || texModelLocation < 0 ||
+        texSunLocation < 0 || texCamLocation < 0 ||
+        texShineLocation < 0 || texSpecLocation < 0 ||
+        texSamplerLocation < 0)
     {
         Log::error("A required uniform was not found in a shader program");
         return 1;
@@ -326,7 +391,7 @@ int main()
     // 12345 — the Gold Rush world), extruded by tile type.
     Game game;
     std::vector<float> terrain = buildTerrain(game);
-    const GLsizei terrainVertexCount = static_cast<GLsizei>(terrain.size() / 9);
+    const GLsizei terrainVertexCount = static_cast<GLsizei>(terrain.size() / 11);
     Log::info("Terrain built: " + std::to_string(terrainVertexCount / 3) +
               " triangles from a " + std::to_string(game.tilesX()) + "x" +
               std::to_string(game.tilesY()) + " tile grid");
@@ -339,17 +404,21 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(terrain.size() * sizeof(float)),
                  terrain.data(), GL_STATIC_DRAW);
-    // Vertex layout: position (0), normal (1), colour (2) — nine
-    // floats per vertex. The shader's layout qualifiers and these
-    // offsets are two halves of one contract.
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), nullptr);
+    // Vertex layout: position (0), normal (1), colour (2),
+    // specular pair (3) — eleven floats per vertex. The shader's
+    // layout qualifiers and these offsets are two halves of one
+    // contract.
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float),
                           reinterpret_cast<const void*>(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float),
                           reinterpret_cast<const void*>(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 11 * sizeof(float),
+                          reinterpret_cast<const void*>(9 * sizeof(float)));
+    glEnableVertexAttribArray(3);
 
     // The crates (Lesson 40): mesh, texture, and placements — the
     // placements come from the Game's own entity list, converted
@@ -504,7 +573,10 @@ int main()
         // matrix is the identity — one draw for the whole world.
         Mat4 mvp = projection * view;
         glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, mvp.data());
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE,
+                           Mat4::identity().data());
         glUniform3f(sunLocation, sunDir.x, sunDir.y, sunDir.z);
+        glUniform3f(camLocation, cameraPos.x, cameraPos.y, cameraPos.z);
         glDrawArrays(GL_TRIANGLES, 0, terrainVertexCount);
 
         // The crates: second program, same sun. Their model is a
@@ -517,6 +589,12 @@ int main()
             glBindVertexArray(crateVao);
             glBindTexture(GL_TEXTURE_2D, crateTexture);
             glUniform3f(texSunLocation, sunDir.x, sunDir.y, sunDir.z);
+            glUniform3f(texCamLocation, cameraPos.x, cameraPos.y,
+                        cameraPos.z);
+            // The crate's material (Lesson 89): varnished wood —
+            // a mid shininess, a modest answer.
+            glUniform1f(texShineLocation, 24.f);
+            glUniform1f(texSpecLocation, 0.30f);
             glUniform1i(texSamplerLocation, 0);
             for (const Vec3& spot : crateSpots)
             {
@@ -524,6 +602,8 @@ int main()
                              Mat4::scaling(1.6f, 1.6f, 1.6f);
                 Mat4 crateMvp = projection * view * model;
                 glUniformMatrix4fv(texMvpLocation, 1, GL_FALSE, crateMvp.data());
+                glUniformMatrix4fv(texModelLocation, 1, GL_FALSE,
+                                   model.data());
                 glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
             }
         }

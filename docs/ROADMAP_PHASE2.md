@@ -108,6 +108,8 @@ Procgen stays what it has always been here: a foundation a game *may* build on �
 
 ## Arc 9 — 3D, Second Season (Lessons ~89–94)
 
+Progress: Lesson 89: Blinn-Phong specular in MyGL — per-tile materials in the terrain vertex layout (water 90/0.95, grass 6/0.12), uModel + uCameraPos plumbed through both programs, glUniform1f added to the hand-written loader; the highlight measured at the mirror geometry (water saturates, grass stays Lambert).
+
 *MyGL grows from demo to renderer. Zac's parallel LearnOpenGL study feeds this arc directly.*
 
 - **Specular light.** Blinn-Phong highlights join the Lambert sun; materials get a shininess term (water shines first).
