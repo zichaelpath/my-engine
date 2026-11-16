@@ -101,6 +101,16 @@ int main()
     Camera camera;
     bool followCam = true;
     float zoom = 1.f;
+
+    // The second viewport (Lesson 87): another camera on the
+    // same world, in its own panel — Game::render is const, so a
+    // second render of the same state is a second honest view of
+    // it, never a second simulation.
+    Camera camera2;
+    camera2.center = {800.f, 600.f}; // start on the world's heart
+    float zoom2 = 1.f;
+    bool view2Open = false;
+    sf::Vector2f view2PanelSize(640.f, 400.f);
     int selected = -1; // selected entity index (editor state, Lesson 22)
     bool dragging = false; // drag-to-move in progress (Lesson 25)
     sf::Vector2f dragOffset; // entity position minus grab point, world space
@@ -219,6 +229,7 @@ int main()
     float fpsTimer = 0.f;
 
     sf::RenderTexture gameView(sf::Vector2u(800, 600));
+    sf::RenderTexture gameView2(sf::Vector2u(640, 400));
     sf::Vector2f panelSize{800.f, 600.f};
 
     // Pop-out plumbing (Lesson 84): opening records the layout
@@ -339,6 +350,7 @@ int main()
             ImGui::Text("Selected: none");
         ImGui::Text("Camera: (%.0f, %.0f)", camera.center.x, camera.center.y);
         ImGui::Checkbox("Camera follow", &followCam);
+        ImGui::Checkbox("Game View 2 (second camera)", &view2Open);
         ImGui::Checkbox("Show hitboxes", &game.showHitboxes);
         ImGui::SliderFloat("Zoom", &zoom, 0.4f, 3.f);
         // Play-test mode (Lesson 28): Play snapshots the scene;
@@ -1352,6 +1364,41 @@ int main()
             popWindow.display();
         }
 
+        // The second viewport's render (Lesson 87): the same
+        // world, the same frame, through camera2 — with the
+        // selection overlay, so both views agree on what is
+        // selected. No shake and no follow: this camera belongs
+        // to the author, not the player.
+        if (view2Open)
+        {
+            const sf::Vector2u want2(
+                static_cast<unsigned int>(view2PanelSize.x),
+                static_cast<unsigned int>(view2PanelSize.y));
+            if (want2.x > 0 && want2.y > 0 &&
+                want2 != gameView2.getSize())
+                gameView2.resize(want2);
+            camera2.viewHeight = 600.f / zoom2;
+            const sf::Vector2f canvas2(gameView2.getSize());
+            camera2.clampToWorld(game.worldSize(), canvas2);
+            gameView2.setView(camera2.makeView(canvas2));
+            game.render(gameView2);
+            if (selected >= 0 &&
+                selected < static_cast<int>(game.entities().size()))
+            {
+                const Entity& e =
+                    game.entities()[static_cast<std::size_t>(selected)];
+                sf::RectangleShape highlight;
+                highlight.setSize(e.size + sf::Vector2f(4.f, 4.f));
+                highlight.setPosition(e.position -
+                                      sf::Vector2f(2.f, 2.f));
+                highlight.setFillColor(sf::Color::Transparent);
+                highlight.setOutlineColor(sf::Color::Yellow);
+                highlight.setOutlineThickness(2.f);
+                gameView2.draw(highlight);
+            }
+            gameView2.display();
+        }
+
         // Everything the pointer can do to the view (Lessons
         // 25/83), written once against ViewPointer: the docked
         // panel and the popped window feed it identically.
@@ -1515,6 +1562,41 @@ int main()
             ImGui::PopStyleVar();
         }
         ImGui::End();
+
+        // The Game View 2 panel (Lesson 87): the second camera's
+        // home. It has its own pan (right-drag) and zoom (wheel);
+        // picking and painting stay with the main view — one
+        // editing hand, two eyes.
+        if (view2Open)
+        {
+            ImGui::Begin("Game View 2");
+            view2PanelSize = ImGui::GetContentRegionAvail();
+            ImGui::Image(gameView2, view2PanelSize);
+            if (ImGui::IsWindowHovered())
+            {
+                const float wheel = ImGui::GetIO().MouseWheel;
+                if (wheel != 0.f)
+                    zoom2 = std::clamp(zoom2 * (1.f + wheel * 0.1f),
+                                       0.4f, 3.f);
+                if (ImGui::IsMouseDown(ImGuiMouseButton_Right))
+                {
+                    const ImVec2 drag = ImGui::GetMouseDragDelta(
+                        ImGuiMouseButton_Right);
+                    if (drag.x != 0.f || drag.y != 0.f)
+                    {
+                        const sf::Vector2f canvas(gameView2.getSize());
+                        const sf::Vector2f view =
+                            camera2.viewSize(canvas);
+                        camera2.center -= sf::Vector2f(
+                            drag.x * view.x / canvas.x,
+                            drag.y * view.y / canvas.y);
+                        ImGui::ResetMouseDragDelta(
+                            ImGuiMouseButton_Right);
+                    }
+                }
+            }
+            ImGui::End();
+        }
 
         window.clear(sf::Color(25, 25, 25));
         ImGui::SFML::Render(window);
