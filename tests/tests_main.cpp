@@ -828,6 +828,53 @@ int main()
         check(carried, "platforms: a moving platform carries its rider");
     }
 
+    // --- The Physics panel's levers (Lesson 58) ----------------------------
+    {
+        const float dt = 1.f / 60.f;
+        // Doubled gravity halves the jump's rise (v^2 / 2g): the
+        // panel's sliders write these same fields.
+        Game heavy;
+        float rest = 0.f;
+        const bool staged = standOnPerch(heavy, rest);
+        heavy.gravity = 3600.f;
+        heavy.setInput({{0.f, 0.f}, true});
+        heavy.update(dt);
+        float apex = playerOf(heavy).position.y;
+        for (int i = 0; i < 240 && !playerOf(heavy).grounded; ++i)
+        {
+            heavy.update(dt);
+            apex = std::min(apex, playerOf(heavy).position.y);
+        }
+        // Solidity is a switch: with rock switched off, the
+        // Lesson 56 drop falls straight through the tile's band.
+        Game ghost;
+        int rockTx = -1, rockTy = -1;
+        for (int ty = 8; ty < ghost.tilesY() && rockTx < 0; ++ty)
+            for (int tx = 0; tx < ghost.tilesX(); ++tx)
+                if (ghost.tileAt(tx, ty) == tiles::Rock &&
+                    !ghost.tileSolid(ghost.tileAt(tx, ty - 1)) &&
+                    !ghost.tileSolid(ghost.tileAt(tx, ty - 2)))
+                {
+                    rockTx = tx;
+                    rockTy = ty;
+                    break;
+                }
+        bool fellThrough = false;
+        if (rockTx >= 0)
+        {
+            ghost.setTileSolid(tiles::Rock, false);
+            Entity& p = playerOf(ghost);
+            p.moveModel = MoveModel::Platformer;
+            p.position = {rockTx * 20.f - 4.f, rockTy * 20.f - 110.f};
+            p.velocity = {0.f, 0.f};
+            for (int i = 0; i < 90; ++i)
+                ghost.update(dt);
+            fellThrough = p.position.y + 50.f > rockTy * 20.f + 20.f;
+        }
+        check(staged && apex > rest - 75.f && fellThrough,
+              "physics levers: gravity retunes the jump, solidity switches");
+    }
+
     // --- The Lesson 44 regression: a flipped sprite stays home -------
 #if defined(__linux__)
     if (std::getenv("DISPLAY") == nullptr)

@@ -479,6 +479,45 @@ int main()
                     game.ringCount());
         ImGui::End();
 
+        // The Physics panel (Lesson 58): Arc 3's numbers, live —
+        // the same public fields the harness pins. Solidity is a
+        // row of checkboxes over Game's table, and the model
+        // switch flips the player between Gold Rush and platformer
+        // so the whole toolkit can be felt without leaving the
+        // editor.
+        ImGui::Begin("Physics");
+        ImGui::SliderFloat("Gravity", &game.gravity, 200.f, 4000.f);
+        ImGui::SliderFloat("Terminal velocity", &game.terminalVelocity, 100.f,
+                           2000.f);
+        ImGui::SliderFloat("Run speed", &game.platformerSpeed, 50.f, 600.f);
+        ImGui::SliderFloat("Jump speed", &game.jumpSpeed, 100.f, 1200.f);
+        ImGui::SliderFloat("Coyote time (s)", &game.coyoteTime, 0.f, 0.3f);
+        ImGui::SliderFloat("Jump buffer (s)", &game.jumpBuffer, 0.f, 0.3f);
+        ImGui::SliderFloat("Jump cut", &game.jumpCut, 0.1f, 1.f);
+        ImGui::Separator();
+        ImGui::Text("Solid tiles (platformer):");
+        const char* tileNames[6] = {"Deep water", "Water", "Sand",
+                                    "Grass",     "Forest", "Rock"};
+        for (int id = 0; id < 6; ++id)
+        {
+            bool solid = game.tileSolid(id);
+            if (ImGui::Checkbox(tileNames[id], &solid))
+                game.setTileSolid(id, solid);
+        }
+        ImGui::Separator();
+        for (auto& e : game.entities())
+        {
+            if (!e.playerControlled)
+                continue;
+            bool platformer = e.moveModel == MoveModel::Platformer;
+            if (ImGui::Checkbox("Player is a platformer", &platformer))
+                e.moveModel = platformer ? MoveModel::Platformer
+                                         : MoveModel::TopDown;
+            ImGui::Text("Grounded: %s   Velocity: (%.0f, %.0f)",
+                        e.grounded ? "yes" : "no", e.velocity.x, e.velocity.y);
+        }
+        ImGui::End();
+
         ImGui::Begin("Console");
         if (ImGui::Button("Clear"))
             Log::clear();
