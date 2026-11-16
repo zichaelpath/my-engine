@@ -6,6 +6,16 @@
 
 **Estimated size:** ~46 lessons across nine arcs — deliberately the same depth as Phase 1 (43 lessons). Estimates are planning aids, not promises; Phase 1's arcs compressed and stretched as the work taught us things, and these will too. Devlog numbering continues from Lesson 44.
 
+## What "complete" means (Zac's north star, Nov 15, 2026)
+
+Phase 2's destination, in the author's words: *a complete engine* — "a standard engine feel to where any rookie game developer can download it and create a video game, whether that's with or without procedural generation." Three pillars follow from that, and the arc order below was revised the same day to serve them:
+
+- **A file system.** A project is a *place* — a folder the editor shows you. Files (scenes, scripts, assets) are visible, creatable, and openable from inside the editor, not folklore you manage in Explorer. (Arc 4)
+- **Scripting per game.** A game's behaviour lives in *that game's* script files, not in engine C++ written by the engine's author for one title. The engine ships the stage and the API; each game brings its own play. (Arc 5, proven by Arc 6)
+- **Multiple windows if necessary.** The editor is not trapped in one rectangle: the game view (and later the script editor) can live in their own OS windows when the work wants the room. (Arc 8)
+
+Procgen stays what it has always been here: a foundation a game *may* build on — never a toll every game must pay. A rookie who wants a hand-made platformer and nothing else should never have to know the noise library exists.
+
 ## Standing rules (carried over from Phase 1, unchanged)
 
 - Every lesson ships in one commit: code + devlog + blog entry + README update + at least one screenshot.
@@ -47,44 +57,56 @@
 - **One-way platforms & moving platforms.** Pass-through-from-below tiles; platform entities that carry the player (position deltas applied to riders).
 - **The physics panel.** Editor readouts for velocity, grounded, coyote/buffer timers — because feel you can't measure is feel you can't tune.
 
-## Arc 4 — The Second Game (Lessons ~60–64)
+## Arc 4 — The Project Is a Place (Lessons ~60–65)
 
-*Proof of generalization: a complete platformer, authored in the editor, shipped mid-phase.*
+*The file-system pillar. A project becomes a folder the editor can see, browse, and manage — the Asset Browser this engine's plan has promised since Nov 13, 2026.*
 
-- **The game.** A small precision-lite platformer (working title in planning; Zac names it): collect-the-things across hand-authored levels, built with Arcs 3+5 systems — no genre-specific hacks in GameLib; every gap the game exposes becomes an engine lesson or gets logged as a known limit.
-- **Authored, not generated.** Levels are scenes (Lesson 18 format), laid out in the editor — the first real test of the editor as a *level* tool, feeding Arc 7's list.
-- **Ship it.** Packaged like Gold Rush (its own `project.myengine`), versioned, clean-room verified. Working title for the release: MyEngine 1.5 — the engine grew a genre.
-- *(Decision point for Zac, before this arc: platformer as planned, or a different second genre — see the end of this document.)*
+- **Project folders.** A project is a directory containing `project.myengine`; the editor opens a *folder*, and everything the game owns lives under it (scenes/, scripts/, assets/). Gold Rush migrates to the layout without changing its identity.
+- **The FileSystem panel.** A dockable tree of the project folder: scenes, scripts, assets, each with its icon and kind; click to select, double-click to open (scene → load, script → script editor when Arc 5 lands, asset → preview).
+- **File dialogs.** Open Project, New Project (name + folder + starter layout), Save Scene As — real OS dialogs or an ImGui equivalent, decided by what SFML/porting makes honest; no more "the file is wherever the working directory was" (Lesson 44's checkerboard was this arc knocking early).
+- **Import.** Drag or pick an image/sound file and it is *copied into* the project's assets and enters the resource caches by project-relative path — the end of CWD-relative asset luck.
+- **Scene files as citizens.** Create/rename/duplicate/delete scenes from the panel (absorbs Arc 7's old scene-manager item); the project file lists them; the editor's scene controls and the panel never disagree.
 
-## Arc 5 — Data-Driven Entities (Lessons ~65–69)
+## Arc 5 — Scripting (Lessons ~66–72)
 
-*Stop hardcoding what things are. Entity types become data the project owns.*
+*The scripting pillar: behaviour belongs to the game, not the engine. (Language decision is Zac's — see Decisions; the plan is written for the recommended option.)*
 
-- **Type definitions.** A `types` section (its own file in the project): name, sprite, size, hitbox, solid, speed, behaviour flags. Spawning by type name replaces hand-built entities.
-- **Behaviours as data.** A small set of composable behaviour components — patrol, chase, flee, collectible, hazard, carryable — implemented once in GameLib, attached by data. ECS-lite: components without the dogma, chosen because our entities are few and our author is one person.
-- **Scene format v2.** Scenes store type + per-instance overrides; v1 scenes still load (the version gate from Lesson 41, honoured both ways — old files in, never silently mangled).
-- **Editor integration.** Spawn menu lists project types; the Inspector edits overrides, not raw structs.
+- **A language, embedded by hand.** Lua, built from source via FetchContent and bound through its plain C API — no binding framework, the same own-the-stack choice as the hand-written GL loader over GLAD. A `ScriptHost` in GameLib owns the VM.
+- **Scripts are project files.** `.lua` files under the project's `scripts/` (Arc 4's layout), attached to entities by name — in the type data (below) and per-instance in scenes (scene format grows a `script=` field, version-gated like Lesson 41 taught).
+- **An engine API worth scripting against.** v1 surface, deliberately small: entity get/set position, move with collision, spawn/despawn, input queries, play sound, log, the run's named RNG stream, tile queries. Everything a script can do, a test can check.
+- **Lifecycle.** `on_spawn`, `on_update(dt)`, `on_collect`-style events as the game defines them; scripts reload from the editor without restarting (edit → save → the world picks it up), because iteration speed is the entire point.
+- **Data-driven types, completed.** Arc 5's original content lands here as the data half: entity *types* defined in the project (name, sprite, size, hitbox, solid, speed) — types say WHAT a thing is, scripts say HOW it behaves. Scene format v2 stores type + overrides + script.
+- **Proof scene.** A test scene whose NPCs patrol, chase, and flee — written entirely in Lua, zero genre code in GameLib.
 
-## Arc 6 — Levels, Campaigns & Saves (Lessons ~70–74)
+## Arc 6 — The Second Game (Lessons ~73–77)
+
+*Proof of generalization, now with the full stack: a complete platformer, authored in the editor, its behaviours written in its own Lua scripts.*
+
+- **The game.** A small precision-lite platformer (Zac names it): collect-the-things across hand-authored levels, built with Arc 3 physics + Arc 4's project layout + Arc 5's types and scripts — no genre-specific hacks in GameLib; every gap the game exposes becomes an engine lesson or a logged known limit.
+- **Authored, not generated.** Levels are scenes, laid out in the editor — the procgen foundation deliberately unused, per the north star: the engine serves both kinds of game.
+- **Ship it.** Packaged like Gold Rush (its own project folder), versioned, clean-room verified. Working title for the release: MyEngine 1.5 — the engine grew a genre *and* a scripting layer.
+- *(Decision point for Zac, before this arc: the platformer's name and fantasy — mechanics are planned, identity is his.)*
+
+## Arc 7 — Levels, Campaigns & Saves (Lessons ~78–82)
 
 *Games bigger than one screenful of world.*
 
 - **Multi-scene projects.** The project file lists scenes; the Runtime moves between them (door/edge triggers, spawn points by name).
-- **Campaign structure.** Gold Rush gains a multi-world campaign *or* the platformer gains its level sequence (whichever the Arc 4 decision makes natural): a level-select flow built from shared UI widgets (below).
+- **Campaign structure.** The platformer gains its level sequence (and Gold Rush a multi-world campaign if it still earns it): a level-select flow built from shared UI widgets (below).
 - **Shared UI widgets.** Labels, buttons, and panels as engine objects both hosts can use — the Runtime's hand-rolled title screen (Lesson 33) is refactored onto them, so menus stop being per-game code.
 - **Save files.** A versioned `save.dat` (same text family): campaign progress, best times (Gold Rush finally keeps its records), settings that persist per player rather than per machine.
 
-## Arc 7 — The Editor Grows Up (Lessons ~75–80)
+## Arc 8 — The Editor Grows Up, Windows and All (Lessons ~83–88)
 
-*From inspector to authoring tool — the arc Arc 4's level-building pain writes the spec for.*
+*From inspector to authoring tool — and out of its single rectangle, per the third pillar.*
 
-- **Terrain painting.** Brushes that paint tile types onto the grid (with the determinism contract stated plainly: painted tiles are *edits stored in the scene*, layered over the generated base — generation stays pure).
+- **Terrain painting.** Brushes that paint tile types onto the grid (determinism contract stated plainly: painted tiles are *edits stored in the scene*, layered over the generated base — generation stays pure).
 - **Palettes.** Tile palette + entity-type palette panels; click-to-arm, paint-to-place, right-click erase.
-- **Scene manager.** Create/rename/delete scenes in the project from inside the editor; the project file stays the source of truth on disk.
+- **Windows, plural.** The Game View pops out into its own OS window (a second `sf::RenderWindow` rendering the same world — play on one screen, inspect on the other), and the script editor follows when Arc 5's editing surface wants the room. ImGui multi-viewport docking is the stretch goal, honestly flagged: ImGui-SFML's viewport support is partial, and the pop-out windows land first either way.
 - **Grid & snapping controls.** Snap sizes, tile-aligned placement for level work, world-border tools.
 - **Layout presets.** Saved panel layouts (the editor's `imgui.ini` becomes a named, choosable thing — a debt noted since the Phase 1 screenshots).
 
-## Arc 8 — 3D, Second Season (Lessons ~81–86)
+## Arc 9 — 3D, Second Season (Lessons ~89–94)
 
 *MyGL grows from demo to renderer. Zac's parallel LearnOpenGL study feeds this arc directly.*
 
@@ -92,18 +114,19 @@
 - **Shadows.** Shadow mapping: a depth pass from the sun, terrain that shades itself — the single biggest visual step left in the 3D host.
 - **Meshes as assets.** A `Mesh` class (VAO/VBO/EBO owned properly) and an OBJ loader, so models stop being hand-typed arrays; the crate becomes a loaded model.
 - **Sky & atmosphere.** A gradient skybox/clear and distance fog — the heightfield stops floating in void.
-- **Stretch (honestly flagged):** a read-only 3D viewport panel inside the editor, rendering the scene through MyGL's renderer. Only if Arcs 1–7 land on schedule; cut without guilt otherwise.
+- **Stretch (honestly flagged):** a read-only 3D viewport panel inside the editor, rendering the scene through MyGL's renderer. Only if the earlier arcs land on schedule; cut without guilt otherwise.
 
-## Arc 9 — Ship 2.0 (Lessons ~87–90)
+## Arc 10 — Ship 2.0 (Lessons ~95–98)
 
 - **Performance pass.** A profiling readout (frame-time graph in the editor, draw-call and triangle counters in MyGL), one measured optimization chosen by data, before/after numbers in the devlog.
-- **The public question.** *(Decision point for Zac:)* the repo goes public as the portfolio piece, or stays private with a public showcase page. Either way: a release page with screenshots, the two games, and the story.
-- **2.0.0.** Both games repackaged on the 2.0 engine, changelog, tag — and the Phase 2 retrospective devlog: what the engine is now, what it still isn't, and what Phase 3 would be about (current honest candidates: a scripting layer, networking, or the editor's own 3D view — in that order of likelihood).
+- **The public question.** *(Decision point for Zac:)* the repo goes public as the portfolio piece, or stays private with a public showcase page. Either way: a release page with screenshots, both games, and the story.
+- **2.0.0.** Both games repackaged on the 2.0 engine, changelog, tag — and the Phase 2 retrospective devlog: what the engine is now, what it still isn't, and what Phase 3 would be about.
 
 ## Decisions Zac owns (needed before the arc named)
 
-1. **Before Arc 4:** the second game's genre — platformer (planned; it forces the most reusable engine growth) or something else he names.
-2. **Before Arc 9:** public repo vs private + showcase.
-3. **Any time in Arc 1:** his Phase 1 playtest findings *are* Arc 1's spec — the arc re-plans around them, not vice versa.
+1. **Before Arc 5:** the scripting language — Lua, hand-bound (recommended: the game industry's default embed, tiny, rookie-legible, and ownable the way this engine owns its GL loader) or an alternative he names.
+2. **Before Arc 6:** the second game's name and fantasy (platformer mechanics are planned; identity is his).
+3. **Before Arc 10:** public repo vs private + showcase.
+4. **Any time in Arc 1:** his Phase 1 playtest findings *are* Arc 1's spec — the arc re-plans around them, not vice versa.
 
-*Planned Nov 15, 2026, the day Phase 1 shipped. Same author, same rules, same standard: if it isn't verified by playing it, it isn't done.*
+*Planned Nov 15, 2026, the day Phase 1 shipped; revised the same evening at Zac's direction — the "complete engine" north star (file system, per-game scripting, multiple windows) re-ordered Arcs 4–8 and grew the phase from nine arcs (~46 lessons) to ten (~55). Same author, same rules, same standard: if it isn't verified by playing it, it isn't done.*
