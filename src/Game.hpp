@@ -135,6 +135,25 @@ public:
     float gravity = 1800.f;         // units/s^2
     float terminalVelocity = 900.f; // units/s, the fall's ceiling
     float platformerSpeed = 230.f;  // run speed, units/s
+    float jumpSpeed = 620.f;        // the jump's launch velocity (L55)
+    float coyoteTime = 0.10f;       // grace after leaving ground (L55)
+    float jumpBuffer = 0.12f;       // grace before touching it (L55)
+    float jumpCut = 0.45f;          // release early, rise this much (L55)
+
+    // The input seam (Lesson 55): update() reads the keyboard —
+    // unless an override is set, in which case it reads this. Tests
+    // drive a player with it today; scripts and AI will tomorrow.
+    struct InputState
+    {
+        sf::Vector2f move{0.f, 0.f};
+        bool jump = false;
+    };
+    void setInput(const InputState& in)
+    {
+        m_input = in;
+        m_inputOverride = true;
+    }
+    void clearInput() { m_inputOverride = false; }
     float clearColor[3] = {30.f / 255.f, 30.f / 255.f, 40.f / 255.f};
     bool showHitboxes = false; // editor debug overlay (Lesson 19)
 
@@ -235,6 +254,14 @@ private:
     int m_goldTotal = 0;
     bool m_won = false;
     float m_runTime = 0.f;
+
+    // Input seam + jump state (Lesson 55)
+    InputState m_input;
+    bool m_inputOverride = false;
+    bool m_prevJump = false;   // last frame's jump button (edges)
+    float m_coyoteTimer = 0.f; // time since ground was true
+    float m_bufferTimer = 0.f; // time since jump was pressed
+    bool m_jumpCutDone = true; // variable-height cut already spent
 
     std::vector<int> m_tiles;
     int m_tilesX = 0;

@@ -392,19 +392,38 @@ void Game::update(float dt)
         }
     }
 
+    // Input (Lesson 55): the keyboard — unless the seam overrides
+    // it. Jump is Space, plus W/Up for a platformer player, whose
+    // vertical axis belongs to gravity anyway.
     sf::Vector2f dir(0.f, 0.f);
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) ||
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
-        dir.y -= 1.f;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) ||
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))
-        dir.y += 1.f;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) ||
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
-        dir.x -= 1.f;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) ||
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
-        dir.x += 1.f;
+    bool jumpHeld = false;
+    if (m_inputOverride)
+    {
+        dir = m_input.move;
+        jumpHeld = m_input.jump;
+    }
+    else
+    {
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) ||
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
+            dir.y -= 1.f;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) ||
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))
+            dir.y += 1.f;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) ||
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
+            dir.x -= 1.f;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) ||
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
+            dir.x += 1.f;
+        jumpHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) ||
+                   (m_entities[m_playerEntity].moveModel ==
+                        MoveModel::Platformer &&
+                    (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) ||
+                     sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)));
+    }
+    const bool jumpPressed = jumpHeld && !m_prevJump;
+    m_prevJump = jumpHeld;
 
     dir = math::normalize(dir);
     if (m_won)
@@ -453,6 +472,35 @@ void Game::update(float dt)
         // The velocity is the state; this frame's move derives from
         // it, and the shared axis-separated resolver below decides
         // what survives — one collision truth for both models.
+        //
+        // Jump feel (Lesson 55): two grace timers working opposite
+        // sides of the same moment. Coyote time forgives a press
+        // just AFTER the ground vanishes; the buffer forgives one
+        // just BEFORE it arrives. Each covers the other's blind
+        // spot — including the first frame of standing, when
+        // grounded is not yet true but a buffered press is waiting.
+        if (player.grounded)
+            m_coyoteTimer = coyoteTime;
+        else
+            m_coyoteTimer -= dt;
+        if (jumpPressed)
+            m_bufferTimer = jumpBuffer;
+        else
+            m_bufferTimer -= dt;
+        if (!m_won && m_bufferTimer > 0.f && m_coyoteTimer > 0.f)
+        {
+            player.velocity.y = -jumpSpeed;
+            m_bufferTimer = 0.f;
+            m_coyoteTimer = 0.f;
+            m_jumpCutDone = false;
+        }
+        // Variable height: release the button while still rising
+        // and the rise is cut — once per jump.
+        if (!jumpHeld && !m_jumpCutDone && player.velocity.y < 0.f)
+        {
+            player.velocity.y *= jumpCut;
+            m_jumpCutDone = true;
+        }
         player.velocity.x = dir.x * platformerSpeed;
         player.velocity.y =
             std::min(player.velocity.y + gravity * dt, terminalVelocity);
@@ -522,8 +570,28 @@ void Game::update(float dt)
     if (player.moveModel == MoveModel::Platformer)
     {
         const float actualDy = player.position.y - beforeMove.y;
+        const bool wasGrounded = player.grounded;
         player.grounded =
             player.velocity.y > 0.f && actualDy < move.y - 0.001f;
+        // A heavy landing announces itself (Lesson 55): dust at
+        // the feet and a whisper of trauma. Light landings — a
+        // hop's return, a step down — stay silent on purpose.
+        if (player.grounded && !wasGrounded && player.velocity.y > 480.f)
+        {
+            Emitter dust;
+            dust.position = player.position + player.hitboxOffset +
+                            sf::Vector2f(hitboxSizeOf(player).x / 2.f,
+                                         hitboxSizeOf(player).y);
+            dust.count = 8;
+            dust.color = sf::Color(196, 178, 150);
+            dust.speedMin = 25.f;
+            dust.speedMax = 70.f;
+            dust.gravity = 120.f;
+            dust.lifeMin = 0.3f;
+            dust.lifeMax = 0.5f;
+            spawnParticles(dust);
+            addTrauma(0.08f);
+        }
         if (player.grounded ||
             (player.velocity.y < 0.f && actualDy > move.y + 0.001f))
             player.velocity.y = 0.f;

@@ -490,6 +490,101 @@ int main()
               "platformer: a fall can land on an entity, not just the floor");
     }
 
+    // --- Jump feel (Lesson 55), driven through the input seam -----------
+    {
+        auto playerOf = [](Game& g) -> Entity& {
+            for (auto& e : g.entities())
+                if (e.playerControlled)
+                    return e;
+            return g.entities().front(); // unreachable: a player exists
+        };
+        // Stands the player on the crate at (200, 150): rest y = 100.
+        auto standOnCrate = [&playerOf](Game& g) {
+            Entity& p = playerOf(g);
+            p.moveModel = MoveModel::Platformer;
+            p.position = {205.f, 40.f};
+            p.velocity = {0.f, 0.f};
+            for (int i = 0; i < 200 && !p.grounded; ++i)
+                g.update(1.f / 60.f);
+        };
+        const float dt = 1.f / 60.f;
+
+        // Held jump: launches, rises well clear, returns to the rest.
+        Game held;
+        standOnCrate(held);
+        held.setInput({{0.f, 0.f}, true});
+        held.update(dt);
+        const bool launched = playerOf(held).velocity.y < -100.f;
+        float heldApex = playerOf(held).position.y;
+        for (int i = 0; i < 240 && !playerOf(held).grounded; ++i)
+        {
+            held.update(dt);
+            heldApex = std::min(heldApex, playerOf(held).position.y);
+        }
+        // Tapped jump: release after two frames — the cut bites.
+        Game tapped;
+        standOnCrate(tapped);
+        tapped.setInput({{0.f, 0.f}, true});
+        tapped.update(dt);
+        tapped.update(dt);
+        tapped.setInput({{0.f, 0.f}, false});
+        float tappedApex = playerOf(tapped).position.y;
+        for (int i = 0; i < 240 && !playerOf(tapped).grounded; ++i)
+        {
+            tapped.update(dt);
+            tappedApex = std::min(tappedApex, playerOf(tapped).position.y);
+        }
+        check(launched && heldApex < 40.f && tappedApex > heldApex + 25.f &&
+                  playerOf(held).position.y == 100.f,
+              "jump: held flies high, tapped cuts short, both land home");
+
+        // Coyote: walk off the crate, press jump 3 frames later.
+        Game coyote;
+        standOnCrate(coyote);
+        coyote.setInput({{1.f, 0.f}, false});
+        for (int i = 0; i < 90 && playerOf(coyote).grounded; ++i)
+            coyote.update(dt);
+        for (int i = 0; i < 3; ++i)
+            coyote.update(dt);
+        coyote.setInput({{1.f, 0.f}, true});
+        coyote.update(dt);
+        const bool coyoteSaved = playerOf(coyote).velocity.y < 0.f;
+        // Same walk-off, but the press comes 12 frames late: no save.
+        Game late;
+        standOnCrate(late);
+        late.setInput({{1.f, 0.f}, false});
+        for (int i = 0; i < 90 && playerOf(late).grounded; ++i)
+            late.update(dt);
+        for (int i = 0; i < 12; ++i)
+            late.update(dt);
+        late.setInput({{1.f, 0.f}, true});
+        late.update(dt);
+        check(coyoteSaved && playerOf(late).velocity.y > 0.f,
+              "jump: coyote time saves the early press, not the late one");
+
+        // Buffer: press 4 frames BEFORE the landing; the jump must
+        // fire on the first grounded decision after touchdown.
+        Game buffered;
+        Entity& bp = playerOf(buffered);
+        bp.moveModel = MoveModel::Platformer;
+        bp.position = {205.f, 30.f};
+        bp.velocity = {0.f, 0.f};
+        for (int i = 0; i < 13; ++i)
+            buffered.update(dt);
+        buffered.setInput({{0.f, 0.f}, true});
+        buffered.update(dt);
+        buffered.setInput({{0.f, 0.f}, false});
+        bool fired = false;
+        for (int i = 0; i < 30 && !fired; ++i)
+        {
+            const bool wasGrounded = bp.grounded;
+            buffered.update(dt);
+            if (wasGrounded && bp.velocity.y < -100.f)
+                fired = true;
+        }
+        check(fired, "jump: a press just before landing is remembered");
+    }
+
     // --- The Lesson 44 regression: a flipped sprite stays home -------
 #if defined(__linux__)
     if (std::getenv("DISPLAY") == nullptr)
