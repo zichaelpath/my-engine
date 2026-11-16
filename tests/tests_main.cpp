@@ -1852,6 +1852,77 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- Multi-scene projects: doors and landings (Lesson 78) ----------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("scene-travel");
+        fs::remove_all(dir);
+        fs::create_directories(dir / "scenes");
+        auto actor = [](const std::string& name, float x, float y,
+                        bool controlled) {
+            Entity e;
+            e.name = name;
+            e.position = {x, y};
+            e.size = {50.f, 50.f};
+            e.color = sf::Color(200, 200, 80);
+            e.playerControlled = controlled;
+            return e;
+        };
+        // Two tiny levels, staged and saved as real scene files:
+        // A holds a door to B; B holds a named landing for
+        // travellers from A, a default landing, and a door back.
+        Game stage;
+        stage.replaceEntities(
+            {actor("Player", 100.f, 100.f, true),
+             actor("Exit:scenes/b.scene", 110.f, 110.f, false),
+             actor("Spawn", 60.f, 60.f, false)});
+        stage.saveScene((dir / "scenes/a.scene").string());
+        stage.replaceEntities(
+            {actor("Player", 700.f, 500.f, true),
+             actor("Spawn:a", 500.f, 300.f, false),
+             actor("Spawn", 50.f, 50.f, false),
+             actor("Exit:scenes/a.scene", 900.f, 900.f, false)});
+        stage.saveScene((dir / "scenes/b.scene").string());
+        stage.replaceEntities({actor("Player", 200.f, 200.f, true)});
+        stage.saveScene((dir / "scenes/c.scene").string());
+        // The card lists both levels; the first is the start,
+        // and the list round-trips through saveProject.
+        writeFile(dir / "project.myengine",
+                  "format=1\nname=Two Rooms\nseed=9\n"
+                  "scene=scenes/a.scene\nscene=scenes/b.scene\n");
+        Project p;
+        const bool listed = loadProjectFolder(dir.string(), p) &&
+                            p.scenes.size() == 2 &&
+                            p.startScene == "scenes/a.scene";
+        saveProject(p);
+        Project p2;
+        const bool roundTripped =
+            loadProjectFolder(dir.string(), p2) &&
+            p2.scenes.size() == 2 &&
+            p2.scenes[1] == "scenes/b.scene";
+        // The travel itself: stand in A's door, arrive in B.
+        Game g;
+        g.loadScene((dir / "scenes/a.scene").string());
+        g.update(1.f / 60.f);
+        const bool doorLatched = g.pendingExit() == "scenes/b.scene";
+        g.loadScene((dir / "scenes/b.scene").string());
+        const bool clearedOnLoad = g.pendingExit().empty();
+        const bool namedLanding = g.placePlayerAtSpawn("a") &&
+            g.entities()[g.playerIndex()].position ==
+                sf::Vector2f(500.f, 300.f);
+        const bool defaultLanding = g.placePlayerAtSpawn("nowhere") &&
+            g.entities()[g.playerIndex()].position ==
+                sf::Vector2f(50.f, 50.f);
+        g.loadScene((dir / "scenes/c.scene").string());
+        const bool noSpawn = !g.placePlayerAtSpawn("a");
+        check(listed && roundTripped && doorLatched && clearedOnLoad &&
+                  namedLanding && defaultLanding && noSpawn,
+              "multi-scene projects: the card lists levels, an "
+              "Exit:<scene> touch latches the door, and arrival "
+              "lands on Spawn:<from> before plain Spawn");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

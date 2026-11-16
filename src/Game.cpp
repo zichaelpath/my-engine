@@ -1383,6 +1383,29 @@ void Game::update(float dt)
         }
     }
 
+    // Scene travel (Lesson 78): an entity named "Exit:<scene>"
+    // is a door. Touching one latches its target for the host —
+    // Game owns the touching, hosts own the files. Checked once
+    // per frame against the player's hitbox, like gold.
+    if (m_pendingExit.empty())
+    {
+        const sf::FloatRect playerBox(
+            player.position + player.hitboxOffset,
+            hitboxSizeOf(player));
+        for (const auto& e : m_entities)
+        {
+            if (&e == &player || e.name.rfind("Exit:", 0) != 0)
+                continue;
+            const sf::FloatRect door(e.position, e.size);
+            if (playerBox.findIntersection(door))
+            {
+                m_pendingExit = e.name.substr(5);
+                Log::info("Exit touched: -> " + m_pendingExit);
+                break;
+            }
+        }
+    }
+
     // The rising pressure (Lesson 74): Temple Run's clock and
     // executioner in one line. After a grace delay it climbs at
     // pressureSpeed; the run's score is the highest the player's
@@ -1703,6 +1726,12 @@ void Game::render(sf::RenderTarget& target) const
         {
             if ((pass == 1) != entity.playerControlled)
                 continue;
+            // Spawn markers are authoring aids (Lesson 78):
+            // shipping hosts hide them; the editor shows them.
+            if (hideSpawnMarkers &&
+                (entity.name == "Spawn" ||
+                 entity.name.rfind("Spawn:", 0) == 0))
+                continue;
             // The spawn pop (Lesson 49) scales the player's picture
             // around his feet: same centre-bottom, eased size. Every
             // other entity — and the player once settled — draws at
@@ -1955,8 +1984,41 @@ bool Game::loadScene(const std::string& path)
         if (m_entities[i].playerControlled)
             m_playerEntity = i;
     bindScripts(); // scripted entities in the file go live (L70)
+    m_pendingExit.clear(); // a fresh scene has no touched door (L78)
     Log::info("Scene loaded from " + path + " (" +
               std::to_string(m_entities.size()) + " entities, seed " +
               std::to_string(m_seed) + ")");
+    return true;
+}
+
+bool Game::placePlayerAtSpawn(const std::string& fromScene)
+{
+    // Arrival (Lesson 78): the scene names its doors' landings.
+    // "Spawn:<scene you came from>" wins — a level can receive
+    // travellers from different neighbours at different doors —
+    // and plain "Spawn" is the default landing. The player is
+    // placed by his top-left at the marker's position, stopped:
+    // arriving is a teleport, not a throw.
+    const Entity* target = nullptr;
+    const std::string named = "Spawn:" + fromScene;
+    for (const auto& e : m_entities)
+        if (e.name == named)
+            target = &e;
+    if (!target)
+        for (const auto& e : m_entities)
+            if (e.name == "Spawn")
+                target = &e;
+    if (!target)
+    {
+        Log::warning("placePlayerAtSpawn: no '" + named +
+                     "' or 'Spawn' in this scene");
+        return false;
+    }
+    Entity& player = m_entities[m_playerEntity];
+    player.position = target->position;
+    player.velocity = {0.f, 0.f};
+    Log::info("Player arrived at " + target->name + " (" +
+              std::to_string((int)target->position.x) + ", " +
+              std::to_string((int)target->position.y) + ")");
     return true;
 }

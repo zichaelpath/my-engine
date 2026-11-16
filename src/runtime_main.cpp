@@ -58,6 +58,7 @@ int main(int argc, char** argv)
     window.setFramerateLimit(60);
 
     Game game;
+    game.hideSpawnMarkers = true; // shipped games hide them (L78)
     if (haveProject)
         game.setScriptRoot(project.root); // scripts resolve in the project (L70)
     if (static_cast<std::uint32_t>(config.getInt("seed", 12345)) != game.seed())
@@ -133,6 +134,20 @@ int main(int argc, char** argv)
     Screen screen = Screen::Title;
     Camera camera;
     sf::Clock clock;
+
+    // Scene travel (Lesson 78): which scene of the project the
+    // player is standing in. An Exit names its target scene; the
+    // scene being left names the Spawn the traveller lands on.
+    std::string currentScene = haveProject ? project.startScene : "";
+    auto sceneBase = [](const std::string& path) {
+        std::string base = path;
+        if (auto slash = base.find_last_of('/');
+            slash != std::string::npos)
+            base = base.substr(slash + 1);
+        if (auto dot = base.find_last_of('.'); dot != std::string::npos)
+            base = base.substr(0, dot);
+        return base;
+    };
 
     auto centreOn = [&](sf::Text& t, float y) {
         sf::FloatRect b = t.getLocalBounds();
@@ -221,6 +236,23 @@ int main(int argc, char** argv)
                 screen = Screen::Won;
             if (game.caught())
                 screen = Screen::Caught;
+            // A touched door (Lesson 78): the host does the
+            // travelling — load the target scene inside the
+            // project, land the player on its named Spawn.
+            if (haveProject && !game.pendingExit().empty())
+            {
+                const std::string target = game.pendingExit();
+                const std::string from = sceneBase(currentScene);
+                if (game.loadScene(projectPath(project, target)))
+                {
+                    game.placePlayerAtSpawn(from);
+                    currentScene = target;
+                }
+                else
+                    game.clearPendingExit(); // a broken door
+                                             // should not retry
+                                             // every frame
+            }
         }
         else if (screen == Screen::Won || screen == Screen::Caught)
         {

@@ -58,7 +58,14 @@ bool loadProject(const std::string& path, Project& out)
         }
         else if (key == "scene")
         {
-            parsed.startScene = value;
+            // Repeatable (Lesson 78): every scene= line joins
+            // the project's level list; the first is the start.
+            if (!value.empty())
+            {
+                parsed.scenes.push_back(value);
+                if (parsed.startScene.empty())
+                    parsed.startScene = value;
+            }
         }
         else if (key == "mode")
         {
@@ -120,8 +127,15 @@ bool writeProjectFile(const std::string& path, const Project& project)
             "instead.\n"
          << "format=1\n"
          << "name=" << project.name << "\n"
-         << "seed=" << project.seed << "\n"
-         << "scene=" << project.startScene << "\n";
+         << "seed=" << project.seed << "\n";
+    // The scene list (Lesson 78): one scene= line per declared
+    // scene, in order. A project with no list still writes its
+    // single (possibly empty) scene= line, as it always has.
+    if (project.scenes.empty())
+        file << "scene=" << project.startScene << "\n";
+    else
+        for (const auto& scene : project.scenes)
+            file << "scene=" << scene << "\n";
     // The game-kind keys (Lesson 76) are written only when they
     // carry information, so a scene game's card stays byte-for-
     // byte the card it has always been.

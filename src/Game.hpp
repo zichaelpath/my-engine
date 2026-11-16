@@ -221,6 +221,21 @@ public:
     bool saveScene(const std::string& path) const;
     bool loadScene(const std::string& path);
 
+    // Scene travel (Lesson 78): any entity named "Exit:<scene>"
+    // is a door — when the player's hitbox overlaps it, the
+    // target is latched here for the host to act on (hosts own
+    // files; Game owns the touching). Loading a scene clears it.
+    // placePlayerAtSpawn moves the player to the entity named
+    // "Spawn:<fromScene>" — or plain "Spawn" — in the current
+    // scene; false when the scene declares neither.
+    std::string pendingExit() const { return m_pendingExit; }
+    void clearPendingExit() { m_pendingExit.clear(); }
+    bool placePlayerAtSpawn(const std::string& fromScene);
+    // Shipping hosts set this: Spawn markers are authoring aids
+    // and stay invisible in the shipped game. The editor leaves
+    // it false — an author must see where spawns are.
+    bool hideSpawnMarkers = false;
+
     float speed = 200.f;
 
     // Platformer physics (Lesson 54): the second movement model's
@@ -406,6 +421,7 @@ private:
     int m_goldCollected = 0;
     int m_goldTotal = 0;
     bool m_won = false;
+    std::string m_pendingExit; // a touched Exit's target (L78)
     float m_runTime = 0.f;
 
     // Input seam + jump state (Lesson 55)

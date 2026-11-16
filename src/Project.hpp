@@ -19,6 +19,13 @@ struct Project
     std::uint32_t seed = 12345;
     std::string startScene; // empty = generate the world, load nothing
 
+    // Every scene the project declares, in order (Lesson 78):
+    // a card may repeat its scene= line, and the list is the
+    // project's level set — the first entry is the start scene
+    // (startScene mirrors it). Hosts move between these with
+    // Exit triggers; a one-scene project is a list of one.
+    std::vector<std::string> scenes;
+
     // What kind of game this is (Lesson 76): "scene" (the
     // default — a generated world plus an optional start scene,
     // Gold Rush's shape) or "ascent" (a chunk-dealt endless
