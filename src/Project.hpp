@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 // A Project is the game's identity card (Lesson 41): one small
 // text file, project.myengine, that says what game this is — its
@@ -46,3 +47,19 @@ bool createProjectFolder(const std::string& folder, const std::string& name,
                          Project& out);
 bool saveProject(const Project& project);
 std::string projectPath(const Project& project, const std::string& relative);
+
+// One entry in the project's tree (Lesson 61): its path relative
+// to the root ('/'-joined, e.g. "assets/hero.png"), whether it is
+// a directory, and — for files — its size in bytes.
+struct ProjectEntry
+{
+    std::string relativePath;
+    bool isDirectory = false;
+    std::uintmax_t size = 0;
+};
+
+// Lists everything under the project root, recursively, sorted
+// by relative path. Hidden entries (a leading '.') are skipped:
+// .gitkeep and its kin are plumbing, not project content. An
+// empty root (or a missing one) lists nothing.
+std::vector<ProjectEntry> listProjectFiles(const Project& project);

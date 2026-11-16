@@ -521,6 +521,62 @@ int main()
             game.buildClimberTest();
         ImGui::End();
 
+        // The Project panel (Lesson 61): the place, visible — a
+        // tree over listProjectFiles, rebuilt on Refresh, with the
+        // selected file's facts below. Files are Selectables whose
+        // ImGui ID is the full project-relative path (###), so two
+        // files with the same leaf name in different folders can
+        // never collide.
+        ImGui::Begin("Project");
+        if (!haveProject)
+        {
+            ImGui::TextDisabled(
+                "No project loaded — this folder is not a project place.");
+        }
+        else
+        {
+            static std::vector<ProjectEntry> listing;
+            static bool listingDirty = true;
+            static std::string selectedFile;
+            ImGui::Text("%s", project.name.c_str());
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Refresh"))
+                listingDirty = true;
+            ImGui::TextDisabled("%s", project.root.c_str());
+            ImGui::Separator();
+            if (listingDirty)
+            {
+                listing = listProjectFiles(project);
+                listingDirty = false;
+            }
+            for (const auto& entry : listing)
+            {
+                const std::string& rel = entry.relativePath;
+                const std::size_t depth =
+                    static_cast<std::size_t>(std::count(rel.begin(), rel.end(), '/'));
+                const std::string leaf = rel.substr(rel.find_last_of('/') + 1);
+                ImGui::Indent(depth * 14.f);
+                if (entry.isDirectory)
+                    ImGui::TextDisabled("%s/", leaf.c_str());
+                else if (ImGui::Selectable((leaf + "###" + rel).c_str(),
+                                            selectedFile == rel))
+                    selectedFile = rel;
+                ImGui::Unindent(depth * 14.f);
+            }
+            if (!selectedFile.empty())
+            {
+                ImGui::Separator();
+                ImGui::TextWrapped("%s", selectedFile.c_str());
+                for (const auto& entry : listing)
+                    if (entry.relativePath == selectedFile &&
+                        !entry.isDirectory)
+                        ImGui::TextDisabled(
+                            "%llu bytes",
+                            static_cast<unsigned long long>(entry.size));
+            }
+        }
+        ImGui::End();
+
         ImGui::Begin("Console");
         if (ImGui::Button("Clear"))
             Log::clear();

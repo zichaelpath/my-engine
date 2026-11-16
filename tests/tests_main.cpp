@@ -1039,6 +1039,29 @@ int main()
             projectPath(Project{}, "assets/a.png") == "assets/a.png";
         check(made && layout && readBack && noClobber && renamed && paths,
               "project: a folder is created, read back, saved, resolved");
+
+        // The tree listing (Lesson 61): files appear with their
+        // project-relative paths and sizes; hidden plumbing does
+        // not; a rootless project lists nothing.
+        writeFile(dir / "assets" / "hero.png", "PNGDATA");
+        writeFile(dir / "scenes" / "level1.scene", "scene");
+        writeFile(dir / ".hidden", "shh");
+        const auto listing = listProjectFiles(again);
+        auto has = [&listing](const std::string& rel, bool dirWanted) {
+            for (const auto& e : listing)
+                if (e.relativePath == rel && e.isDirectory == dirWanted)
+                    return true;
+            return false;
+        };
+        std::uintmax_t heroSize = 0;
+        for (const auto& e : listing)
+            if (e.relativePath == "assets/hero.png")
+                heroSize = e.size;
+        check(has("assets", true) && has("assets/hero.png", false) &&
+                  has("scenes/level1.scene", false) &&
+                  has("project.myengine", false) && !has(".hidden", false) &&
+                  heroSize == 7 && listProjectFiles(Project{}).empty(),
+              "project: the tree lists files, skips hidden, sizes honestly");
         fs::remove_all(dir);
     }
 

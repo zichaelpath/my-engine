@@ -2,6 +2,7 @@
 
 #include "Log.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -189,4 +190,36 @@ bool saveProject(const Project& project)
     }
     Log::info("Project saved: " + project.name + " at " + project.root);
     return true;
+}
+
+std::vector<ProjectEntry> listProjectFiles(const Project& project)
+{
+    namespace fs = std::filesystem;
+    std::vector<ProjectEntry> entries;
+    if (project.root.empty() || !fs::is_directory(project.root))
+        return entries;
+    std::error_code ec;
+    for (auto it = fs::recursive_directory_iterator(project.root, ec);
+         !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+    {
+        const std::string name = it->path().filename().string();
+        if (!name.empty() && name.front() == '.')
+        {
+            if (it->is_directory())
+                it.disable_recursion_pending();
+            continue;
+        }
+        ProjectEntry entry;
+        entry.relativePath =
+            it->path().lexically_relative(project.root).generic_string();
+        entry.isDirectory = it->is_directory();
+        if (!entry.isDirectory)
+            entry.size = it->file_size(ec);
+        entries.push_back(entry);
+    }
+    std::sort(entries.begin(), entries.end(),
+              [](const ProjectEntry& a, const ProjectEntry& b) {
+                  return a.relativePath < b.relativePath;
+              });
+    return entries;
 }
