@@ -89,6 +89,64 @@ void writeFile(const std::filesystem::path& path, const std::string& text)
     std::ofstream out(path);
     out << text;
 }
+
+Entity& playerOf(Game& g)
+{
+    for (auto& e : g.entities())
+        if (e.playerControlled)
+            return e;
+    return g.entities().front(); // unreachable: a player exists
+}
+
+// Stages a clean perch for the physics tests (Lessons 54-56):
+// finds the skip-th 2x2 patch of non-solid tiles with clear
+// neighbours, moves the crate onto it, drops the player, and
+// verifies he comes to rest at exactly the crate's top. Since
+// Lesson 56 the tile grid itself is collision, so a perch is
+// only honest when the geology around it is verified clear —
+// and a terrain block squatting on the patch (invisible to the
+// tile scan) shows up as a wrong rest height, which is exactly
+// what the verification catches. Returns the rest height.
+bool stageCratePerch(Game& g, int skip, float& restY,
+                     sf::Vector2f* perchPos = nullptr)
+{
+    int seen = -1;
+    for (int ty = 8; ty + 1 < g.tilesY(); ++ty) // deep enough to jump in
+        for (int tx = 1; tx + 2 < g.tilesX(); ++tx)
+        {
+            bool clear = true;
+            for (int dy = -6; dy <= 1 && clear; ++dy) // headroom for a full jump
+                for (int dx = -1; dx <= 2 && clear; ++dx)
+                    if (g.tileSolid(g.tileAt(tx + dx, ty + dy)))
+                        clear = false;
+            if (!clear || ++seen != skip)
+                continue;
+            for (auto& e : g.entities())
+                if (e.name == "Crate")
+                    e.position = {tx * 20.f, ty * 20.f};
+            if (perchPos)
+                *perchPos = {tx * 20.f, ty * 20.f};
+            Entity& p = playerOf(g);
+            p.moveModel = MoveModel::Platformer;
+            p.position = {tx * 20.f + 5.f, ty * 20.f - 70.f};
+            p.velocity = {0.f, 0.f};
+            for (int i = 0; i < 240 && !p.grounded; ++i)
+                g.update(1.f / 60.f);
+            restY = p.position.y;
+            return p.grounded &&
+                   std::abs(restY - (ty * 20.f - 50.f)) < 0.01f;
+        }
+    return false;
+}
+
+// Tries successive patches on the same game until one stages.
+bool standOnPerch(Game& g, float& restY)
+{
+    for (int skip = 0; skip < 8; ++skip)
+        if (stageCratePerch(g, skip, restY))
+            return true;
+    return false;
+}
 } // namespace
 
 int main()
@@ -468,50 +526,24 @@ int main()
         check(fallOk,
               "platformer: gravity pulls, the ground answers, rest is rest");
 
-        // Landing on a crate: the crate at (200, 150) is 40x40; the
-        // feet box (offset 11,28, size 28x22) rests with its bottom
-        // on the crate's top — or on a terrain block above it, in
-        // which case the rest is higher, never lower.
+        // Landing on a crate: staged on a verified-clear patch of
+        // the tile grid (Lesson 56 made the grid itself collision,
+        // so an honest entity landing needs clear geology).
         Game crate;
-        platformerPlayer(crate, {205.f, 40.f});
-        bool onCrate = false;
         float crateRestY = 0.f;
-        for (int i = 0; i < 300 && !onCrate; ++i)
-        {
-            crate.update(1.f / 60.f);
-            for (auto& e : crate.entities())
-                if (e.playerControlled && e.grounded)
-                {
-                    onCrate = true;
-                    crateRestY = e.position.y;
-                }
-        }
-        check(onCrate && crateRestY <= 100.01f && crateRestY > 40.f,
-              "platformer: a fall can land on an entity, not just the floor");
+        const bool onCrate = standOnPerch(crate, crateRestY);
+        check(onCrate, "platformer: a fall can land on an entity, not just "
+                       "the floor");
     }
 
     // --- Jump feel (Lesson 55), driven through the input seam -----------
     {
-        auto playerOf = [](Game& g) -> Entity& {
-            for (auto& e : g.entities())
-                if (e.playerControlled)
-                    return e;
-            return g.entities().front(); // unreachable: a player exists
-        };
-        // Stands the player on the crate at (200, 150): rest y = 100.
-        auto standOnCrate = [&playerOf](Game& g) {
-            Entity& p = playerOf(g);
-            p.moveModel = MoveModel::Platformer;
-            p.position = {205.f, 40.f};
-            p.velocity = {0.f, 0.f};
-            for (int i = 0; i < 200 && !p.grounded; ++i)
-                g.update(1.f / 60.f);
-        };
         const float dt = 1.f / 60.f;
 
         // Held jump: launches, rises well clear, returns to the rest.
         Game held;
-        standOnCrate(held);
+        float heldRest = 0.f;
+        const bool heldStaged = standOnPerch(held, heldRest);
         held.setInput({{0.f, 0.f}, true});
         held.update(dt);
         const bool launched = playerOf(held).velocity.y < -100.f;
@@ -523,7 +555,8 @@ int main()
         }
         // Tapped jump: release after two frames — the cut bites.
         Game tapped;
-        standOnCrate(tapped);
+        float tappedRest = 0.f;
+        const bool tappedStaged = standOnPerch(tapped, tappedRest);
         tapped.setInput({{0.f, 0.f}, true});
         tapped.update(dt);
         tapped.update(dt);
@@ -534,13 +567,16 @@ int main()
             tapped.update(dt);
             tappedApex = std::min(tappedApex, playerOf(tapped).position.y);
         }
-        check(launched && heldApex < 40.f && tappedApex > heldApex + 25.f &&
-                  playerOf(held).position.y == 100.f,
+        check(heldStaged && tappedStaged && launched &&
+                  heldApex < heldRest - 60.f &&
+                  tappedApex > heldApex + 25.f &&
+                  playerOf(held).position.y == heldRest,
               "jump: held flies high, tapped cuts short, both land home");
 
-        // Coyote: walk off the crate, press jump 3 frames later.
+        // Coyote: walk off the perch, press jump 3 frames later.
         Game coyote;
-        standOnCrate(coyote);
+        float coyoteRest = 0.f;
+        standOnPerch(coyote, coyoteRest);
         coyote.setInput({{1.f, 0.f}, false});
         for (int i = 0; i < 90 && playerOf(coyote).grounded; ++i)
             coyote.update(dt);
@@ -551,7 +587,8 @@ int main()
         const bool coyoteSaved = playerOf(coyote).velocity.y < 0.f;
         // Same walk-off, but the press comes 12 frames late: no save.
         Game late;
-        standOnCrate(late);
+        float lateRest = 0.f;
+        standOnPerch(late, lateRest);
         late.setInput({{1.f, 0.f}, false});
         for (int i = 0; i < 90 && playerOf(late).grounded; ++i)
             late.update(dt);
@@ -562,14 +599,20 @@ int main()
         check(coyoteSaved && playerOf(late).velocity.y > 0.f,
               "jump: coyote time saves the early press, not the late one");
 
-        // Buffer: press 4 frames BEFORE the landing; the jump must
-        // fire on the first grounded decision after touchdown.
+        // Buffer: stage the perch, lift the player back above it,
+        // press 4 frames BEFORE the landing; the jump must fire on
+        // the first grounded decision after touchdown.
         Game buffered;
+        float bufRest = 0.f;
+        sf::Vector2f perch{0.f, 0.f};
+        bool bufStaged = false;
+        for (int skip = 0; skip < 8 && !bufStaged; ++skip)
+            bufStaged = stageCratePerch(buffered, skip, bufRest, &perch);
         Entity& bp = playerOf(buffered);
-        bp.moveModel = MoveModel::Platformer;
-        bp.position = {205.f, 30.f};
+        bp.position = perch + sf::Vector2f(5.f, -110.f);
         bp.velocity = {0.f, 0.f};
-        for (int i = 0; i < 13; ++i)
+        bp.grounded = false;
+        for (int i = 0; i < 11; ++i)
             buffered.update(dt);
         buffered.setInput({{0.f, 0.f}, true});
         buffered.update(dt);
@@ -582,7 +625,117 @@ int main()
             if (wasGrounded && bp.velocity.y < -100.f)
                 fired = true;
         }
-        check(fired, "jump: a press just before landing is remembered");
+        check(bufStaged && fired,
+              "jump: a press just before landing is remembered");
+    }
+
+
+    // --- Tile collision (Lesson 56) --------------------------------------
+    {
+        auto playerOf = [](Game& g) -> Entity& {
+            for (auto& e : g.entities())
+                if (e.playerControlled)
+                    return e;
+            return g.entities().front();
+        };
+        const float dt = 1.f / 60.f;
+
+        // A drop onto rock: find a rock tile with clear air above.
+        Game drop;
+        int rockTx = -1, rockTy = -1;
+        for (int ty = 2; ty < drop.tilesY() && rockTx < 0; ++ty)
+            for (int tx = 0; tx < drop.tilesX(); ++tx)
+                if (drop.tileAt(tx, ty) == tiles::Rock &&
+                    !drop.tileSolid(drop.tileAt(tx, ty - 1)) &&
+                    !drop.tileSolid(drop.tileAt(tx, ty - 2)))
+                {
+                    rockTx = tx;
+                    rockTy = ty;
+                    break;
+                }
+        bool rockLanded = false;
+        if (rockTx >= 0)
+        {
+            Entity& p = playerOf(drop);
+            p.moveModel = MoveModel::Platformer;
+            p.position = {rockTx * 20.f - 4.f, rockTy * 20.f - 110.f};
+            p.velocity = {0.f, 0.f};
+            for (int i = 0; i < 240 && !p.grounded; ++i)
+                drop.update(dt);
+            rockLanded = p.grounded &&
+                         std::abs(p.position.y - (rockTy * 20.f - 50.f)) < 0.01f;
+        }
+        check(rockLanded, "tiles: a platformer lands on rock, exactly on its top");
+
+        // A step up is a wall: plateau of rock with a rock tile
+        // rising at its right end. Walk right; stop at the wall.
+        // The default world's geology has no such step, so scan a
+        // handful of seeds — the physics claim is world-independent.
+        Game wall;
+        int stepTx = -1, stepTy = -1;
+        for (int seed : {12345, 777, 42, 2024, 555, 9001, 13, 2718, 31415})
+        {
+            wall.setSeed(seed);
+            for (int ty = 2; ty < wall.tilesY() && stepTx < 0; ++ty)
+                for (int tx = 1; tx + 1 < wall.tilesX(); ++tx)
+                    if (wall.tileAt(tx, ty) == tiles::Rock &&
+                        wall.tileAt(tx + 1, ty) == tiles::Rock &&
+                        wall.tileAt(tx + 1, ty - 1) == tiles::Rock &&
+                        !wall.tileSolid(wall.tileAt(tx, ty - 1)) &&
+                        !wall.tileSolid(wall.tileAt(tx - 1, ty - 1)))
+                    {
+                        stepTx = tx;
+                        stepTy = ty;
+                        break;
+                    }
+            if (stepTx >= 0)
+                break;
+        }
+        bool wallHeld = false;
+        if (stepTx >= 0)
+        {
+            Entity& p = playerOf(wall);
+            p.moveModel = MoveModel::Platformer;
+            // Drop fully left of the wall column: the 28-wide feet
+            // box spans two tile columns, and straddling the wall's
+            // column would land him on top of it instead.
+            p.position = {stepTx * 20.f - 24.f, stepTy * 20.f - 110.f};
+            p.velocity = {0.f, 0.f};
+            for (int i = 0; i < 240 && !p.grounded; ++i)
+                wall.update(dt);
+            wall.setInput({{1.f, 0.f}, false});
+            for (int i = 0; i < 90; ++i)
+                wall.update(dt);
+            const float stoppedX = p.position.x;
+            for (int i = 0; i < 10; ++i)
+                wall.update(dt);
+            wallHeld = p.grounded && p.position.x == stoppedX &&
+                       std::abs(p.position.x -
+                                ((stepTx + 1) * 20.f - 39.f)) < 0.01f;
+        }
+        check(wallHeld, "tiles: a rock step is a wall, met exactly at its face");
+
+        // The top-down model walks OVER the same rock (Gold Rush's
+        // world is a ground plane). Try candidate tiles until one
+        // gives a clear run — blocks are invisible to this scan.
+        bool crossed = false;
+        for (int ty = 0; ty < 60 && !crossed; ++ty)
+        {
+            for (int tx = 2; tx < 78 && !crossed; ++tx)
+            {
+                Game over;
+                if (over.tileAt(tx, ty) != tiles::Rock)
+                    continue;
+                Entity& p = playerOf(over);
+                p.position = {tx * 20.f - 34.f, ty * 20.f - 15.f};
+                const float startX = p.position.x;
+                over.setInput({{1.f, 0.f}, false});
+                for (int i = 0; i < 60; ++i)
+                    over.update(dt);
+                crossed = p.position.x > startX + 60.f;
+            }
+        }
+        check(crossed, "tiles: the top-down player crosses rock unimpeded");
     }
 
     // --- The Lesson 44 regression: a flipped sprite stays home -------

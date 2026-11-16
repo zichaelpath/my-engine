@@ -89,6 +89,21 @@ public:
     // (-1 outside the world), the tile under the player's feet, and
     // a display name for an id.
     int tileAtWorld(sf::Vector2f worldPos) const;
+
+    // Tile solidity (Lesson 56): which tiles are matter to a
+    // platformer. The top-down model never consults this — its
+    // world is a ground plane it walks over; the platformer's is
+    // a side view where some tiles are stone. Rock ships solid;
+    // the table is data, so a project can re-geologize later.
+    bool tileSolid(int id) const
+    {
+        return id >= 0 && id < 6 && m_tileSolid[id];
+    }
+    void setTileSolid(int id, bool solid)
+    {
+        if (id >= 0 && id < 6)
+            m_tileSolid[id] = solid;
+    }
     int playerTile() const;
     static const char* tileName(int id);
     // Grid-space access (Lesson 38): dimensions, the id at a grid
@@ -264,6 +279,7 @@ private:
     bool m_jumpCutDone = true; // variable-height cut already spent
 
     std::vector<int> m_tiles;
+    bool m_tileSolid[6] = {false, false, false, false, false, true}; // Rock
     int m_tilesX = 0;
     int m_tilesY = 0;
     std::vector<sf::RectangleShape> m_blocks;

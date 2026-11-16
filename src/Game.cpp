@@ -847,6 +847,47 @@ void Game::resolveCollisions(Entity& mover, float movement, bool xAxis)
     }
     for (const auto& block : m_blocks)
         pushOut(block.getPosition(), block.getSize());
+
+    // Tiles (Lesson 56): a platformer's ground can be the grid
+    // itself. Only the tiles the hitbox overlaps are tested — at
+    // 20-unit tiles under a 28x22 feet box, a handful — and the
+    // same pushOut answers them, so tile ground and entity ground
+    // can never disagree about where a surface is. The top-down
+    // model skips this pass entirely: its rock is scenery it
+    // walks over, and Gold Rush must never find a wall here.
+    if (mover.moveModel == MoveModel::Platformer)
+    {
+        const sf::Vector2f boxSize = hitboxSizeOf(mover);
+        sf::Vector2f boxPos = mover.position + mover.hitboxOffset;
+        const int tx0 = static_cast<int>(std::floor(boxPos.x / TILE_SIZE));
+        const int ty0 = static_cast<int>(std::floor(boxPos.y / TILE_SIZE));
+        const int tx1 =
+            static_cast<int>(std::floor((boxPos.x + boxSize.x) / TILE_SIZE));
+        const int ty1 =
+            static_cast<int>(std::floor((boxPos.y + boxSize.y) / TILE_SIZE));
+        for (int ty = ty0; ty <= ty1; ++ty)
+            for (int tx = tx0; tx <= tx1; ++tx)
+            {
+                if (!(tx >= 0 && ty >= 0 && tx < m_tilesX && ty < m_tilesY &&
+                      tileSolid(tileAt(tx, ty))))
+                    continue;
+                boxPos = mover.position + mover.hitboxOffset; // pushes move us
+                // The previous-position guard: a Y push is only a
+                // landing if the hitbox's edge was on the tile's
+                // side of its surface LAST frame. Without it, a
+                // player standing beside a taller column — his box
+                // overlapping its side — gets "landed" on top of it
+                // by gravity's micro-move: a step-up teleport.
+                if (!xAxis && movement > 0.f &&
+                    boxPos.y + boxSize.y - movement > ty * TILE_SIZE + 0.01f)
+                    continue;
+                if (!xAxis && movement < 0.f &&
+                    boxPos.y - movement < (ty + 1) * TILE_SIZE - 0.01f)
+                    continue;
+                pushOut({tx * TILE_SIZE, ty * TILE_SIZE},
+                        {TILE_SIZE, TILE_SIZE});
+            }
+    }
 }
 
 void Game::render(sf::RenderTarget& target) const
