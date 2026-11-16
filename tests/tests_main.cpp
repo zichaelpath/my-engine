@@ -18,6 +18,7 @@
 #include "Game.hpp"
 #include "Mat4.hpp"
 #include "Mesh.hpp"
+#include "TerrainMesh.hpp"
 #include "Particles.hpp"
 #include "Project.hpp"
 #include "SaveData.hpp"
@@ -2390,6 +2391,17 @@ int main()
             check(cube, "obj: the shipped crate.obj is the "
                         "24-vertex unit cube it replaces");
         }
+    }
+
+    // --- The shared heightfield builder (Lesson 93) -------------------
+    {
+        Game g;
+        const std::vector<float> terrain = buildTerrain(g);
+        check(terrain.size() == 18604 * 3 * 11 &&
+                  tileHeight(3) == 0.35f &&
+                  tileHeight(0) < tileHeight(2),
+              "terrain: the extracted builder reproduces the GL "
+              "host's 18,604-triangle heightfield exactly");
     }
 
     // --- Scenes live in the project as files (Lesson 64) ---------------

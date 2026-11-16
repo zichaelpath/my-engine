@@ -65,13 +65,14 @@ if(UNIX)
     target_link_libraries(lua PUBLIC m dl)
 endif()
 
-add_executable(MyEngine src/main.cpp)
+add_executable(MyEngine src/main.cpp src/Viewport3D.cpp)
 
 # NOTE: main.cpp doesn't use ImGui until Lesson 3. The ImGui-SFML link
 # below is the Lesson 3 setup, already in place so the build is ready
 # to configure when the lesson starts.
 target_link_libraries(MyEngine PRIVATE
     GameLib
+    GLLoader
     ImGui-SFML::ImGui-SFML)
 
 add_executable(MyRuntime src/runtime_main.cpp)
@@ -79,7 +80,7 @@ add_executable(MyRuntime src/runtime_main.cpp)
 target_link_libraries(MyRuntime PRIVATE
     GameLib)
 
-add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Config.cpp src/SpriteSheet.cpp src/Resources.cpp src/Project.cpp src/Particles.cpp src/ScriptHost.cpp src/Campaign.cpp src/Ui.cpp src/SaveData.cpp)
+add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Config.cpp src/SpriteSheet.cpp src/Resources.cpp src/Project.cpp src/Particles.cpp src/ScriptHost.cpp src/Campaign.cpp src/Ui.cpp src/SaveData.cpp src/TerrainMesh.cpp)
 
 target_include_directories(GameLib PUBLIC src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
@@ -98,7 +99,7 @@ target_link_libraries(GameLib PUBLIC
 # include path for <GL/gl.h>, wherever this machine keeps it.
 find_package(OpenGL REQUIRED)
 
-add_library(GLLoader src/GLLoader.cpp src/Mesh.cpp)
+add_library(GLLoader src/GLLoader.cpp src/Mesh.cpp src/GLProgram.cpp)
 
 target_include_directories(GLLoader PUBLIC src vendor)
 

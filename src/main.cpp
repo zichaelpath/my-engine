@@ -9,6 +9,7 @@
 #include "Version.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
+#include "Viewport3D.hpp"
 #include "SpriteSheet.hpp"
 #include <algorithm>
 #include <cmath>
@@ -111,6 +112,15 @@ int main()
     float zoom2 = 1.f;
     bool view2Open = false;
     sf::Vector2f view2PanelSize(640.f, 400.f);
+    // The 3D viewport (Lesson 93): the scene's heightfield in
+    // raw GL inside its own panel — the two halves of the
+    // engine on one screen at last. The tile hash spots edits
+    // (paint, loads, procgen) without hooks in every path.
+    Viewport3D viewport3d;
+    bool view3dOpen = false;
+    sf::Vector2f view3dPanelSize(640.f, 400.f);
+    GLuint view3dTexture = 0;
+    std::uint64_t view3dTileHash = 0;
     int selected = -1; // selected entity index (editor state, Lesson 22)
     bool dragging = false; // drag-to-move in progress (Lesson 25)
     sf::Vector2f dragOffset; // entity position minus grab point, world space
@@ -351,6 +361,7 @@ int main()
         ImGui::Text("Camera: (%.0f, %.0f)", camera.center.x, camera.center.y);
         ImGui::Checkbox("Camera follow", &followCam);
         ImGui::Checkbox("Game View 2 (second camera)", &view2Open);
+        ImGui::Checkbox("3D View (heightfield)", &view3dOpen);
         ImGui::Checkbox("Show hitboxes", &game.showHitboxes);
         ImGui::SliderFloat("Zoom", &zoom, 0.4f, 3.f);
         // Play-test mode (Lesson 28): Play snapshots the scene;
@@ -1399,6 +1410,30 @@ int main()
             gameView2.display();
         }
 
+        // The 3D viewport's render (Lesson 93): raw GL into its
+        // own framebuffer, this same frame, before ImGui starts
+        // drawing. The tile hash decides when the heightfield
+        // needs rebuilding.
+        if (view3dOpen)
+        {
+            std::uint64_t hash = 1469598103934665603ull;
+            for (int ty = 0; ty < game.tilesY(); ++ty)
+                for (int tx = 0; tx < game.tilesX(); ++tx)
+                {
+                    hash ^= static_cast<std::uint64_t>(
+                        game.tileAt(tx, ty) + 1);
+                    hash *= 1099511628211ull;
+                }
+            if (hash != view3dTileHash)
+            {
+                view3dTileHash = hash;
+                viewport3d.markDirty();
+            }
+            view3dTexture = viewport3d.render(
+                game, dt, static_cast<int>(view3dPanelSize.x),
+                static_cast<int>(view3dPanelSize.y));
+        }
+
         // Everything the pointer can do to the view (Lessons
         // 25/83), written once against ViewPointer: the docked
         // panel and the popped window feed it identically.
@@ -1595,6 +1630,24 @@ int main()
                     }
                 }
             }
+            ImGui::End();
+        }
+
+        // The 3D View panel (Lesson 93): the viewport's
+        // framebuffer texture, flipped (GL counts rows from the
+        // bottom; ImGui from the top). Read-only in this lesson:
+        // you orbit by waiting, you edit in the 2D views.
+        if (view3dOpen)
+        {
+            ImGui::Begin("3D View");
+            view3dPanelSize = ImGui::GetContentRegionAvail();
+            if (view3dTexture != 0)
+                ImGui::Image(
+                    (ImTextureID)(std::uintptr_t)view3dTexture,
+                    view3dPanelSize, ImVec2(0, 1), ImVec2(1, 0));
+            else
+                ImGui::Text("3D view unavailable - GL could not "
+                            "initialise in this window.");
             ImGui::End();
         }
 
