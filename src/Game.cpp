@@ -1349,21 +1349,30 @@ bool Game::saveScene(const std::string& path) const
         return ss.str();
     };
     out << "# MyEngine scene\n";
-    out << "version=1\n";
+    out << "version=2\n";
     out << "seed=" << m_seed << "\n";
     out << "noiseScale=" << num(m_noiseFrequency) << "\n";
     out << "entities=" << m_entities.size() << "\n";
     for (const auto& e : m_entities)
     {
-        // name|x|y|w|h|r|g|b|controlled|solid|sprite — names must not
-        // contain '|' (ours never do; the format will grow escaping
-        // the day a name needs one).
+        // v1 fields: name|x|y|w|h|r|g|b|controlled|solid|sprite
+        // v2 appends: type|script|model|platform|oneWay|toX|toY|speed
+        // Names, types and script paths must not contain '|' (ours
+        // never do; the format will grow escaping the day one does).
+        // Patrol runtime state (home, sign, frameDelta) is NOT
+        // saved: a loaded platform re-captures its home on first
+        // motion, exactly as a fresh one does.
         out << "entity=" << e.name << '|' << num(e.position.x) << '|'
             << num(e.position.y) << '|' << num(e.size.x) << '|' << num(e.size.y)
             << '|' << static_cast<int>(e.color.r) << '|'
             << static_cast<int>(e.color.g) << '|' << static_cast<int>(e.color.b)
             << '|' << (e.playerControlled ? 1 : 0) << '|' << (e.solid ? 1 : 0)
-            << '|' << e.sprite << "\n";
+            << '|' << e.sprite << '|' << e.type << '|' << e.script << '|'
+            << (e.moveModel == MoveModel::Platformer ? "platformer"
+                                                     : "topdown")
+            << '|' << (e.platform ? 1 : 0) << '|' << (e.oneWay ? 1 : 0)
+            << '|' << num(e.platformTo.x) << '|' << num(e.platformTo.y)
+            << '|' << num(e.platformSpeed) << "\n";
     }
     Log::info("Scene saved to " + path + " (" +
               std::to_string(m_entities.size()) + " entities)");
@@ -1399,7 +1408,8 @@ bool Game::loadScene(const std::string& path)
         {
             if (key == "version")
             {
-                if (std::stoi(value) != 1)
+                const int v = std::stoi(value);
+                if (v != 1 && v != 2)
                 {
                     Log::error("Scene version not supported: " + value);
                     return false;
@@ -1416,7 +1426,10 @@ bool Game::loadScene(const std::string& path)
                 std::string part;
                 while (std::getline(ss, part, '|'))
                     f.push_back(part);
-                if (f.size() != 11)
+                // 11 fields = a v1 entity (the v2 fields take
+                // their defaults); 19 = v2. Anything else is a
+                // line this engine does not understand.
+                if (f.size() != 11 && f.size() != 19)
                     throw std::runtime_error("bad entity field count");
                 Entity e;
                 e.name = f[0];
@@ -1428,6 +1441,18 @@ bool Game::loadScene(const std::string& path)
                 e.playerControlled = f[8] == "1";
                 e.solid = f[9] == "1";
                 e.sprite = std::stoi(f[10]);
+                if (f.size() == 19)
+                {
+                    e.type = f[11];
+                    e.script = f[12];
+                    e.moveModel = f[13] == "platformer"
+                                      ? MoveModel::Platformer
+                                      : MoveModel::TopDown;
+                    e.platform = f[14] == "1";
+                    e.oneWay = f[15] == "1";
+                    e.platformTo = {std::stof(f[16]), std::stof(f[17])};
+                    e.platformSpeed = std::stof(f[18]);
+                }
                 loaded.push_back(e);
             }
         }

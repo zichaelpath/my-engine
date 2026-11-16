@@ -54,8 +54,9 @@ struct Entity
     // position and platformTo at platformSpeed (0 = stands still),
     // carries a grounded platformer rider by its frameDelta, and —
     // if oneWay — only collides from above: you jump up through
-    // it and land on it. Platform fields are in-memory only for
-    // now; they join the scene format with entity types (Arc 5).
+    // it and land on it. The patrol DEFINITION (to/speed/oneWay)
+    // persists in scene format v2 (Lesson 69); the runtime state
+    // below it (home/sign/frameDelta) does not.
     bool platform = false;
     bool oneWay = false;
     sf::Vector2f platformTo{0.f, 0.f};

@@ -1252,6 +1252,75 @@ int main()
         fs::remove(artSource);
     }
 
+    // --- Scene format v2 (Lesson 69) ---------------------------------------
+    {
+        namespace fs = std::filesystem;
+        Game sg;
+        for (auto& e : sg.entities())
+            if (e.name == "Crate")
+            {
+                e.type = "Guard";
+                e.script = "scripts/guard.lua";
+                e.moveModel = MoveModel::Platformer;
+                e.platform = true;
+                e.oneWay = true;
+                e.platformTo = {900.f, 830.f};
+                e.platformSpeed = 70.f;
+                break;
+            }
+        const fs::path v2File = tempPath("scene-v2.txt");
+        const bool saved = sg.saveScene(v2File.string());
+        std::string text;
+        {
+            std::ifstream in(v2File);
+            text.assign(std::istreambuf_iterator<char>(in),
+                        std::istreambuf_iterator<char>());
+        }
+        Game lg;
+        const bool loaded = lg.loadScene(v2File.string());
+        const Entity* back = nullptr;
+        for (const auto& e : lg.entities())
+            if (e.name == "Crate")
+            {
+                back = &e;
+                break;
+            }
+        const bool roundTrip =
+            saved && text.find("version=2") != std::string::npos && loaded &&
+            back && back->type == "Guard" &&
+            back->script == "scripts/guard.lua" &&
+            back->moveModel == MoveModel::Platformer && back->platform &&
+            back->oneWay && back->platformTo == sf::Vector2f(900.f, 830.f) &&
+            back->platformSpeed == 70.f;
+        // A v1 file (11 fields) still loads, new fields defaulted.
+        const fs::path v1File = tempPath("scene-v1.txt");
+        writeFile(v1File,
+                  "# MyEngine scene\n"
+                  "version=1\n"
+                  "seed=12345\n"
+                  "noiseScale=0.01\n"
+                  "entities=1\n"
+                  "entity=Old|100|100|40|40|200|100|50|0|1|-1\n");
+        Game og;
+        const bool v1Loaded = og.loadScene(v1File.string());
+        const bool v1Defaults =
+            v1Loaded && og.entities().size() == 1 &&
+            og.entities()[0].type.empty() && og.entities()[0].script.empty() &&
+            og.entities()[0].moveModel == MoveModel::TopDown &&
+            !og.entities()[0].platform;
+        // A future version is refused whole, never half-loaded.
+        const fs::path v3File = tempPath("scene-v3.txt");
+        writeFile(v3File, "version=3\nseed=1\nentities=0\n");
+        Game fg;
+        const bool v3Refused = !fg.loadScene(v3File.string());
+        check(roundTrip && v1Defaults && v3Refused,
+              "scene v2: new fields round-trip, v1 loads defaulted, v3 "
+              "refused");
+        fs::remove(v2File);
+        fs::remove(v1File);
+        fs::remove(v3File);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;
