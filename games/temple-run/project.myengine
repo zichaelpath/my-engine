@@ -1,0 +1,8 @@
+# MyEngine project file — format 1
+# Temple Run: the vertical climb. A second game on the MyEngine
+# engine — its stage is dealt from chunks.txt, not generated
+# like Gold Rush's world.
+format=1
+name=Temple Run
+seed=20261
+scene=

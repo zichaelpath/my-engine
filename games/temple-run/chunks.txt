@@ -1,0 +1,52 @@
+# Temple Run chunks — format 1 (Lesson 73)
+#
+# A chunk is one authored vertical slice of the climb, 200 units
+# tall, in chunk-local coordinates: x across the 800-wide shaft,
+# y DOWN from the chunk's top. platform=x|y|w|oneway, with an
+# optional patrol extension |toX|toY|speed.
+#
+# Every chunk opens on the same entry landing (centre, y=165)
+# and leaves from the same exit landing (centre, y=25), so ANY
+# chunk can sit on ANY other and the climb never breaks: the
+# deal varies the middle, the bookends keep it honest. Every
+# hop stays inside the jump's reach (rise ~102, range ~145):
+# no step up over 55, no edge gap over 130.
+
+chunk=Steps
+height=200
+platform=340|165|120|1
+platform=150|120|120|1
+platform=400|75|120|1
+platform=340|25|120|1
+
+chunk=Zigzag
+height=200
+platform=340|165|120|1
+platform=520|125|120|1
+platform=340|85|120|1
+platform=140|45|120|1
+platform=340|25|120|1
+
+chunk=Elevator
+height=200
+platform=340|165|120|1
+platform=120|130|110|1
+platform=300|120|120|1|300|35|80
+platform=340|25|120|1
+
+chunk=Islands
+height=200
+platform=340|165|120|1
+platform=110|125|110|1
+platform=300|90|110|1
+platform=520|55|110|1
+platform=340|25|120|1
+
+chunk=Gauntlet
+height=200
+platform=340|165|120|1
+platform=130|135|110|1
+platform=300|105|110|1
+platform=470|75|110|1
+platform=250|45|110|1
+platform=340|25|120|1

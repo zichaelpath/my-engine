@@ -491,6 +491,191 @@ void Game::buildClimberTest()
               ": floor 1100, ledges 1010/920, ride at 830, goal 745");
 }
 
+bool Game::loadChunks(const std::string& path)
+{
+    // The chunk file (Lesson 73): the types file's grammar grown
+    // a level. chunk= opens a definition; height= sizes it;
+    // platform= adds a platform as x|y|w|oneway, with an
+    // optional patrol extension |toX|toY|speed. Unknown keys
+    // warn and pass (the Lesson 68 rule).
+    std::ifstream in(path);
+    if (!in)
+    {
+        Log::error("Chunks file not found: " + path);
+        return false;
+    }
+    m_chunks.clear();
+    std::size_t current = 0; // index, not a pointer: the vector
+    bool haveCurrent = false; // grows, and pointers would dangle
+    std::string line;
+    int lineNo = 0;
+    while (std::getline(in, line))
+    {
+        ++lineNo;
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        if (line.empty() || line[0] == '#')
+            continue;
+        const std::size_t eq = line.find('=');
+        if (eq == std::string::npos)
+            continue;
+        const std::string key = line.substr(0, eq);
+        const std::string value = line.substr(eq + 1);
+        try
+        {
+            if (key == "chunk")
+            {
+                m_chunks.push_back(ChunkDef{});
+                m_chunks.back().name = value;
+                current = m_chunks.size() - 1;
+                haveCurrent = true;
+            }
+            else if (key == "height" && haveCurrent)
+                m_chunks[current].height = std::stof(value);
+            else if (key == "platform" && haveCurrent)
+            {
+                std::vector<std::string> f;
+                std::stringstream ss(value);
+                std::string part;
+                while (std::getline(ss, part, '|'))
+                    f.push_back(part);
+                if (f.size() != 4 && f.size() != 7)
+                    throw std::runtime_error("bad platform field count");
+                ChunkPlatform p;
+                p.at = {std::stof(f[0]), std::stof(f[1])};
+                p.width = std::stof(f[2]);
+                p.oneWay = f[3] == "1";
+                p.patrolTo = p.at; // static until a patrol says so
+                if (f.size() == 7)
+                {
+                    p.patrolTo = {std::stof(f[4]), std::stof(f[5])};
+                    p.speed = std::stof(f[6]);
+                }
+                m_chunks[current].platforms.push_back(p);
+            }
+            else if (key != "chunk")
+                Log::warning("Chunks line " + std::to_string(lineNo) +
+                             ": unknown key '" + key + "' ignored");
+        }
+        catch (const std::exception&)
+        {
+            Log::warning("Chunks line " + std::to_string(lineNo) +
+                         " skipped (unparseable): " + line);
+        }
+    }
+    Log::info("Chunks loaded from " + path + ": " +
+              std::to_string(m_chunks.size()) + " definitions");
+    return !m_chunks.empty();
+}
+
+void Game::buildAscent(std::uint32_t seed, int chunkCount)
+{
+    // A second game on the same engine (Lesson 73): the Gold
+    // Rush stage is replaced wholesale — entities, dots, terrain
+    // blocks, run state — and a climb is dealt in its place.
+    if (m_chunks.empty() || chunkCount <= 0)
+    {
+        Log::error("buildAscent: no chunks loaded (or count <= 0)");
+        return;
+    }
+    m_entities.clear();
+    m_dots.clear();
+    m_blocks.clear();
+    m_goldCollected = 0;
+    m_goldTotal = 0;
+    m_won = false;
+    m_runTime = 0.f;
+    m_ascentDeal.clear();
+
+    const float shaftWidth = 800.f;
+    const float shaftLeft = (m_worldSize.x - shaftWidth) / 2.f;
+    const float floorTop = 1150.f;
+    m_ascentFloorY = floorTop;
+
+    // The player first (index 0, the game's standing promise),
+    // standing on the floor as a platformer.
+    m_playerEntity = spawnEntity("Player",
+                                 {shaftLeft + shaftWidth / 2.f - 25.f,
+                                  floorTop - 50.f},
+                                 {50.f, 50.f}, sf::Color(80, 200, 120),
+                                 true, sprites::PLAYER);
+    m_entities[m_playerEntity].moveModel = MoveModel::Platformer;
+
+    // The floor: a plain solid entity — the one platform in the
+    // climb you cannot fall through.
+    Entity floor;
+    floor.name = "AscentFloor";
+    floor.position = {shaftLeft, floorTop};
+    floor.size = {shaftWidth, 24.f};
+    floor.color = sf::Color(120, 120, 130);
+    floor.solid = true;
+    m_entities.push_back(floor);
+
+    // The deal: a private Random keyed by the run seed alone, so
+    // the same seed deals the same climb no matter what world
+    // the Game was showing. A chunk never repeats back-to-back
+    // (a deterministic nudge, not a re-roll loop).
+    Random rng(seed);
+    int previous = -1;
+    float chunkTop = floorTop;
+    for (int i = 0; i < chunkCount; ++i)
+    {
+        int pick = rng.rangeInt("ascent", 0,
+                                static_cast<int>(m_chunks.size()) - 1);
+        if (pick == previous && m_chunks.size() > 1)
+            pick = (pick + 1) % static_cast<int>(m_chunks.size());
+        previous = pick;
+        const ChunkDef& def = m_chunks[static_cast<std::size_t>(pick)];
+        chunkTop -= def.height;
+        m_ascentDeal.push_back(def.name);
+        int j = 0;
+        for (const auto& p : def.platforms)
+        {
+            Entity e;
+            e.name = "Chunk" + std::to_string(i) + "P" +
+                     std::to_string(j++);
+            e.position = {shaftLeft + p.at.x, chunkTop + p.at.y};
+            e.size = {p.width, 16.f};
+            e.color = sf::Color(110, 190, 120);
+            e.platform = true;
+            e.oneWay = p.oneWay;
+            if (p.speed > 0.f)
+            {
+                e.platformTo = {shaftLeft + p.patrolTo.x,
+                                chunkTop + p.patrolTo.y};
+                e.platformSpeed = p.speed;
+                e.color = sf::Color(230, 160, 70);
+            }
+            m_entities.push_back(e);
+        }
+    }
+    m_ascentTopY = chunkTop;
+
+    // Carve the shaft: rock tiles are solid to a platformer, and
+    // a dealt chunk cannot know the mountain's geology — so the
+    // shaft's column of the field is flattened to grass. (The
+    // base world's determinism is untouched: the carve is a
+    // function of the shaft's geometry alone, applied only here.)
+    const int tx0 = static_cast<int>(shaftLeft / TILE_SIZE);
+    const int tx1 = static_cast<int>((shaftLeft + shaftWidth) / TILE_SIZE);
+    const int ty0 = std::max(0, static_cast<int>(chunkTop / TILE_SIZE));
+    const int ty1 = std::min(m_tilesY - 1,
+                             static_cast<int>(floorTop / TILE_SIZE));
+    for (int ty = ty0; ty <= ty1; ++ty)
+        for (int tx = tx0; tx <= tx1; ++tx)
+            m_tiles[static_cast<std::size_t>(ty) *
+                        static_cast<std::size_t>(m_tilesX) +
+                    static_cast<std::size_t>(tx)] = 3; // Grass
+
+    bindScripts(); // an ascent entity may carry a script one day
+    std::string deal;
+    for (const auto& name : m_ascentDeal)
+        deal += (deal.empty() ? "" : ", ") + name;
+    Log::info("Ascent built: seed " + std::to_string(seed) + ", " +
+              std::to_string(chunkCount) + " chunks (" + deal +
+              "), top at y=" + std::to_string((int)m_ascentTopY));
+}
+
 void Game::newRun(std::uint32_t seed)
 {
     if (seed != m_seed)

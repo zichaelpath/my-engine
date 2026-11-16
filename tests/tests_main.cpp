@@ -1542,6 +1542,130 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- The chunk model (Lesson 73) -----------------------------------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("chunk-model");
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        const fs::path chunksFile = dir / "chunks.txt";
+        writeFile(chunksFile,
+                  "chunk=Alpha\n"
+                  "height=200\n"
+                  "platform=340|165|120|1\n"
+                  "platform=100|100|120|1|300|40|70\n"
+                  "chunk=Beta\n"
+                  "height=200\n"
+                  "platform=340|165|120|1\n"
+                  "platform=500|90|110|1\n"
+                  "chunk=Gamma\n"
+                  "height=260\n"
+                  "platform=340|200|120|1\n"
+                  "platform=200|120|120|1\n"
+                  "platform=420|40|120|1\n");
+        Game g;
+        const bool loaded = g.loadChunks(chunksFile.string());
+        const bool parsed =
+            loaded && g.chunkDefs().size() == 3 &&
+            g.chunkDefs()[0].platforms.size() == 2 &&
+            g.chunkDefs()[0].platforms[1].speed == 70.f &&
+            g.chunkDefs()[0].platforms[1].patrolTo ==
+                sf::Vector2f(300.f, 40.f) &&
+            g.chunkDefs()[2].height == 260.f;
+        g.buildAscent(42, 4);
+        const auto& deal = g.ascentDeal();
+        bool noAdjacentRepeat = deal.size() == 4;
+        for (std::size_t i = 1; i < deal.size(); ++i)
+            if (deal[i] == deal[i - 1])
+                noAdjacentRepeat = false;
+        // Expected layout, computed from the defs themselves.
+        const auto defOf = [&](const std::string& name) -> const ChunkDef& {
+            for (const auto& d : g.chunkDefs())
+                if (d.name == name)
+                    return d;
+            return g.chunkDefs()[0];
+        };
+        std::size_t expectedEntities = 2; // player + floor
+        float top = 1150.f;
+        for (const auto& name : deal)
+        {
+            expectedEntities += defOf(name).platforms.size();
+            top -= defOf(name).height;
+        }
+        const Entity* c0p0 = nullptr;
+        const Entity* c1p0 = nullptr;
+        for (const auto& e : g.entities())
+        {
+            if (e.name == "Chunk0P0")
+                c0p0 = &e;
+            if (e.name == "Chunk1P0")
+                c1p0 = &e;
+        }
+        const float h0 = defOf(deal[0]).height;
+        const float h1 = defOf(deal[1]).height;
+        const sf::Vector2f want0(400.f + defOf(deal[0]).platforms[0].at.x,
+                                 1150.f - h0 +
+                                     defOf(deal[0]).platforms[0].at.y);
+        const sf::Vector2f want1(400.f + defOf(deal[1]).platforms[0].at.x,
+                                 1150.f - h0 - h1 +
+                                     defOf(deal[1]).platforms[0].at.y);
+        const bool placed = c0p0 && c0p0->position == want0 && c1p0 &&
+                            c1p0->position == want1 &&
+                            g.entities().size() == expectedEntities &&
+                            g.ascentTopY() == top;
+        // Determinism: same seed, same deal, same world; a
+        // different seed deals a different climb. Captured BEFORE
+        // any update runs — patrol platforms move once the world
+        // ticks, and a moved patrol is not a different deal.
+        const auto layout = [](Game& game) {
+            std::vector<std::pair<std::string, sf::Vector2f>> out;
+            for (const auto& e : game.entities())
+                out.push_back({e.name, e.position});
+            return out;
+        };
+        const auto layoutG = layout(g);
+        Game g2;
+        g2.loadChunks(chunksFile.string());
+        g2.buildAscent(42, 4);
+        const bool sameDeal = layout(g2) == layoutG;
+        Game g3;
+        g3.loadChunks(chunksFile.string());
+        g3.buildAscent(7, 4);
+        const bool otherDeal = layout(g3) != layoutG;
+        // The player stands on the floor as a platformer.
+        for (int i = 0; i < 30; ++i)
+            g.update(1.f / 60.f);
+        const Entity& player = g.entities()[g.playerIndex()];
+        const bool standing = player.grounded &&
+                              std::abs(player.position.y - 1100.f) < 1.f &&
+                              player.moveModel == MoveModel::Platformer;
+        // Patrol mapping, forced: a one-chunk vocabulary can only
+        // deal Alpha, so its patrol's world target is exact.
+        const fs::path soloFile = dir / "solo.txt";
+        writeFile(soloFile,
+                  "chunk=Alpha\n"
+                  "height=200\n"
+                  "platform=340|165|120|1\n"
+                  "platform=100|100|120|1|300|40|70\n");
+        Game g4;
+        g4.loadChunks(soloFile.string());
+        g4.buildAscent(99, 1);
+        const Entity* patrol = nullptr;
+        for (const auto& e : g4.entities())
+            if (e.name == "Chunk0P1")
+                patrol = &e;
+        const bool patrolMapped =
+            patrol && patrol->platformSpeed == 70.f &&
+            patrol->platformTo - patrol->position ==
+                sf::Vector2f(200.f, -60.f);
+        check(parsed && noAdjacentRepeat && placed && standing &&
+                  sameDeal && otherDeal && patrolMapped,
+              "chunk model: chunks parse, the deal is seeded and "
+              "stacks exactly, patrols map to world space, the "
+              "player stands at the climb's foot");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

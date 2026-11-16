@@ -74,6 +74,23 @@ public:
     // previous Climber entities are replaced, never duplicated.
     void buildClimberTest();
 
+    // The chunk model (Lesson 73): authored vertical slices a
+    // generator deals like cards. loadChunks reads definitions
+    // (chunk=/height=/platform= lines); buildAscent replaces the
+    // world with a climb — a floor, a platformer player, and
+    // chunkCount chunks dealt from the seed (same seed, same
+    // deal; a chunk never repeats back-to-back) stacked upward
+    // in a shaft carved out of the tile field.
+    bool loadChunks(const std::string& path);
+    const std::vector<ChunkDef>& chunkDefs() const { return m_chunks; }
+    void buildAscent(std::uint32_t seed, int chunkCount);
+    const std::vector<std::string>& ascentDeal() const
+    {
+        return m_ascentDeal;
+    }
+    float ascentFloorY() const { return m_ascentFloorY; }
+    float ascentTopY() const { return m_ascentTopY; }
+
     // The player's spawn-in pop (Lesson 49): 1 when settled, an
     // eased 0-to-1 while the run's first moments play out. Render
     // reads it; tests measure it.
@@ -275,6 +292,13 @@ private:
 
     std::vector<Entity> m_entities;
     std::vector<EntityType> m_types; // the type registry (Lesson 68)
+
+    // The ascent (Lesson 73): the chunk vocabulary, the last
+    // deal (chunk names, bottom to top), and the climb's extent.
+    std::vector<ChunkDef> m_chunks;
+    std::vector<std::string> m_ascentDeal;
+    float m_ascentFloorY = 0.f;
+    float m_ascentTopY = 0.f;
 
     // Scripting (Lesson 70): the owned host, the root script
     // paths resolve against, the module cache (resolved path ->

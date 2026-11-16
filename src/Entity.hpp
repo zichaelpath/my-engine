@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <string>
+#include <vector>
 
 // An Entity is a thing in the world, described by data alone: where it
 // is, how big, what colour, and whether the player drives it. No
@@ -89,4 +90,26 @@ struct EntityType
     MoveModel moveModel = MoveModel::TopDown;
     int sprite = -1;
     std::string script;
+};
+
+// A chunk (Lesson 73): one authored vertical slice of a climb,
+// in chunk-local coordinates — x across the shaft, y DOWN from
+// the chunk's top. A platform's patrol target is local too; a
+// target equal to its position (with speed 0) means it is static.
+// Chunks are a game's level vocabulary: the generator deals them,
+// it does not invent geometry.
+struct ChunkPlatform
+{
+    sf::Vector2f at{0.f, 0.f};
+    float width = 120.f;
+    bool oneWay = true;
+    sf::Vector2f patrolTo{0.f, 0.f};
+    float speed = 0.f;
+};
+
+struct ChunkDef
+{
+    std::string name;
+    float height = 200.f;
+    std::vector<ChunkPlatform> platforms;
 };
