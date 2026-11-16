@@ -1,0 +1,8 @@
+# MyEngine scene
+version=2
+seed=12345
+noiseScale=0.0099999998
+entities=3
+entity=Player|375|275|50|50|80|200|120|1|1|0|||topdown|0|0|0|0|0
+entity=PatrolNpc|480|420|40|40|200|80|200|0|1|-1||scripts/patrol.lua|topdown|0|0|0|0|0
+entity=Crate|560|380|40|40|220|140|60|0|1|1|||topdown|0|0|0|0|0

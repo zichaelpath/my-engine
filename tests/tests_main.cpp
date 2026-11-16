@@ -1461,6 +1461,87 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- The Lua-only NPC (Lesson 72) ----------------------------------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("npc-patrol");
+        fs::remove_all(dir);
+        fs::create_directories(dir / "scripts");
+        // The shipped scripts/patrol.lua, with RANGE parameterised
+        // so the second half of the check can change the constant.
+        const auto patrolText = [](int range) {
+            return std::string(
+                       "local SPEED = 60\n"
+                       "local RANGE = ") +
+                   std::to_string(range) +
+                   "\n"
+                   "local M = {}\n"
+                   "function M.onUpdate(self, dt)\n"
+                   "  if self.dir == nil then\n"
+                   "    local x, _ = entity.getPosition(self)\n"
+                   "    self.homeX = x\n"
+                   "    self.dir = 1\n"
+                   "  end\n"
+                   "  local x, y = entity.getPosition(self)\n"
+                   "  local nextX = x + self.dir * SPEED * dt\n"
+                   "  if nextX > self.homeX + RANGE then\n"
+                   "    nextX = self.homeX + RANGE\n"
+                   "    self.dir = -1\n"
+                   "  elseif nextX < self.homeX - RANGE then\n"
+                   "    nextX = self.homeX - RANGE\n"
+                   "    self.dir = 1\n"
+                   "  end\n"
+                   "  entity.setPosition(self, nextX, y)\n"
+                   "end\n"
+                   "return M\n";
+        };
+        const auto runPatrol = [&](int range, float& maxX, float& minX,
+                                   float& endX) {
+            writeFile(dir / "scripts" / "patrol.lua", patrolText(range));
+            Game g;
+            g.setScriptRoot(dir.string());
+            EntityType guard;
+            guard.name = "Guard";
+            guard.script = "scripts/patrol.lua";
+            g.defineType(guard);
+            const bool spawned =
+                g.spawnTyped("Guard", "NpcPatrol", {400.f, 300.f});
+            g.bindScripts();
+            maxX = -1e9f;
+            minX = 1e9f;
+            endX = 0.f;
+            for (int i = 0; i < 240; ++i)
+            {
+                g.update(1.f / 60.f);
+                for (const auto& e : g.entities())
+                    if (e.name == "NpcPatrol")
+                    {
+                        maxX = std::max(maxX, e.position.x);
+                        minX = std::min(minX, e.position.x);
+                        endX = e.position.x;
+                    }
+            }
+            return spawned;
+        };
+        // RANGE 120: two seconds out to the bound at 520, two back
+        // home to 400 — the full beat, from Lua alone.
+        float maxX, minX, endX;
+        const bool spawned = runPatrol(120, maxX, minX, endX);
+        const bool walkedBeat = spawned && std::abs(maxX - 520.f) < 1.f &&
+                                std::abs(endX - 400.f) < 1.f;
+        // RANGE 60 in the file: a different beat — never past 460,
+        // never below 340, and it really walks (reaches its bound).
+        float maxX2, minX2, endX2;
+        runPatrol(60, maxX2, minX2, endX2);
+        const bool constantRules = maxX2 < 460.5f && maxX2 > 450.f &&
+                                   minX2 > 339.5f;
+        check(walkedBeat && constantRules,
+              "the Lua-only NPC: a patrol written entirely in a "
+              "project script walks its beat, and editing the "
+              "script's constant changes the beat");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;
