@@ -425,6 +425,35 @@ void Game::update(float dt)
     const bool jumpPressed = jumpHeld && !m_prevJump;
     m_prevJump = jumpHeld;
 
+    // Platforms move first (Lesson 57), and a grounded rider is
+    // carried by the platform under his feet — before his own
+    // movement runs, so his gravity re-earns the ground after.
+    updatePlatforms(dt);
+    {
+        Entity& rider = m_entities[m_playerEntity];
+        if (rider.moveModel == MoveModel::Platformer && rider.grounded)
+        {
+            const sf::Vector2f rSize = hitboxSizeOf(rider);
+            const float feet =
+                rider.position.y + rider.hitboxOffset.y + rSize.y;
+            const float rLeft = rider.position.x + rider.hitboxOffset.x;
+            const float rRight = rLeft + rSize.x;
+            for (const auto& p : m_entities)
+            {
+                if (!p.platform || &p == &rider)
+                    continue;
+                const float top = p.position.y + p.hitboxOffset.y;
+                const float pLeft = p.position.x + p.hitboxOffset.x;
+                if (std::abs(feet - top) < 1.f && rRight > pLeft &&
+                    rLeft < pLeft + hitboxSizeOf(p).x)
+                {
+                    rider.position += p.frameDelta;
+                    break;
+                }
+            }
+        }
+    }
+
     dir = math::normalize(dir);
     if (m_won)
         dir = {0.f, 0.f}; // the world stays alive after the win; the
@@ -820,6 +849,40 @@ float Game::musicOffset() const
     return m_music.getPlayingOffset().asSeconds();
 }
 
+void Game::updatePlatforms(float dt)
+{
+    for (auto& e : m_entities)
+    {
+        e.frameDelta = {0.f, 0.f};
+        if (!e.platform)
+            continue;
+        if (!e.platformInit)
+        {
+            e.platformHome = e.position;
+            e.platformInit = true;
+        }
+        if (e.platformSpeed <= 0.f)
+            continue;
+        const sf::Vector2f target =
+            e.platformSign > 0 ? e.platformTo : e.platformHome;
+        const sf::Vector2f toTarget = target - e.position;
+        const float dist =
+            std::sqrt(toTarget.x * toTarget.x + toTarget.y * toTarget.y);
+        const float step = e.platformSpeed * dt;
+        if (dist <= step)
+        {
+            e.frameDelta = toTarget; // arrive exactly, then turn around
+            e.position = target;
+            e.platformSign = -e.platformSign;
+        }
+        else
+        {
+            e.frameDelta = toTarget / dist * step;
+            e.position += e.frameDelta;
+        }
+    }
+}
+
 void Game::resolveCollisions(Entity& mover, float movement, bool xAxis)
 {
     // Collision happens between hitboxes, not sprite boxes: the
@@ -843,6 +906,21 @@ void Game::resolveCollisions(Entity& mover, float movement, bool xAxis)
     {
         if (&other == &mover || !other.solid)
             continue;
+        // One-way (Lesson 57): only a platformer falling onto the
+        // top ever collides — the same previous-position question
+        // the tile guard asks. Everything else (rising through it,
+        // approaching from the side or below, the top-down model,
+        // for whom above/below means nothing) passes through.
+        if (other.oneWay)
+        {
+            const sf::Vector2f boxPos = mover.position + mover.hitboxOffset;
+            const sf::Vector2f boxSize = hitboxSizeOf(mover);
+            const float otherTop = other.position.y + other.hitboxOffset.y;
+            if (mover.moveModel != MoveModel::Platformer || xAxis ||
+                movement <= 0.f ||
+                boxPos.y + boxSize.y - movement > otherTop + 0.01f)
+                continue;
+        }
         pushOut(other.position + other.hitboxOffset, hitboxSizeOf(other));
     }
     for (const auto& block : m_blocks)

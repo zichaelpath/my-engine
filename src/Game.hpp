@@ -211,6 +211,7 @@ private:
     // Pushes the mover out of every collider along one axis, back to
     // exact contact. Called once per axis per frame (Lesson 15).
     void resolveCollisions(Entity& mover, float movement, bool xAxis);
+    void updatePlatforms(float dt); // patrol motion (Lesson 57)
 
     // Rebuilds the random streams and regenerates field, terrain and
     // decor from the current seed — shared by setSeed and loadScene.

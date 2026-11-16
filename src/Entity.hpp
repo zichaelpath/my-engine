@@ -49,4 +49,19 @@ struct Entity
     MoveModel moveModel = MoveModel::TopDown;
     sf::Vector2f velocity{0.f, 0.f};
     bool grounded = false;
+
+    // Platforms (Lesson 57): a platform patrols between its
+    // position and platformTo at platformSpeed (0 = stands still),
+    // carries a grounded platformer rider by its frameDelta, and —
+    // if oneWay — only collides from above: you jump up through
+    // it and land on it. Platform fields are in-memory only for
+    // now; they join the scene format with entity types (Arc 5).
+    bool platform = false;
+    bool oneWay = false;
+    sf::Vector2f platformTo{0.f, 0.f};
+    float platformSpeed = 0.f;
+    sf::Vector2f platformHome{0.f, 0.f}; // captured on first motion
+    bool platformInit = false;
+    int platformSign = 1;                // +1 toward platformTo
+    sf::Vector2f frameDelta{0.f, 0.f};   // this frame's travel
 };

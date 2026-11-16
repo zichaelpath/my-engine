@@ -738,6 +738,96 @@ int main()
         check(crossed, "tiles: the top-down player crosses rock unimpeded");
     }
 
+    // --- Platforms (Lesson 57) ---------------------------------------------
+    {
+        const float dt = 1.f / 60.f;
+        auto makePlatform = [](sf::Vector2f pos, sf::Vector2f size) {
+            Entity plat;
+            plat.name = "TestPlatform";
+            plat.position = pos;
+            plat.size = size;
+            plat.platform = true;
+            plat.solid = true;
+            return plat;
+        };
+
+        // One-way: from the staged perch, jump up THROUGH the
+        // platform (feet cross above its top), then land ON it.
+        Game ow;
+        float perchRest = 0.f;
+        sf::Vector2f perch{0.f, 0.f};
+        bool staged = false;
+        for (int skip = 0; skip < 8 && !staged; ++skip)
+            staged = stageCratePerch(ow, skip, perchRest, &perch);
+        const float platTop = perchRest + 50.f - 70.f;
+        Entity oneWay = makePlatform({perch.x - 10.f, platTop}, {80.f, 12.f});
+        oneWay.oneWay = true;
+        ow.entities().push_back(oneWay);
+        Entity& op = playerOf(ow);
+        ow.setInput({{0.f, 0.f}, true}); // a held jump, ~102 of rise
+        float minFeet = 1e9f;
+        bool leftGround = false, landedBack = false;
+        for (int i = 0; i < 300 && !landedBack; ++i)
+        {
+            ow.update(dt);
+            minFeet = std::min(minFeet, op.position.y + 50.f);
+            if (!op.grounded)
+                leftGround = true;
+            else if (leftGround)
+                landedBack = true;
+        }
+        check(staged && landedBack && minFeet < platTop - 15.f &&
+                  std::abs(op.position.y + 50.f - platTop) < 0.01f,
+              "platforms: jump up through a one-way, land on top of it");
+
+        // A moving platform carries its rider: 60 frames at
+        // 60 u/s of patrol = 60 units of travel, feet glued.
+        bool carried = false;
+        for (int attempt = 0; attempt < 6 && !carried; ++attempt)
+        {
+            Game mv;
+            int bandTx = -1, bandTy = -1, seenBand = -1;
+            for (int ty = 8; ty + 1 < mv.tilesY() && bandTx < 0; ++ty)
+                for (int tx = 1; tx + 10 < mv.tilesX(); ++tx)
+                {
+                    bool clear = true;
+                    for (int dy = -3; dy <= 1 && clear; ++dy)
+                        for (int dx = 0; dx < 10 && clear; ++dx)
+                            if (mv.tileSolid(mv.tileAt(tx + dx, ty + dy)))
+                                clear = false;
+                    if (clear && ++seenBand == attempt)
+                    {
+                        bandTx = tx;
+                        bandTy = ty;
+                        break;
+                    }
+                }
+            if (bandTx < 0)
+                break;
+            Entity mover =
+                makePlatform({bandTx * 20.f, bandTy * 20.f}, {60.f, 12.f});
+            mover.platformTo = mover.position + sf::Vector2f(120.f, 0.f);
+            mover.platformSpeed = 60.f;
+            mv.entities().push_back(mover);
+            Entity& p = playerOf(mv);
+            p.moveModel = MoveModel::Platformer;
+            p.position = mover.position + sf::Vector2f(16.f, -70.f);
+            p.velocity = {0.f, 0.f};
+            for (int i = 0; i < 240 && !p.grounded; ++i)
+                mv.update(dt);
+            if (!p.grounded)
+                continue;
+            const float startX = p.position.x;
+            const float feetY = p.position.y + 50.f;
+            for (int i = 0; i < 60; ++i)
+                mv.update(dt);
+            carried = p.grounded &&
+                      std::abs((p.position.x - startX) - 60.f) < 2.f &&
+                      std::abs((p.position.y + 50.f) - feetY) < 0.01f;
+        }
+        check(carried, "platforms: a moving platform carries its rider");
+    }
+
     // --- The Lesson 44 regression: a flipped sprite stays home -------
 #if defined(__linux__)
     if (std::getenv("DISPLAY") == nullptr)
