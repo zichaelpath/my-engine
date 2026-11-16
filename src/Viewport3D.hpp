@@ -2,6 +2,20 @@
 
 #include "Mesh.hpp"
 
+// The Windows <GL/gl.h> preamble (see GLProgram.hpp, Lesson
+// 95): windows.h first, NOMINMAX always — this header is
+// included by the editor's main.cpp, whose std::clamp calls
+// the min/max macros would otherwise corrupt.
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include <GL/gl.h>
 
 class Game;
