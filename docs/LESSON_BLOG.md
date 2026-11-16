@@ -497,3 +497,7 @@ The showcase pass of Arc 10, and it caught the README lying by staleness: its ho
 ## Lesson 99 — The Door Opens: MIT, and the Repo Goes Public
 
 The Arc 10 gate fell in one tap: public, MIT. The license lands at the root (Copyright (c) 2026 Zachary Shade — the same choice as his pixel-art-tools repo, for the same reason: fully open source, unmistakably), the README's new License section names the edges (DejaVu's own license, the Khronos headers' MIT), and only then — license commit on main first — did the repo flip from private to public, verified from outside through the unauthenticated API. The paperwork was written from Lesson 1 as if strangers would read it; now they can.
+
+## Lesson 100 — Ship 2.0: MyEngine 2.0.0
+
+Lesson 100 closes Arc 10 and Phase 2. The version moved in its one home (CMake's project line, mirrored by the packager), both games were repackaged and clean-room verified from empty folders — Temple Run loading its chunks and building the canonical ascent under the 2.0.0 banner — and the tag v2.0.0 joins the row beside 1.0.0 through 1.8.0. The devlog states the harness caveat plainly rather than smoothing it over (the rig's post-replacement X11 flakiness, in code this release doesn't touch; 27 passed, 0 failed before the abort, 69/69 on this code earlier today). One hundred lessons: an engine that can make games, public under MIT, with its next phase already planned by the person who has to live in it.

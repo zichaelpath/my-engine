@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.0.0 — Ship 2.0: Phase 2 Complete, and Public
+
+Phase 2, Arc 10: the phase closes, the paperwork tells the
+truth, and the repo opens its doors.
+
+- **Public, under MIT** (Lesson 99): the repository is public
+  and the engine is MIT-licensed (Copyright (c) 2026 Zachary
+  Shade). The README's License section names the edges — the
+  DejaVu font's own license and the vendored Khronos headers.
+- **The Phase 2 retrospective** (Lesson 97): ten arcs accounted
+  for — game to platform, hosts to shared code, and the
+  playtest gate that now verifies what the build rig cannot.
+- **The README, refreshed** (Lesson 98): every section current
+  with the 1.8 feature set, and the honesty section rewritten
+  as "What 1.8 is not" — its three front-door items are now
+  the Phase 3 roadmap.
+- **Windows playtest fixes** (Lessons 95–96, since 1.8.0): the
+  two build walls the author's first Windows build of the
+  Phase 2 tree found — `<GL/gl.h>` now always follows
+  `<windows.h>` in the engine's headers, and `glActiveTexture`
+  lives in the loader as `glActiveTexture_`, a name neither
+  platform's header can collide with. The Windows build is
+  confirmed working end to end: editor, runtime, and GL host.
+- Phase 2 in total: Lessons 44–100, releases 1.5.0–2.0.0, two
+  shippable games, a hand-bound Lua scripting layer, campaigns
+  and versioned saves, and a harness of 69 checks.
+
 ## 1.8.0 — The 3D Second Season
 
 Phase 2, Arc 9: the raw-OpenGL host grows from a lit heightfield
