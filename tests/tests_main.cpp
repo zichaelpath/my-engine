@@ -875,6 +875,139 @@ int main()
               "physics levers: gravity retunes the jump, solidity switches");
     }
 
+    // --- The climber shaft, climbed end to end (Lesson 59) -----------------
+    {
+        const float dt = 1.f / 60.f;
+        Game g;
+        g.buildClimberTest();
+        g.buildClimberTest(); // staging twice must not duplicate
+        int climberCount = 0;
+        for (auto& e : g.entities())
+            if (e.name.rfind("Climber", 0) == 0)
+                ++climberCount;
+        Entity& p = playerOf(g);
+        Entity* ride = nullptr;
+        Entity* goal = nullptr;
+        for (auto& e : g.entities())
+        {
+            if (e.name == "ClimberRide")
+                ride = &e;
+            if (e.name == "ClimberGoal")
+                goal = &e;
+        }
+        auto feet = [&p] { return p.position.y + 50.f; };
+
+        for (int i = 0; i < 120 && !p.grounded; ++i)
+            g.update(dt);
+        const bool onFloor = p.grounded && std::abs(feet() - 1100.f) < 0.01f;
+
+        // Hop 1: straight up through the one-way Ledge1, land on it.
+        g.setInput({{0.f, 0.f}, true}); // held: no jump cut
+        bool onLedge1 = false;
+        for (int i = 0; i < 300 && !onLedge1; ++i)
+        {
+            g.update(dt);
+            onLedge1 = p.grounded && std::abs(feet() - 1010.f) < 0.01f;
+        }
+        // Hop 2: run right, jump to Ledge2. Release first so the
+        // press registers as a fresh edge.
+        g.setInput({{1.f, 0.f}, false});
+        for (int i = 0; i < 3; ++i)
+            g.update(dt);
+        g.setInput({{1.f, 0.f}, true});
+        bool onLedge2 = false;
+        for (int i = 0; i < 300 && !onLedge2; ++i)
+        {
+            g.update(dt);
+            onLedge2 = p.grounded && std::abs(feet() - 920.f) < 0.01f;
+        }
+        // Board the ride: wait on Ledge2 for a pass that is moving
+        // TOWARD his column and close — the flight then closes the
+        // distance instead of chasing it. Retry on later passes.
+        // The press is a state machine, not a level: hold the
+        // button until the rise ends (a release mid-rise would cut
+        // the jump), then release so the next press is a fresh
+        // edge. (A level-held press never re-edges — the first
+        // driver learned this by jumping zero times in 2400 frames.)
+        g.setInput({{0.f, 0.f}, false});
+        bool onRide = false, holding = false;
+        float lastRideX = ride->position.x;
+        for (int i = 0; i < 2400 && !onRide; ++i)
+        {
+            const bool standing = p.grounded && std::abs(feet() - 920.f) < 0.01f;
+            const float deckCentre = ride->position.x + 35.f;
+            const float myCentre = p.position.x + 25.f;
+            const float rideVel = ride->position.x - lastRideX;
+            lastRideX = ride->position.x;
+            const bool approaching =
+                (deckCentre < myCentre && rideVel > 0.f) ||
+                (deckCentre > myCentre && rideVel < 0.f);
+            if (!holding && standing && approaching &&
+                std::abs(deckCentre - myCentre) > 55.f && std::abs(deckCentre - myCentre) <= 80.f)
+            {
+                g.setInput({{0.f, 0.f}, true});
+                holding = true;
+            }
+            g.update(dt);
+            if (holding && (p.velocity.y >= 0.f || p.grounded))
+            {
+                g.setInput({{0.f, 0.f}, false});
+                holding = false;
+            }
+            if (p.grounded && std::abs(feet() - 830.f) < 0.01f)
+                onRide = true;
+        }
+        // Ride to the goal: it hangs above the deck's path, so a
+        // straight jump from under it bonks its underside. The
+        // play is to jump from BESIDE its span and drift over it —
+        // trigger 35-65 units from the near edge, drift held
+        // through the flight.
+        bool onGoal = false;
+        if (onRide)
+        {
+            g.setInput({{0.f, 0.f}, false});
+            holding = false;
+            float drift = 0.f;
+            for (int i = 0; i < 1200 && !onGoal; ++i)
+            {
+                const bool riding =
+                    p.grounded && std::abs(feet() - 830.f) < 0.01f;
+                const float myCentre = p.position.x + 25.f;
+                const float goalCentre = goal->position.x + 60.f;
+                const bool leftSide = myCentre < goalCentre;
+                // Distance from the LEADING hitbox edge to the
+                // span's edge: the rise needs ~15 units of drift
+                // between clearing the underside and crossing the
+                // top, so the window is tight and measured at the
+                // edge that arrives first.
+                const float leadDist =
+                    leftSide ? goal->position.x - (p.position.x + 39.f)
+                             : (p.position.x + 11.f) -
+                                   (goal->position.x + 120.f);
+                if (!holding && riding && leadDist > 26.f && leadDist < 60.f)
+                {
+                    drift = leftSide ? 1.f : -1.f;
+                    g.setInput({{drift, 0.f}, true});
+                    holding = true;
+                }
+                g.update(dt);
+                if (holding && p.velocity.y >= 0.f)
+                    g.setInput({{drift, 0.f}, false}); // keep drifting
+                if (holding && p.grounded)
+                {
+                    g.setInput({{0.f, 0.f}, false});
+                    holding = false;
+                }
+                if (p.grounded && std::abs(feet() - 745.f) < 0.01f)
+                    onGoal = true;
+            }
+        }
+        check(climberCount == 5 && onFloor && onLedge1 && onLedge2 && onRide &&
+                  onGoal,
+              "climber: the shaft climbs end to end — floor, ledges, ride, "
+              "goal");
+    }
+
     // --- The Lesson 44 regression: a flipped sprite stays home -------
 #if defined(__linux__)
     if (std::getenv("DISPLAY") == nullptr)

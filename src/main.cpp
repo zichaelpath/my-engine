@@ -516,6 +516,9 @@ int main()
             ImGui::Text("Grounded: %s   Velocity: (%.0f, %.0f)",
                         e.grounded ? "yes" : "no", e.velocity.x, e.velocity.y);
         }
+        ImGui::Separator();
+        if (ImGui::Button("Build climber test"))
+            game.buildClimberTest();
         ImGui::End();
 
         ImGui::Begin("Console");

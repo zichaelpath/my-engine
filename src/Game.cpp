@@ -136,6 +136,92 @@ void Game::regenerateWorld()
     m_runTime = 0.f;
 }
 
+void Game::buildClimberTest()
+{
+    // Replace, never duplicate: drop any previous shaft first.
+    m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
+                                    [](const Entity& e) {
+                                        return e.name.rfind("Climber", 0) == 0;
+                                    }),
+                     m_entities.end());
+    for (std::size_t i = 0; i < m_entities.size(); ++i)
+        if (m_entities[i].playerControlled)
+            m_playerEntity = i;
+
+    // The shaft needs a clear vertical corridor in THIS world —
+    // rock, blocks or decor in the way would break the climb — so
+    // candidate origins are scanned and the first clear one wins.
+    // (The first fixed placement collided with a rock tile two
+    // rows above the start; the harness caught it, and staging
+    // now verifies its own stage like everything else here.)
+    float baseX = 320.f;
+    for (float x = 160.f; x + 360.f < m_worldSize.x; x += 40.f)
+    {
+        bool clear = true;
+        const int tx0 = static_cast<int>(x / TILE_SIZE);
+        const int tx1 = static_cast<int>((x + 360.f) / TILE_SIZE);
+        for (int ty = 32; ty <= 55 && clear; ++ty)
+            for (int tx = tx0; tx <= tx1 && clear; ++tx)
+                if (tileSolid(tileAt(tx, ty)))
+                    clear = false;
+        for (const auto& block : m_blocks)
+            if (clear && math::rectsOverlap({x, 640.f}, {360.f, 476.f},
+                                            block.getPosition(),
+                                            block.getSize()))
+                clear = false;
+        for (const auto& e : m_entities)
+            if (clear && e.solid && !e.playerControlled &&
+                math::rectsOverlap({x, 640.f}, {360.f, 476.f},
+                                   e.position + e.hitboxOffset,
+                                   hitboxSizeOf(e)))
+                clear = false;
+        if (clear)
+        {
+            baseX = x;
+            break;
+        }
+    }
+
+    auto stage = [this](const char* name, sf::Vector2f pos, sf::Vector2f size,
+                        sf::Color color, bool oneWay = false,
+                        float patrolDx = 0.f, float speed = 0.f) {
+        Entity e;
+        e.name = name;
+        e.position = pos;
+        e.size = size;
+        e.color = color;
+        e.platform = true;
+        e.oneWay = oneWay;
+        if (patrolDx != 0.f)
+        {
+            e.platformTo = pos + sf::Vector2f(patrolDx, 0.f);
+            e.platformSpeed = speed;
+        }
+        m_entities.push_back(e);
+    };
+
+    // The shaft: every hop is inside the jump's ~102-unit rise,
+    // with the goal hop loosened to 85.
+    stage("ClimberFloor", {baseX, 1100.f}, {240.f, 16.f},
+          sf::Color(120, 120, 130));
+    stage("ClimberLedge1", {baseX + 20.f, 1010.f}, {90.f, 12.f},
+          sf::Color(110, 190, 120), true);
+    stage("ClimberLedge2", {baseX + 130.f, 920.f}, {90.f, 12.f},
+          sf::Color(110, 190, 120), true);
+    stage("ClimberRide", {baseX + 10.f, 830.f}, {70.f, 12.f},
+          sf::Color(230, 160, 70), false, 230.f, 70.f);
+    stage("ClimberGoal", {baseX + 110.f, 745.f}, {120.f, 16.f},
+          sf::Color(240, 200, 60));
+
+    Entity& player = m_entities[m_playerEntity];
+    player.moveModel = MoveModel::Platformer;
+    player.position = {baseX + 40.f, 1050.f}; // feet on the floor
+    player.velocity = {0.f, 0.f};
+    player.grounded = false;
+    Log::info("Climber test staged at x=" + std::to_string((int)baseX) +
+              ": floor 1100, ledges 1010/920, ride at 830, goal 745");
+}
+
 void Game::newRun(std::uint32_t seed)
 {
     if (seed != m_seed)

@@ -65,6 +65,12 @@ public:
     float runTime() const { return m_runTime; }
     void newRun(std::uint32_t seed); // fresh world, fresh run
 
+    // Stages the climber test shaft (Lesson 59): a floor, two
+    // one-way ledges, a patrolling platform and a goal, with the
+    // player placed at its base as a platformer. Rebuildable —
+    // previous Climber entities are replaced, never duplicated.
+    void buildClimberTest();
+
     // The player's spawn-in pop (Lesson 49): 1 when settled, an
     // eased 0-to-1 while the run's first moments play out. Render
     // reads it; tests measure it.
