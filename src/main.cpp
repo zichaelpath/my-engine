@@ -2,6 +2,7 @@
 #include <SFML/Graphics.hpp>
 #include <imgui.h>
 #include <imgui-SFML.h>
+#include <imgui_internal.h> // DockBuilder: the default layout (Lesson 101)
 #include <iostream>
 #include "Camera.hpp"
 #include "Config.hpp"
@@ -51,6 +52,56 @@ int pickEntity(const Game& game, sf::Vector2f world)
     return -1;
 }
 
+// The editor's default layout (Lesson 101), built with the
+// DockBuilder the first time the editor runs — and again
+// whenever the author asks for it back. Before this lesson the
+// arrangement came from a tracked imgui.ini: one person's
+// mid-arrangement working layout, shipped to every clone, with
+// no designed default underneath it. Now the default is code:
+//   Game View (with its sibling views tabbed behind it) centre,
+//   Hierarchy left, Inspector right, and the tool/output panels
+//   tabbed along the bottom with Project in front.
+// Once built, ImGui saves the result into the user's own
+// imgui.ini as before — from then on their arrangement is
+// theirs, and this function stays out of the way.
+void buildDefaultLayout(ImGuiID dockspaceId, ImVec2 size)
+{
+    ImGui::DockBuilderRemoveNode(dockspaceId);
+    ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dockspaceId, size);
+
+    ImGuiID leftId, restId;
+    ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.20f,
+                                &leftId, &restId);
+    ImGuiID rightId, centreColId;
+    ImGui::DockBuilderSplitNode(restId, ImGuiDir_Right, 0.30f,
+                                &rightId, &centreColId);
+    ImGuiID bottomId, centreId;
+    ImGui::DockBuilderSplitNode(centreColId, ImGuiDir_Down, 0.28f,
+                                &bottomId, &centreId);
+
+    ImGui::DockBuilderDockWindow("Hierarchy", leftId);
+    ImGui::DockBuilderDockWindow("Inspector", rightId);
+
+    // The bottom strip: tools and output, tabbed. Project is
+    // docked last so its tab is the one in front.
+    ImGui::DockBuilderDockWindow("Engine Debug", bottomId);
+    ImGui::DockBuilderDockWindow("Procgen", bottomId);
+    ImGui::DockBuilderDockWindow("Feel", bottomId);
+    ImGui::DockBuilderDockWindow("Physics", bottomId);
+    ImGui::DockBuilderDockWindow("Terrain", bottomId);
+    ImGui::DockBuilderDockWindow("Levels", bottomId);
+    ImGui::DockBuilderDockWindow("Console", bottomId);
+    ImGui::DockBuilderDockWindow("Project", bottomId);
+
+    // The views share the centre; Game View docked last, in front.
+    ImGui::DockBuilderDockWindow("Game View 2", centreId);
+    ImGui::DockBuilderDockWindow("3D View", centreId);
+    ImGui::DockBuilderDockWindow("Game View", centreId);
+
+    ImGui::DockBuilderFinish(dockspaceId);
+}
+
 int main()
 {
     Log::info(std::string("MyEngine ") + engine::VERSION + " - Editor");
@@ -88,6 +139,14 @@ int main()
     // mouse during an entity drag — the gesture has to belong to the
     // canvas, not the window frame. (Found by Lesson 25's first drag.)
     ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
+    // First run (Lesson 101): no saved layout file means the
+    // default layout gets built on the first frame. From then on
+    // the file is the user's own — per-machine, gitignored, and
+    // never shipped again.
+    const char* iniPath = ImGui::GetIO().IniFilename;
+    bool layoutNeedsBuild =
+        iniPath == nullptr || !std::filesystem::exists(iniPath);
+    bool resetLayout = false;
     Game game;
     if (haveProject)
         game.setScriptRoot(project.root); // scripts resolve in the project (L70)
@@ -323,7 +382,15 @@ int main()
 
         ImGui::SFML::Update(window, sf::seconds(dt));
 
-        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+        const ImGuiID dockspaceId =
+            ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+        if (layoutNeedsBuild || resetLayout)
+        {
+            buildDefaultLayout(dockspaceId,
+                               ImGui::GetMainViewport()->Size);
+            layoutNeedsBuild = false;
+            resetLayout = false;
+        }
 
         bool stepClicked = false;
         ImGui::Begin("Engine Debug");
@@ -363,6 +430,15 @@ int main()
         ImGui::Checkbox("Game View 2 (second camera)", &view2Open);
         ImGui::Checkbox("3D View (heightfield)", &view3dOpen);
         ImGui::Checkbox("Show hitboxes", &game.showHitboxes);
+        ImGui::SeparatorText("Layout");
+        if (ImGui::Button("Reset to default layout"))
+            resetLayout = true;
+        ImGui::TextWrapped(
+            "Arranges every panel the way the editor ships: Game "
+            "View centre, Hierarchy left, Inspector right, tools "
+            "and Project along the bottom. Your own arrangement "
+            "is saved automatically and survives restarts — this "
+            "button is the way back to the default.");
         ImGui::SliderFloat("Zoom", &zoom, 0.4f, 3.f);
         // Play-test mode (Lesson 28): Play snapshots the scene;
         // Stop restores it — experiment freely, keep nothing.

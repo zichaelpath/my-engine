@@ -40,6 +40,13 @@ create a video game" — measured at the front door, not the renderer.
 
 ## Arc 1 — First Launch Feels Like an Engine (~4 lessons)
 
+*Progress: Lesson 101 shipped the default layout — built in code
+with the DockBuilder on first run (Game View centre, Hierarchy
+left, Inspector right, tools and Project tabbed along the
+bottom), a Reset button in Engine Debug, and `imgui.ini`
+untracked into per-user state. Remaining in the arc: the View
+menu with per-panel toggles, and the layout version stamp.*
+
 - The default layout, built in code with the DockBuilder on first
   run: Game View centre, Hierarchy left, Inspector right, Project and
   Console tabbed along the bottom, tool panels (Procgen, Feel,

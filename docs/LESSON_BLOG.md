@@ -501,3 +501,7 @@ The Arc 10 gate fell in one tap: public, MIT. The license lands at the root (Cop
 ## Lesson 100 — Ship 2.0: MyEngine 2.0.0
 
 Lesson 100 closes Arc 10 and Phase 2. The version moved in its one home (CMake's project line, mirrored by the packager), both games were repackaged and clean-room verified from empty folders — Temple Run loading its chunks and building the canonical ascent under the 2.0.0 banner — and the tag v2.0.0 joins the row beside 1.0.0 through 1.8.0. The devlog states the harness caveat plainly rather than smoothing it over (the rig's post-replacement X11 flakiness, in code this release doesn't touch; 27 passed, 0 failed before the abort, 69/69 on this code earlier today). One hundred lessons: an engine that can make games, public under MIT, with its next phase already planned by the person who has to live in it.
+
+## Lesson 101 — The Default Layout
+
+Phase 3 opens at the front door. The editor now builds its own first impression: on a first run (no imgui.ini — which is now untracked, per-user state instead of repo cargo) a DockBuilder pass arranges the desk the way the engine ships it — Game View centre with its sibling views tabbed behind, Hierarchy left, Inspector right, Project and the tool panels tabbed along the bottom. A Reset button in Engine Debug runs the same builder, so first-run and reset can never drift. Verified by the saved docking tree's own measurements (255/1280 left, 307 right, 202/720 bottom — the design, in the file) and by a second run loading it untouched.
