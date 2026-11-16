@@ -1744,6 +1744,68 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- The endless deal (Lesson 75) ----------------------------------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("endless-deal");
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        writeFile(dir / "chunks.txt",
+                  "chunk=Solo\n"
+                  "height=200\n"
+                  "platform=340|165|120|1\n"
+                  "platform=300|105|120|1\n"
+                  "platform=340|25|120|1\n");
+        Game g;
+        g.loadChunks((dir / "chunks.txt").string());
+        g.buildAscent(5, 3);
+        g.pressureDelay = 0.f;  // the test sets the tempo: the
+        g.pressureSpeed = 60.f; // line climbs, the bot climbs
+        // (at 120 u/s the line reaches the floor at 0.42 s —
+        // before the bot's first lift at 0.75 s; the tempo must
+        // let the staged climb live, which is the test's choice
+        // to make, not the machinery's fault)
+        const bool windowAtStart = g.liveChunkCount() == 3 &&
+                                   g.chunksDealtTotal() == 3 &&
+                                   g.ascentTopY() == 550.f;
+        // The staging bot: every 45 frames it is lifted 260 units
+        // (the jumping itself is Lessons 59/73's proof; what is
+        // under test here is the window machinery). The score is
+        // sampled every frame once recycling begins: it may never
+        // fall across a scroll.
+        bool sawRecycle = false;
+        float scoreFloor = 0.f;
+        bool scoreHeld = true;
+        for (int i = 1; i <= 3600 && !g.caught(); ++i)
+        {
+            if (i % 45 == 0) // re-fetched every time: recycling
+                g.entities()[g.playerIndex()].position.y -=
+                    260.f; // erases entities, references would rot
+            g.update(1.f / 60.f);
+            if (g.chunksDealtTotal() > 3)
+            {
+                if (!sawRecycle)
+                {
+                    sawRecycle = true;
+                    scoreFloor = g.heightReached();
+                }
+                else if (g.heightReached() < scoreFloor - 0.01f)
+                    scoreHeld = false;
+                scoreFloor = std::max(scoreFloor, g.heightReached());
+            }
+        }
+        const bool streamed = sawRecycle && g.chunksDealtTotal() >= 6 &&
+                              g.liveChunkCount() == 3 &&
+                              g.ascentTopY() == 550.f &&
+                              g.scrollTotal() >= 600.f;
+        const bool survived = !g.caught() && g.heightReached() > 500.f;
+        check(windowAtStart && streamed && scoreHeld && survived,
+              "endless deal: consumed chunks pop, the world scrolls "
+              "by their height, fresh chunks deal in — the window "
+              "never changes size and the score never falls");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

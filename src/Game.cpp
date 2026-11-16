@@ -621,54 +621,33 @@ void Game::buildAscent(std::uint32_t seed, int chunkCount)
     floor.solid = true;
     m_entities.push_back(floor);
 
-    // The deal: a private Random keyed by the run seed alone, so
-    // the same seed deals the same climb no matter what world
-    // the Game was showing. A chunk never repeats back-to-back
-    // (a deterministic nudge, not a re-roll loop).
-    Random rng(seed);
-    int previous = -1;
-    float chunkTop = floorTop;
+    // The deal (Lesson 75): the run's own Random, reseeded here
+    // and drawn from for the run's whole life — the initial hand
+    // below and every endless refill in maintainAscent come from
+    // the same stream, so the whole climb, however long it runs,
+    // is a pure function of this seed.
+    m_ascentRng.reseed(seed);
+    m_ascentLastPick = -1;
+    m_nextChunkIndex = 0;
+    m_liveChunks.clear();
+    m_scrollTotal = 0.f;
+    m_shaftLeft = shaftLeft;
+    m_ascentTopY = floorTop;
     for (int i = 0; i < chunkCount; ++i)
-    {
-        int pick = rng.rangeInt("ascent", 0,
-                                static_cast<int>(m_chunks.size()) - 1);
-        if (pick == previous && m_chunks.size() > 1)
-            pick = (pick + 1) % static_cast<int>(m_chunks.size());
-        previous = pick;
-        const ChunkDef& def = m_chunks[static_cast<std::size_t>(pick)];
-        chunkTop -= def.height;
-        m_ascentDeal.push_back(def.name);
-        int j = 0;
-        for (const auto& p : def.platforms)
-        {
-            Entity e;
-            e.name = "Chunk" + std::to_string(i) + "P" +
-                     std::to_string(j++);
-            e.position = {shaftLeft + p.at.x, chunkTop + p.at.y};
-            e.size = {p.width, 16.f};
-            e.color = sf::Color(110, 190, 120);
-            e.platform = true;
-            e.oneWay = p.oneWay;
-            if (p.speed > 0.f)
-            {
-                e.platformTo = {shaftLeft + p.patrolTo.x,
-                                chunkTop + p.patrolTo.y};
-                e.platformSpeed = p.speed;
-                e.color = sf::Color(230, 160, 70);
-            }
-            m_entities.push_back(e);
-        }
-    }
-    m_ascentTopY = chunkTop;
+        m_ascentDeal.push_back(dealChunkOnTop());
 
     // Carve the shaft: rock tiles are solid to a platformer, and
     // a dealt chunk cannot know the mountain's geology — so the
-    // shaft's column of the field is flattened to grass. (The
-    // base world's determinism is untouched: the carve is a
-    // function of the shaft's geometry alone, applied only here.)
+    // shaft's column of the field is flattened to grass. The
+    // whole column, top to floor (Lesson 75): the endless deal
+    // streams chunks through this window for the run's whole
+    // life, and every altitude the window will ever show must
+    // already be clear. (The base world's determinism is
+    // untouched: the carve is a function of the shaft's geometry
+    // alone, applied only here.)
     const int tx0 = static_cast<int>(shaftLeft / TILE_SIZE);
     const int tx1 = static_cast<int>((shaftLeft + shaftWidth) / TILE_SIZE);
-    const int ty0 = std::max(0, static_cast<int>(chunkTop / TILE_SIZE));
+    const int ty0 = 0;
     const int ty1 = std::min(m_tilesY - 1,
                              static_cast<int>(floorTop / TILE_SIZE));
     for (int ty = ty0; ty <= ty1; ++ty)
@@ -684,6 +663,115 @@ void Game::buildAscent(std::uint32_t seed, int chunkCount)
     Log::info("Ascent built: seed " + std::to_string(seed) + ", " +
               std::to_string(chunkCount) + " chunks (" + deal +
               "), top at y=" + std::to_string((int)m_ascentTopY));
+}
+
+std::string Game::dealChunkOnTop()
+{
+    // One draw from the run's dealer: the same seed-stream and
+    // the same no-back-to-back nudge as the opening hand, so a
+    // refill at minute ten obeys the laws of the deal at second
+    // one. The chunk lands with its top at the stack's old top
+    // minus its own height — variable heights stack exactly.
+    int pick = m_ascentRng.rangeInt(
+        "ascent", 0, static_cast<int>(m_chunks.size()) - 1);
+    if (pick == m_ascentLastPick && m_chunks.size() > 1)
+        pick = (pick + 1) % static_cast<int>(m_chunks.size());
+    m_ascentLastPick = pick;
+    const ChunkDef& def = m_chunks[static_cast<std::size_t>(pick)];
+    const float top = m_ascentTopY - def.height;
+    int j = 0;
+    for (const auto& p : def.platforms)
+    {
+        Entity e;
+        e.name = "Chunk" + std::to_string(m_nextChunkIndex) + "P" +
+                 std::to_string(j++);
+        e.position = {m_shaftLeft + p.at.x, top + p.at.y};
+        e.size = {p.width, 16.f};
+        e.color = sf::Color(110, 190, 120);
+        e.platform = true;
+        e.oneWay = p.oneWay;
+        if (p.speed > 0.f)
+        {
+            e.platformTo = {m_shaftLeft + p.patrolTo.x,
+                            top + p.patrolTo.y};
+            e.platformSpeed = p.speed;
+            e.color = sf::Color(230, 160, 70);
+        }
+        m_entities.push_back(e);
+    }
+    m_liveChunks.push_back(
+        {m_nextChunkIndex, def.name, top, def.height});
+    ++m_nextChunkIndex;
+    m_ascentTopY = top;
+    return def.name;
+}
+
+void Game::maintainAscent()
+{
+    // The endless window (Lesson 75). When the pressure has
+    // fully consumed the bottom live chunk, that chunk leaves,
+    // the whole world scrolls down by exactly its height, and a
+    // fresh chunk is dealt into the freed top — the window's
+    // footprint never changes, so the climb streams forever
+    // inside a fixed world. The scroll moves the player, the
+    // platforms, and the pressure line together: relative to
+    // each other, nothing moved at all. What the score must
+    // remember — that the world went down — accumulates in
+    // m_scrollTotal.
+    bool erasedAny = false;
+    while (!m_liveChunks.empty() &&
+           m_pressureY <= m_liveChunks.front().topY)
+    {
+        const LiveChunk gone = m_liveChunks.front();
+        m_liveChunks.pop_front();
+        const std::string prefix =
+            "Chunk" + std::to_string(gone.index) + "P";
+        m_entities.erase(
+            std::remove_if(m_entities.begin(), m_entities.end(),
+                           [&](const Entity& e) {
+                               return e.name.rfind(prefix, 0) == 0;
+                           }),
+            m_entities.end());
+        erasedAny = true;
+
+        const float h = gone.height;
+        for (auto& e : m_entities)
+        {
+            e.position.y += h;
+            if (e.platform)
+            {
+                e.platformTo.y += h;
+                if (e.platformInit)
+                    e.platformHome.y += h;
+            }
+        }
+        m_pressureY += h;
+        m_ascentTopY += h;
+        for (auto& live : m_liveChunks)
+            live.topY += h;
+        m_scrollTotal += h;
+
+        // The floor retires once the line has scrolled to it —
+        // it was a launch pad, not a promise.
+        if (m_pressureY <= m_ascentFloorY)
+        {
+            m_entities.erase(
+                std::remove_if(m_entities.begin(), m_entities.end(),
+                               [](const Entity& e) {
+                                   return e.name == "AscentFloor";
+                               }),
+                m_entities.end());
+        }
+
+        const std::string dealt = dealChunkOnTop();
+        Log::info("Ascent: " + gone.name + " consumed; dealt " +
+                  dealt + " on top (scroll " +
+                  std::to_string((int)m_scrollTotal) + ")");
+    }
+    if (erasedAny)
+        for (std::size_t i = 0; i < m_entities.size(); ++i)
+            if (m_entities[i].playerControlled)
+                m_playerEntity = i;
 }
 
 void Game::newRun(std::uint32_t seed)
@@ -1306,12 +1394,19 @@ void Game::update(float dt)
     {
         m_pressureTimer += dt;
         if (m_pressureTimer > pressureDelay)
+        {
             m_pressureY -= pressureSpeed * dt;
-        const float feetBottom = player.position.y +
-                                 player.hitboxOffset.y +
-                                 hitboxSizeOf(player).y;
-        m_bestHeight =
-            std::max(m_bestHeight, m_ascentFloorY - feetBottom);
+            maintainAscent(); // the endless window (Lesson 75)
+        }
+        // Maintenance may have erased entities and scrolled the
+        // world: re-fetch the player before reading him, and let
+        // the score remember every unit the world scrolled down.
+        const Entity& climber = m_entities[m_playerEntity];
+        const float feetBottom = climber.position.y +
+                                 climber.hitboxOffset.y +
+                                 hitboxSizeOf(climber).y;
+        m_bestHeight = std::max(
+            m_bestHeight, m_scrollTotal + (m_ascentFloorY - feetBottom));
         if (feetBottom >= m_pressureY)
         {
             m_caught = true;

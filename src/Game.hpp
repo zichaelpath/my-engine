@@ -9,6 +9,7 @@
 #include "ScriptHost.hpp"
 #include "Tween.hpp"
 #include <cstddef>
+#include <deque>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -101,6 +102,12 @@ public:
     }
     float ascentFloorY() const { return m_ascentFloorY; }
     float ascentTopY() const { return m_ascentTopY; }
+    // The endless window (Lesson 75): how many chunks are live,
+    // how many have ever been dealt, and how far the world has
+    // scrolled down under the climber (the score's memory).
+    std::size_t liveChunkCount() const { return m_liveChunks.size(); }
+    int chunksDealtTotal() const { return m_nextChunkIndex; }
+    float scrollTotal() const { return m_scrollTotal; }
 
     // The player's spawn-in pop (Lesson 49): 1 when settled, an
     // eased 0-to-1 while the run's first moments play out. Render
@@ -285,6 +292,13 @@ private:
     void resolveCollisions(Entity& mover, float movement, bool xAxis);
     void updatePlatforms(float dt); // patrol motion (Lesson 57)
 
+    // The endless deal (Lesson 75): dealChunkOnTop deals one
+    // chunk onto the stack's top from the run's persistent RNG;
+    // maintainAscent (called from update) pops consumed chunks,
+    // scrolls the world down by their height, and refills the top.
+    std::string dealChunkOnTop();
+    void maintainAscent();
+
     // Rebuilds the random streams and regenerates field, terrain and
     // decor from the current seed — shared by setSeed and loadScene.
     void regenerateWorld();
@@ -317,6 +331,25 @@ private:
     float m_pressureY = 0.f;
     float m_pressureTimer = 0.f;
     float m_bestHeight = 0.f;
+
+    // The endless window (Lesson 75): the live chunks, bottom
+    // first; the run's own dealer (reseeded by buildAscent, drawn
+    // for the run's whole life); and the accumulated scroll —
+    // every unit the world has shifted down under the player,
+    // which is height the score must never forget.
+    struct LiveChunk
+    {
+        int index = 0;
+        std::string name;
+        float topY = 0.f;
+        float height = 0.f;
+    };
+    std::deque<LiveChunk> m_liveChunks;
+    Random m_ascentRng{0};
+    int m_ascentLastPick = -1;
+    int m_nextChunkIndex = 0;
+    float m_scrollTotal = 0.f;
+    float m_shaftLeft = 0.f;
 
     // Scripting (Lesson 70): the owned host, the root script
     // paths resolve against, the module cache (resolved path ->
