@@ -60,6 +60,14 @@ bool loadProject(const std::string& path, Project& out)
         {
             parsed.startScene = value;
         }
+        else if (key == "mode")
+        {
+            parsed.mode = value;
+        }
+        else if (key == "chunks")
+        {
+            parsed.chunksFile = value;
+        }
         else
         {
             Log::warning("Project file " + path + ": unknown key '" + key + "' ignored");
@@ -114,6 +122,13 @@ bool writeProjectFile(const std::string& path, const Project& project)
          << "name=" << project.name << "\n"
          << "seed=" << project.seed << "\n"
          << "scene=" << project.startScene << "\n";
+    // The game-kind keys (Lesson 76) are written only when they
+    // carry information, so a scene game's card stays byte-for-
+    // byte the card it has always been.
+    if (project.mode != "scene")
+        file << "mode=" << project.mode << "\n";
+    if (!project.chunksFile.empty())
+        file << "chunks=" << project.chunksFile << "\n";
     return static_cast<bool>(file);
 }
 

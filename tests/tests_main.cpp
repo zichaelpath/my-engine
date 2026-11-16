@@ -1806,6 +1806,52 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- The project says what kind of game it is (Lesson 76) ----------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("project-mode");
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        writeFile(dir / "project.myengine",
+                  "format=1\nname=Climb Test\nseed=777\nscene=\n"
+                  "mode=ascent\nchunks=chunks.txt\n");
+        Project p;
+        const bool parsed = loadProjectFolder(dir.string(), p) &&
+                            p.mode == "ascent" &&
+                            p.chunksFile == "chunks.txt" &&
+                            p.seed == 777u;
+        const bool savedKind = saveProject(p);
+        Project q;
+        const bool roundTripped =
+            savedKind && loadProjectFolder(dir.string(), q) &&
+            q.mode == "ascent" && q.chunksFile == "chunks.txt";
+        // A scene game's saved card gains no new keys.
+        Project sceneGame;
+        sceneGame.root = dir.string();
+        sceneGame.name = "Plain";
+        saveProject(sceneGame);
+        std::ifstream in(dir / "project.myengine");
+        const std::string card((std::istreambuf_iterator<char>(in)),
+                               std::istreambuf_iterator<char>());
+        const bool sceneCardClean =
+            card.find("mode=") == std::string::npos &&
+            card.find("chunks=") == std::string::npos;
+        // The shipped Temple Run card, when the suite runs from
+        // the repo root (elsewhere this clause is vacuous — the
+        // runtime boot is Lesson 76's shipped-card proof).
+        Project temple;
+        const bool templeOk =
+            !fs::exists("games/temple-run") ||
+            (loadProjectFolder("games/temple-run", temple) &&
+             temple.mode == "ascent" &&
+             temple.chunksFile == "chunks.txt");
+        check(parsed && roundTripped && sceneCardClean && templeOk,
+              "project mode: ascent cards parse and round-trip; "
+              "scene cards stay byte-clean; Temple Run ships as an "
+              "ascent");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

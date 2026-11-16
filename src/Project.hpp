@@ -19,6 +19,15 @@ struct Project
     std::uint32_t seed = 12345;
     std::string startScene; // empty = generate the world, load nothing
 
+    // What kind of game this is (Lesson 76): "scene" (the
+    // default — a generated world plus an optional start scene,
+    // Gold Rush's shape) or "ascent" (a chunk-dealt endless
+    // climb, Temple Run's shape, whose chunks live in the file
+    // chunksFile names). Additive format-1 keys: a card without
+    // them is a scene game, exactly as before.
+    std::string mode = "scene";
+    std::string chunksFile; // project-relative; ascent mode only
+
     // The folder the project lives in (Lesson 60): a project is a
     // PLACE — a directory holding project.myengine plus the
     // standard subfolders (assets/, scenes/, scripts/). Empty

@@ -22,16 +22,22 @@ enum class Screen
     Title,
     Playing,
     Paused,
-    Won
+    Won,
+    Caught // the climb's ending (Lesson 76)
 };
 
-int main()
+int main(int argc, char** argv)
 {
     Log::info(std::string("MyEngine ") + engine::VERSION + " - Runtime");
     // The project file (Lesson 41) is read first: it says what
     // game this is. engine.ini below stays per-machine settings.
+    // The project is a folder (Lesson 76): an optional argument
+    // names it, so one runtime binary boots any game on the
+    // engine — the working directory's project by default.
+    const std::string projectFolder = argc > 1 ? argv[1] : ".";
     Project project;
-    bool haveProject = loadProjectFolder(".", project);
+    bool haveProject = loadProjectFolder(projectFolder, project);
+    const bool ascent = haveProject && project.mode == "ascent";
 
     Config config;
     config.setDefault("windowWidth", "800");
@@ -71,6 +77,21 @@ int main()
             Log::warning("Project start scene failed to load: " + scenePath);
     }
     game.speed = config.getFloat("playerSpeed", 200.f);
+    if (ascent)
+    {
+        // An ascent game (Lesson 76): the stage is dealt, not
+        // generated — load the project's chunks and build the
+        // climb now, so the title screen already stands at its
+        // foot. The project's seed IS the temple: every run of
+        // this copy of the game climbs the same mountain.
+        const std::string chunksPath =
+            projectPath(project, project.chunksFile);
+        if (game.loadChunks(chunksPath))
+            game.buildAscent(project.seed, 5);
+        else
+            Log::error("Ascent project without loadable chunks: " +
+                       chunksPath);
+    }
     if (config.getInt("music", 1))
         game.startMusic("assets/music.wav");
 
@@ -103,6 +124,9 @@ int main()
     sf::Text banner = makeText("You collected all the gold!", 36, sf::Color(255, 215, 80));
     sf::Text winTime = makeText("", 22, sf::Color::White);
     sf::Text sub = makeText("Press R for a new world", 20, sf::Color::White);
+    sf::Text caughtTitle = makeText("The pressure took you", 36, sf::Color(255, 120, 60));
+    sf::Text caughtScore = makeText("", 22, sf::Color::White);
+    sf::Text caughtSub = makeText("Press R to climb again", 20, sf::Color::White);
     sf::RectangleShape dim;
     dim.setFillColor(sf::Color(8, 8, 18, 170));
 
@@ -164,6 +188,18 @@ int main()
                         if (keyPressed->code == Key::Escape)
                             window.close();
                         break;
+                    case Screen::Caught:
+                        if (keyPressed->code == Key::R)
+                        {
+                            // The same temple, climbed again
+                            // (Lesson 76): the project seed
+                            // re-deals the identical mountain.
+                            game.buildAscent(project.seed, 5);
+                            screen = Screen::Playing;
+                        }
+                        if (keyPressed->code == Key::Escape)
+                            window.close();
+                        break;
                 }
             }
         }
@@ -183,12 +219,15 @@ int main()
             game.update(dt);
             if (game.won())
                 screen = Screen::Won;
+            if (game.caught())
+                screen = Screen::Caught;
         }
-        else if (screen == Screen::Won)
+        else if (screen == Screen::Won || screen == Screen::Caught)
         {
-            // The world stays alive behind the win screen — the
-            // staged fountain (Lesson 52) plays out there. Game
-            // ignores input once won; the player takes his bow.
+            // The world stays alive behind the end screens — the
+            // staged fountain (Lesson 52) plays out there, and the
+            // climb's aftermath settles. Game ignores input once
+            // won or caught; the player takes his bow.
             game.update(dt);
         }
 
@@ -213,10 +252,14 @@ int main()
 
             if (screen != Screen::Title)
             {
-                std::snprintf(buf, sizeof(buf), "Gold: %d / %d    Time: %d:%02d",
-                              game.goldCollected(), game.goldTotal(),
-                              static_cast<int>(game.runTime()) / 60,
-                              static_cast<int>(game.runTime()) % 60);
+                if (ascent)
+                    std::snprintf(buf, sizeof(buf), "Height: %d",
+                                  static_cast<int>(game.heightReached()));
+                else
+                    std::snprintf(buf, sizeof(buf), "Gold: %d / %d    Time: %d:%02d",
+                                  game.goldCollected(), game.goldTotal(),
+                                  static_cast<int>(game.runTime()) / 60,
+                                  static_cast<int>(game.runTime()) % 60);
                 hud.setString(buf);
                 window.draw(hud);
             }
@@ -227,16 +270,24 @@ int main()
                 window.draw(dim);
                 centreOn(gameTitle, h / 2.f - 80.f);
                 window.draw(gameTitle);
-                std::snprintf(buf, sizeof(buf),
-                              "Collect all %d gold dots - mind the water, it slows you down",
-                              game.goldTotal());
-                titleSub.setString(buf);
+                if (ascent)
+                    titleSub.setString(
+                        "Climb as high as you can - the pressure is rising behind you");
+                else
+                {
+                    std::snprintf(buf, sizeof(buf),
+                                  "Collect all %d gold dots - mind the water, it slows you down",
+                                  game.goldTotal());
+                    titleSub.setString(buf);
+                }
                 centreOn(titleSub, h / 2.f - 25.f);
                 window.draw(titleSub);
                 centreOn(titlePrompt, h / 2.f + 25.f);
                 window.draw(titlePrompt);
-                std::snprintf(buf, sizeof(buf), "World seed: %u",
-                              static_cast<unsigned int>(game.seed()));
+                std::snprintf(buf, sizeof(buf),
+                              ascent ? "Temple seed: %u" : "World seed: %u",
+                              static_cast<unsigned int>(
+                                  ascent ? project.seed : game.seed()));
                 seedLine.setString(buf);
                 centreOn(seedLine, h / 2.f + 70.f);
                 window.draw(seedLine);
@@ -264,6 +315,20 @@ int main()
                 window.draw(winTime);
                 centreOn(sub, h / 2.f + 50.f);
                 window.draw(sub);
+            }
+            else if (screen == Screen::Caught)
+            {
+                dim.setSize({w, h});
+                window.draw(dim);
+                centreOn(caughtTitle, h / 2.f - 45.f);
+                window.draw(caughtTitle);
+                std::snprintf(buf, sizeof(buf), "Height: %d",
+                              static_cast<int>(game.heightReached()));
+                caughtScore.setString(buf);
+                centreOn(caughtScore, h / 2.f + 5.f);
+                window.draw(caughtScore);
+                centreOn(caughtSub, h / 2.f + 50.f);
+                window.draw(caughtSub);
             }
         }
         window.display();
