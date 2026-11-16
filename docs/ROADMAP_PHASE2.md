@@ -82,10 +82,10 @@ Procgen stays what it has always been here: a foundation a game *may* build on �
 
 *Proof of generalization, now with the full stack: a complete platformer, authored in the editor, its behaviours written in its own Lua scripts.*
 
-- **The game.** A small precision-lite platformer (Zac names it): collect-the-things across hand-authored levels, built with Arc 3 physics + Arc 4's project layout + Arc 5's types and scripts — no genre-specific hacks in GameLib; every gap the game exposes becomes an engine lesson or a logged known limit.
-- **Authored, not generated.** Levels are scenes, laid out in the editor — the procgen foundation deliberately unused, per the north star: the engine serves both kinds of game.
+- **The game — DECIDED Nov 15, 2026 (Zac): a vertical Temple Run.** An endless upward climb: the world scrolls down past you, something is always rising behind you (the run's pressure), and the score is height. Arc 3's toolkit *is* a climber's toolkit — gravity and variable jumps, one-way platforms you leap up through, moving platforms as elevators and traps. Auto-pressure instead of auto-run: the player still aims every jump; the rising doom sets the tempo.
+- **Authored, generated, or both — settled at the arc.** A vertical endless game is the one genre where the procgen foundation and hand-authoring genuinely compete: generated ascent (endless, replayable, the foundation showing off) vs fixed courses (designed, masterable) vs authored chunks the generator deals like cards (the Temple Run answer, and this engine's types+scripts make chunks natural). The arc opens by prototyping the chunk model; the north star is served either way, because the *game* chooses — the engine just has to make all three possible.
 - **Ship it.** Packaged like Gold Rush (its own project folder), versioned, clean-room verified. Working title for the release: MyEngine 1.5 — the engine grew a genre *and* a scripting layer.
-- *(Decision point for Zac, before this arc: the platformer's name and fantasy — mechanics are planned, identity is his.)*
+- *(Still Zac's, any time before the arc: the game's name and its fantasy — what are you climbing, and what's rising behind you?)*
 
 ## Arc 7 — Levels, Campaigns & Saves (Lessons ~78–82)
 
@@ -125,7 +125,7 @@ Procgen stays what it has always been here: a foundation a game *may* build on �
 ## Decisions Zac owns (needed before the arc named)
 
 1. **Before Arc 5:** the scripting language — **DECIDED Nov 15, 2026: Lua, hand-bound** (the game industry's default embed, tiny, rookie-legible, and ownable the way this engine owns its GL loader).
-2. **Before Arc 6:** the second game's name and fantasy (platformer mechanics are planned; identity is his).
+2. **Before Arc 6:** the second game's concept — **DECIDED Nov 15, 2026: a vertical Temple Run** (endless upward climb, rising pressure, height is the score). Still his before the arc: its name and fantasy.
 3. **Before Arc 10:** public repo vs private + showcase.
 4. **Any time in Arc 1:** his Phase 1 playtest findings *are* Arc 1's spec — the arc re-plans around them, not vice versa.
 
