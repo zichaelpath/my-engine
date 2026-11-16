@@ -11,7 +11,9 @@
 #include "Log.hpp"
 #include "SpriteSheet.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
+#include <map>
 #include <filesystem>
 #include <fstream>
 #include <random>
@@ -88,10 +90,25 @@ int main()
     int selected = -1; // selected entity index (editor state, Lesson 22)
     bool dragging = false; // drag-to-move in progress (Lesson 25)
     sf::Vector2f dragOffset; // entity position minus grab point, world space
-    // Undo/redo history (Lesson 27): snapshots of the whole entity
-    // list, taken BEFORE each committed editor action.
-    std::vector<std::vector<Entity>> undoStack;
-    std::vector<std::vector<Entity>> redoStack;
+    // Undo/redo history (Lesson 27): snapshots of the editable
+    // state, taken BEFORE each committed editor action. A
+    // snapshot holds the entity list and — since Lesson 83 —
+    // the painted-tile overrides, so one Ctrl+Z timeline covers
+    // both kinds of edit.
+    struct EditSnapshot
+    {
+        std::vector<Entity> entities;
+        std::map<std::pair<int, int>, int> tiles;
+    };
+    std::vector<EditSnapshot> undoStack;
+    std::vector<EditSnapshot> redoStack;
+    // Terrain painting (Lesson 83): when paint mode is on, the
+    // Game View's left button paints instead of picking.
+    bool paintMode = false;
+    bool painting = false; // a stroke in progress
+    int paintTile = tiles::Grass;
+    bool paintErase = false;
+    int brushSize = 1; // 1 or 3 (a square brush)
     // Play-test session (Lesson 28): a snapshot taken when the test
     // starts; stopping the test restores it exactly.
     bool testing = false;
@@ -332,34 +349,45 @@ int main()
         // Undo/redo (Lesson 27): snapshot the entity list BEFORE a
         // committed action; undo swaps the current list onto the
         // redo stack and restores the snapshot.
-        auto pushUndoState = [&](std::vector<Entity> state) {
+        auto captureState = [&]() {
+            return EditSnapshot{game.entities(), game.tileOverrides()};
+        };
+        auto restoreState = [&](const EditSnapshot& state) {
+            game.replaceEntities(state.entities);
+            game.setTileOverrides(state.tiles);
+        };
+        auto pushUndoState = [&](EditSnapshot state) {
             undoStack.push_back(std::move(state));
             if (undoStack.size() > 100)
                 undoStack.erase(undoStack.begin());
             redoStack.clear();
         };
-        auto pushUndo = [&]() { pushUndoState(game.entities()); };
+        auto pushUndo = [&]() { pushUndoState(captureState()); };
         auto doUndo = [&]() {
             if (undoStack.empty())
                 return;
-            redoStack.push_back(game.entities());
-            game.replaceEntities(undoStack.back());
+            redoStack.push_back(captureState());
+            restoreState(undoStack.back());
             undoStack.pop_back();
             selected = -1;
             dragging = false;
             Log::info("Undo (" + std::to_string(game.entities().size()) +
-                      " entities)");
+                      " entities, " +
+                      std::to_string(game.tileOverrideCount()) +
+                      " painted tiles)");
         };
         auto doRedo = [&]() {
             if (redoStack.empty())
                 return;
-            undoStack.push_back(game.entities());
-            game.replaceEntities(redoStack.back());
+            undoStack.push_back(captureState());
+            restoreState(redoStack.back());
             redoStack.pop_back();
             selected = -1;
             dragging = false;
             Log::info("Redo (" + std::to_string(game.entities().size()) +
-                      " entities)");
+                      " entities, " +
+                      std::to_string(game.tileOverrideCount()) +
+                      " painted tiles)");
         };
         if (!ImGui::GetIO().WantTextInput)
         {
@@ -484,8 +512,9 @@ int main()
             bool wasSolid = e.solid;
             if (ImGui::Checkbox("Solid", &e.solid))
             {
-                std::vector<Entity> prior = game.entities();
-                prior[static_cast<std::size_t>(selected)].solid = wasSolid;
+                EditSnapshot prior = captureState();
+                prior.entities[static_cast<std::size_t>(selected)].solid =
+                    wasSolid;
                 pushUndoState(std::move(prior));
             }
             ImGui::Text("Sprite: %d", e.sprite);
@@ -629,6 +658,56 @@ int main()
                               leaf.c_str());
             }
         }
+
+        // The Terrain panel (Lesson 83): painting is a mode, a
+        // palette and a brush. Painted tiles are overrides over
+        // the generated field, stored in the scene file; the
+        // panel reports how many exist so the author can see the
+        // weight of their hand.
+        ImGui::Begin("Terrain");
+        {
+            ImGui::Checkbox("Paint mode", &paintMode);
+            ImGui::TextWrapped(
+                "In paint mode the Game View's left button paints "
+                "instead of picking. Strokes are undoable; paint "
+                "is saved with the scene.");
+            ImGui::Separator();
+            ImGui::Text("Palette");
+            for (int id = 0; id <= tiles::Rock; ++id)
+            {
+                if (id > 0 && id % 3 != 0)
+                    ImGui::SameLine();
+                char label[64];
+                std::snprintf(label, sizeof(label), "%s##tile%d",
+                              Game::tileName(id), id);
+                if (ImGui::RadioButton(label, paintTile == id &&
+                                                  !paintErase))
+                {
+                    paintTile = id;
+                    paintErase = false;
+                }
+            }
+            if (ImGui::RadioButton("Eraser (back to generated)",
+                                   paintErase))
+                paintErase = true;
+            ImGui::Separator();
+            ImGui::Text("Brush");
+            if (ImGui::RadioButton("1 x 1", brushSize == 1))
+                brushSize = 1;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("3 x 3", brushSize == 3))
+                brushSize = 3;
+            ImGui::Separator();
+            ImGui::Text("Painted tiles: %zu",
+                        game.tileOverrideCount());
+            if (ImGui::Button("Clear all paint"))
+            {
+                pushUndo();
+                game.setTileOverrides({});
+                Log::info("All painted tiles cleared");
+            }
+        }
+        ImGui::End();
 
         // The Project panel (Lesson 61): the place, visible — a
         // tree over listProjectFiles, rebuilt on Refresh, with the
@@ -996,12 +1075,59 @@ int main()
         ImGui::Image(gameView, panelSize);
         if (ImGui::IsWindowHovered())
         {
+            // Terrain painting (Lesson 83): in paint mode the
+            // left button paints a stroke — one undo snapshot at
+            // the grab, tiles applied while the button is down.
+            if (paintMode)
+            {
+                auto paintAt = [&](sf::Vector2f world) {
+                    const int cx = static_cast<int>(
+                        std::floor(world.x / Game::TILE_SIZE));
+                    const int cy = static_cast<int>(
+                        std::floor(world.y / Game::TILE_SIZE));
+                    const int r = brushSize / 2;
+                    for (int ty = cy - r; ty <= cy + r; ++ty)
+                        for (int tx = cx - r; tx <= cx + r; ++tx)
+                        {
+                            if (paintErase)
+                                game.eraseTileOverride(tx, ty);
+                            else
+                                game.setTile(tx, ty, paintTile);
+                        }
+                };
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                {
+                    pushUndo(); // one snapshot per stroke
+                    painting = true;
+                    ImVec2 mouse = ImGui::GetMousePos();
+                    paintAt(gameView.mapPixelToCoords(
+                        {static_cast<int>(mouse.x - imagePos.x),
+                         static_cast<int>(mouse.y - imagePos.y)}));
+                }
+                else if (painting &&
+                         ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                {
+                    ImVec2 mouse = ImGui::GetMousePos();
+                    paintAt(gameView.mapPixelToCoords(
+                        {static_cast<int>(mouse.x - imagePos.x),
+                         static_cast<int>(mouse.y - imagePos.y)}));
+                }
+            }
+            if (painting &&
+                ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            {
+                painting = false;
+                Log::info("Paint stroke done (" +
+                          std::to_string(game.tileOverrideCount()) +
+                          " painted tiles)");
+            }
             // Left click picks: panel pixels -> world via the view the
             // texture was rendered with, then a topmost-first search.
             // A successful pick also starts a drag (Lesson 25): the
             // grab offset is kept so the entity doesn't jump to centre
-            // itself on the cursor.
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            // itself on the cursor. Paint mode owns the button
+            // instead (Lesson 83).
+            if (!paintMode && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
             {
                 ImVec2 mouse = ImGui::GetMousePos();
                 sf::Vector2f world = gameView.mapPixelToCoords(

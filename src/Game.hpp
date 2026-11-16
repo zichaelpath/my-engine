@@ -32,6 +32,9 @@ constexpr int Rock = 5;
 class Game
 {
 public:
+    static constexpr float TILE_SIZE = 20.f; // one tile, world units
+
+public:
     Game();
 
     void update(float dt);
@@ -220,6 +223,27 @@ public:
     // so the file only needs the recipe and the entity records.
     bool saveScene(const std::string& path) const;
     bool loadScene(const std::string& path);
+
+    // Terrain painting (Lesson 83): generation stays the
+    // foundation; a painted tile is an OVERRIDE — recorded in a
+    // map, applied over the generated field, and stored in the
+    // scene file as tile= lines. Painting a tile back to its
+    // generated id erases its override (the map only ever holds
+    // real differences). generatedTileAt is the pure per-tile
+    // generation function the field is built from.
+    int generatedTileAt(int tx, int ty) const;
+    bool setTile(int tx, int ty, int id);
+    bool eraseTileOverride(int tx, int ty);
+    void setTileOverrides(
+        const std::map<std::pair<int, int>, int>& overrides);
+    const std::map<std::pair<int, int>, int>& tileOverrides() const
+    {
+        return m_tileOverrides;
+    }
+    std::size_t tileOverrideCount() const
+    {
+        return m_tileOverrides.size();
+    }
 
     // Scene travel (Lesson 78): any entity named "Exit:<scene>"
     // is a door — when the player's hitbox overlaps it, the
@@ -439,6 +463,8 @@ private:
     bool m_jumpCutDone = true; // variable-height cut already spent
 
     std::vector<int> m_tiles;
+    std::map<std::pair<int, int>, int> m_tileOverrides; // painted (L83)
+    void rebuildFieldVertices(); // m_field re-derived from m_tiles
     bool m_tileSolid[6] = {false, false, false, false, false, true}; // Rock
     int m_tilesX = 0;
     int m_tilesY = 0;

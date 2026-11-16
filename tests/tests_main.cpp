@@ -2159,6 +2159,53 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- Terrain painting: overrides over generation (Lesson 83) -------
+    {
+        Game g;
+        const int gen = g.generatedTileAt(10, 10);
+        const int other = (gen + 1) % 6;
+        const bool startsNatural = g.tileAt(10, 10) == gen &&
+                                   g.tileOverrideCount() == 0;
+        const bool painted = g.setTile(10, 10, other) &&
+                             g.tileAt(10, 10) == other &&
+                             g.tileOverrideCount() == 1;
+        // Painting back to the generated id erases the override:
+        // the map only ever holds real differences.
+        const bool repaintErases = g.setTile(10, 10, gen) &&
+                                   g.tileAt(10, 10) == gen &&
+                                   g.tileOverrideCount() == 0;
+        const bool eraseWorks = g.setTile(10, 10, other) &&
+                                g.eraseTileOverride(10, 10) &&
+                                g.tileAt(10, 10) == gen &&
+                                !g.eraseTileOverride(10, 10);
+        const bool refused = !g.setTile(-1, 0, tiles::Grass) &&
+                             !g.setTile(0, 0, 99);
+        // The paint is scene data: it round-trips through a file.
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("painting");
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        auto diff = [&](int tx, int ty) {
+            return (g.generatedTileAt(tx, ty) + 1) % 6;
+        };
+        g.setTile(5, 5, diff(5, 5));
+        g.setTile(6, 5, diff(6, 5));
+        g.setTile(7, 5, diff(7, 5));
+        const std::string path = (dir / "painted.scene").string();
+        g.saveScene(path);
+        Game back;
+        const bool roundTrip = back.loadScene(path) &&
+                               back.tileOverrideCount() == 3 &&
+                               back.tileAt(5, 5) == diff(5, 5) &&
+                               back.tileAt(7, 5) == diff(7, 5);
+        check(startsNatural && painted && repaintErases &&
+                  eraseWorks && refused && roundTrip,
+              "terrain painting: setTile records only real "
+              "differences, erase restores the generated tile, "
+              "and paint round-trips through the scene file");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

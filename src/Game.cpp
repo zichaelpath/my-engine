@@ -14,7 +14,7 @@
 
 namespace
 {
-constexpr float TILE_SIZE = 20.f;
+constexpr float TILE_SIZE = Game::TILE_SIZE; // the one source (L83)
 
 // The collision size of an entity: its hitbox if it has one,
 // otherwise the whole entity box.
@@ -396,6 +396,9 @@ void Game::regenerateWorld()
 {
     m_random.reseed(m_seed);
     m_noise = ValueNoise(m_random.derivedSeed("noise"));
+    m_tileOverrides.clear(); // a fresh world is unpainted (L83);
+                             // loadScene re-applies its file's
+                             // paint right after this returns
     generateField();
     generateTerrain();
     generateDecor();
@@ -790,32 +793,58 @@ void Game::newRun(std::uint32_t seed)
     bindScripts(); // the fresh entity list may carry scripts
 }
 
+int Game::generatedTileAt(int tx, int ty) const
+{
+    // The pure per-tile generation function (Lesson 83 hoisted
+    // it out of generateField): one tile's id from the noise
+    // alone — no neighbours — which is what makes single-tile
+    // questions (paint, erase) answerable.
+    const float h = m_noise.fbm(tx * TILE_SIZE * m_noiseFrequency,
+                                ty * TILE_SIZE * m_noiseFrequency, 4);
+    if (h < 0.35f) return tiles::DeepWater;
+    if (h < 0.45f) return tiles::Water;
+    if (h < 0.50f) return tiles::Sand;
+    if (h < 0.65f) return tiles::Grass;
+    if (h < 0.80f) return tiles::Forest;
+    return tiles::Rock;
+}
+
 void Game::generateField()
 {
     m_tilesX = static_cast<int>(m_worldSize.x / TILE_SIZE);
     m_tilesY = static_cast<int>(m_worldSize.y / TILE_SIZE);
 
     // Step 1: classify the noise into tile ids — DATA first.
-    auto classify = [](float h) {
-        if (h < 0.35f) return tiles::DeepWater;
-        if (h < 0.45f) return tiles::Water;
-        if (h < 0.50f) return tiles::Sand;
-        if (h < 0.65f) return tiles::Grass;
-        if (h < 0.80f) return tiles::Forest;
-        return tiles::Rock;
-    };
     m_tiles.assign(static_cast<std::size_t>(m_tilesX * m_tilesY), tiles::Grass);
     for (int ty = 0; ty < m_tilesY; ++ty)
         for (int tx = 0; tx < m_tilesX; ++tx)
-        {
-            float h = m_noise.fbm(tx * TILE_SIZE * m_noiseFrequency,
-                                  ty * TILE_SIZE * m_noiseFrequency, 4);
-            m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)] = classify(h);
-        }
+            m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)] =
+                generatedTileAt(tx, ty);
 
-    // Step 2: build the picture FROM the data. Id -> colour lives in
-    // exactly one place (Game::tileColor), so the map and its legend
-    // can never drift.
+    // Painted tiles (Lesson 83) are applied OVER the generated
+    // field: generation is the foundation, the author's hand
+    // rests on top — and a regeneration never silently keeps
+    // stale paint, because overrides re-apply here every time.
+    for (const auto& [at, id] : m_tileOverrides)
+        if (at.first >= 0 && at.second >= 0 && at.first < m_tilesX &&
+            at.second < m_tilesY)
+            m_tiles[static_cast<std::size_t>(at.second * m_tilesX +
+                                             at.first)] = id;
+
+    rebuildFieldVertices();
+
+    std::ostringstream oss;
+    oss << "Field generated: " << m_tilesX << 'x' << m_tilesY
+        << " tiles, noise scale " << std::fixed << std::setprecision(3)
+        << m_noiseFrequency;
+    Log::info(oss.str());
+}
+
+void Game::rebuildFieldVertices()
+{
+    // Build the picture FROM the data. Id -> colour lives in
+    // exactly one place (Game::tileColor), so the map and its
+    // legend can never drift.
     m_field.setPrimitiveType(sf::PrimitiveType::Triangles);
     m_field.clear();
     for (int ty = 0; ty < m_tilesY; ++ty)
@@ -843,12 +872,53 @@ void Game::generateField()
             m_field.append(v);
         }
     }
+}
 
-    std::ostringstream oss;
-    oss << "Field generated: " << m_tilesX << 'x' << m_tilesY
-        << " tiles, noise scale " << std::fixed << std::setprecision(3)
-        << m_noiseFrequency;
-    Log::info(oss.str());
+bool Game::setTile(int tx, int ty, int id)
+{
+    if (tx < 0 || ty < 0 || tx >= m_tilesX || ty >= m_tilesY ||
+        id < 0 || id > tiles::Rock)
+        return false;
+    m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)] = id;
+    // The map holds only real differences: painting a tile back
+    // to what generation made it removes the override.
+    if (id == generatedTileAt(tx, ty))
+        m_tileOverrides.erase({tx, ty});
+    else
+        m_tileOverrides[{tx, ty}] = id;
+    rebuildFieldVertices();
+    return true;
+}
+
+bool Game::eraseTileOverride(int tx, int ty)
+{
+    if (m_tileOverrides.erase({tx, ty}) == 0)
+        return false;
+    m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)] =
+        generatedTileAt(tx, ty);
+    rebuildFieldVertices();
+    return true;
+}
+
+void Game::setTileOverrides(
+    const std::map<std::pair<int, int>, int>& overrides)
+{
+    m_tileOverrides.clear();
+    for (const auto& [at, id] : overrides)
+        if (at.first >= 0 && at.second >= 0 && at.first < m_tilesX &&
+            at.second < m_tilesY && id >= 0 && id <= tiles::Rock &&
+            id != generatedTileAt(at.first, at.second))
+            m_tileOverrides[at] = id;
+    // Re-derive the whole tile layer: generation first, paint
+    // over it — the same order generateField uses.
+    for (int ty = 0; ty < m_tilesY; ++ty)
+        for (int tx = 0; tx < m_tilesX; ++tx)
+            m_tiles[static_cast<std::size_t>(ty * m_tilesX + tx)] =
+                generatedTileAt(tx, ty);
+    for (const auto& [at, id] : m_tileOverrides)
+        m_tiles[static_cast<std::size_t>(at.second * m_tilesX +
+                                         at.first)] = id;
+    rebuildFieldVertices();
 }
 
 int Game::tileAtWorld(sf::Vector2f worldPos) const
@@ -1901,8 +1971,15 @@ bool Game::saveScene(const std::string& path) const
             << '|' << num(e.platformTo.x) << '|' << num(e.platformTo.y)
             << '|' << num(e.platformSpeed) << "\n";
     }
+    // Painted tiles (Lesson 83): only the overrides — the field
+    // itself is regenerated from the recipe, as always.
+    for (const auto& [at, id] : m_tileOverrides)
+        out << "tile=" << at.first << '|' << at.second << '|' << id
+            << "\n";
     Log::info("Scene saved to " + path + " (" +
-              std::to_string(m_entities.size()) + " entities)");
+              std::to_string(m_entities.size()) + " entities, " +
+              std::to_string(m_tileOverrides.size()) +
+              " painted tiles)");
     return true;
 }
 
@@ -1919,6 +1996,7 @@ bool Game::loadScene(const std::string& path)
     std::uint32_t seed = m_seed;
     float noiseScale = m_noiseFrequency;
     std::vector<Entity> loaded;
+    std::map<std::pair<int, int>, int> loadedTiles; // paint (L83)
     std::string line;
     int lineNo = 0;
     while (std::getline(in, line))
@@ -1946,6 +2024,21 @@ bool Game::loadScene(const std::string& path)
                 seed = static_cast<std::uint32_t>(std::stoul(value));
             else if (key == "noiseScale")
                 noiseScale = std::stof(value);
+            else if (key == "tile")
+            {
+                // A painted tile (Lesson 83): tile=tx|ty|id.
+                // Additive in format 2 — older builds skip the
+                // line as unparseable, newer ones apply it.
+                std::vector<std::string> f;
+                std::stringstream ss(value);
+                std::string part;
+                while (std::getline(ss, part, '|'))
+                    f.push_back(part);
+                if (f.size() != 3)
+                    throw std::runtime_error("bad tile field count");
+                loadedTiles[{std::stoi(f[0]), std::stoi(f[1])}] =
+                    std::stoi(f[2]);
+            }
             else if (key == "entity")
             {
                 std::vector<std::string> f;
@@ -2004,6 +2097,7 @@ bool Game::loadScene(const std::string& path)
     for (std::size_t i = 0; i < m_entities.size(); ++i)
         if (m_entities[i].playerControlled)
             m_playerEntity = i;
+    setTileOverrides(loadedTiles); // the file's paint (L83)
     bindScripts(); // scripted entities in the file go live (L70)
     m_pendingExit.clear(); // a fresh scene has no touched door (L78)
     m_goalTouched = false; // ...and no touched finish line (L79)
