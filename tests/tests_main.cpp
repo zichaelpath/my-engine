@@ -1096,8 +1096,27 @@ int main()
                   importAsset(again, "/nonexistent-63.png").empty(),
               "import: copies into assets, renames on collision, never "
               "overwrites");
+
+        // Project-relative resources (Lesson 65): a real image,
+        // imported, then loaded as a texture purely by resolving
+        // its project-relative path against the root — from this
+        // process's unrelated working directory. This is the
+        // resolution the Project panel's preview uses.
+        const fs::path artSource = tempPath("art.png");
+        sf::Image art({6, 4}, sf::Color::Magenta);
+        const bool artSaved = art.saveToFile(artSource.string());
+        const std::string artLanded = importAsset(again, artSource.string());
+        sf::Texture artTexture;
+        const bool artLoaded = !artLanded.empty() &&
+                               artTexture.loadFromFile(
+                                   projectPath(again, artLanded));
+        check(artSaved && artLoaded &&
+                  artTexture.getSize() == sf::Vector2u(6, 4),
+              "resources: an imported image loads through its "
+              "project-relative path");
         fs::remove_all(dir);
         fs::remove(outside);
+        fs::remove(artSource);
     }
 
     // --- Scenes live in the project as files (Lesson 64) ---------------

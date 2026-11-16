@@ -703,6 +703,44 @@ int main()
                         ImGui::TextDisabled(
                             "%llu bytes",
                             static_cast<unsigned long long>(entry.size));
+
+                // Image preview (Lesson 65): the selected image is
+                // loaded through its project-relative path,
+                // resolved against the root — the same resolution
+                // scenes and imports use, so the preview works
+                // wherever the editor was launched from. The
+                // texture reloads only when the selection changes.
+                static sf::Texture previewTexture;
+                static std::string previewFor;
+                static bool previewOk = false;
+                const bool isImage =
+                    selectedFile.ends_with(".png") ||
+                    selectedFile.ends_with(".jpg") ||
+                    selectedFile.ends_with(".jpeg") ||
+                    selectedFile.ends_with(".bmp") ||
+                    selectedFile.ends_with(".tga");
+                if (isImage)
+                {
+                    if (previewFor != selectedFile)
+                    {
+                        previewFor = selectedFile;
+                        previewOk = previewTexture.loadFromFile(
+                            projectPath(project, selectedFile));
+                    }
+                    if (previewOk)
+                    {
+                        const sf::Vector2u size = previewTexture.getSize();
+                        ImGui::TextDisabled("%u x %u px", size.x, size.y);
+                        const float scale =
+                            std::min(1.f, 220.f / static_cast<float>(size.x));
+                        ImGui::Image(previewTexture,
+                                     {size.x * scale, size.y * scale});
+                    }
+                    else
+                    {
+                        ImGui::TextDisabled("(preview unavailable)");
+                    }
+                }
             }
         }
         ImGui::End();
