@@ -251,3 +251,40 @@ std::vector<DirEntry> listDirectory(const std::string& path)
     dirs.insert(dirs.end(), files.begin(), files.end());
     return dirs;
 }
+
+std::string importAsset(const Project& project, const std::string& sourcePath)
+{
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    if (project.root.empty() || !fs::is_regular_file(sourcePath, ec))
+    {
+        Log::error("importAsset: no project root, or not a file: " + sourcePath);
+        return "";
+    }
+    const fs::path source(sourcePath);
+    const std::string stem = source.stem().string();
+    const std::string ext = source.extension().string();
+    fs::create_directories(project.root + "/assets", ec);
+
+    // The first candidate is the file's own name; each taken name
+    // tries the next suffix. Existence is checked explicitly, and
+    // copy_file without the overwrite option would refuse anyway
+    // — importing never replaces an asset that is already there.
+    for (int suffix = 1;; ++suffix)
+    {
+        const std::string name =
+            suffix == 1 ? stem + ext
+                        : stem + "-" + std::to_string(suffix) + ext;
+        const std::string dest = project.root + "/assets/" + name;
+        if (fs::exists(dest))
+            continue;
+        ec.clear();
+        if (fs::copy_file(source, dest, fs::copy_options::none, ec))
+        {
+            Log::info("Imported " + sourcePath + " -> assets/" + name);
+            return "assets/" + name;
+        }
+        Log::error("importAsset: copy failed: " + ec.message());
+        return "";
+    }
+}

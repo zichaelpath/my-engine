@@ -77,3 +77,12 @@ struct DirEntry
     std::uintmax_t size = 0;
 };
 std::vector<DirEntry> listDirectory(const std::string& path);
+
+// Imports a file into the project (Lesson 63): copies it into
+// <root>/assets/ and returns the project-relative path it landed
+// at ("assets/hero.png"), or "" on failure. Import COPIES — the
+// source stays where it was. Collision-safe: a taken name earns
+// a numeric suffix (hero-2.png, hero-3.png, ...) — importing
+// never overwrites an existing asset.
+std::string importAsset(const Project& project,
+                        const std::string& sourcePath);

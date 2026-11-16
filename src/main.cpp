@@ -554,6 +554,14 @@ int main()
             dialogSelected.clear();
             dialogNeedsOpen = true;
         }
+        if (haveProject && ImGui::Button("Import asset..."))
+        {
+            dialogPurpose = 2;
+            if (dialogDir.empty())
+                dialogDir = std::filesystem::current_path().generic_string();
+            dialogSelected.clear();
+            dialogNeedsOpen = true;
+        }
         if (!haveProject)
         {
             ImGui::TextDisabled(
@@ -695,6 +703,23 @@ int main()
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
+        }
+
+        // The browser's file-mode result lands here (Lesson 63):
+        // the chosen file is imported into the project, and the
+        // panel refreshes and selects what arrived.
+        if (dialogFinished)
+        {
+            dialogFinished = false;
+            if (dialogPurpose == 2 && haveProject)
+            {
+                const std::string landed = importAsset(project, dialogResult);
+                if (!landed.empty())
+                {
+                    listingDirty = true;
+                    selectedFile = landed;
+                }
+            }
         }
 
         ImGui::Begin("Console");

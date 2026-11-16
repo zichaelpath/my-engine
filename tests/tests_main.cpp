@@ -1074,7 +1074,30 @@ int main()
                                                 "d:scripts", "f:project.myengine"} &&
                   listDirectory("/nonexistent-place-62").empty(),
               "dialog: one directory lists dirs first, then files, by name");
+
+        // Import (Lesson 63): a file lands in assets/ under its
+        // own name — or, when that name is taken (the planted
+        // hero.png), under the next suffix, contents intact,
+        // source untouched; a missing source imports nothing.
+        const fs::path outside = tempPath("hero.png");
+        writeFile(outside, "OUTSIDE");
+        const std::string landed1 = importAsset(again, outside.string());
+        const std::string landed2 = importAsset(again, outside.string());
+        std::string landedContent;
+        {
+            std::ifstream in(dir / "assets" / "hero-2.png");
+            landedContent.assign(std::istreambuf_iterator<char>(in),
+                                 std::istreambuf_iterator<char>());
+        }
+        check(landed1 == "assets/hero-2.png" &&
+                  landed2 == "assets/hero-3.png" &&
+                  landedContent == "OUTSIDE" &&
+                  fs::exists(outside) &&
+                  importAsset(again, "/nonexistent-63.png").empty(),
+              "import: copies into assets, renames on collision, never "
+              "overwrites");
         fs::remove_all(dir);
+        fs::remove(outside);
     }
 
     // --- The Lesson 44 regression: a flipped sprite stays home -------
