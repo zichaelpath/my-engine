@@ -65,6 +65,17 @@ public:
     int goldCollected() const { return m_goldCollected; }
     int goldTotal() const { return m_goldTotal; }
     bool won() const { return m_won; }
+
+    // The rising pressure (Lesson 74): Temple Run's run state.
+    // pressureY is the doom line's world y — everything below it
+    // is consumed. heightReached is the score: the highest the
+    // player's feet have been above the ascent's floor.
+    bool pressureActive() const { return m_pressureActive; }
+    bool caught() const { return m_caught; }
+    float pressureY() const { return m_pressureY; }
+    float heightReached() const { return m_bestHeight; }
+    float pressureSpeed = 26.f; // units/s, once the grace ends
+    float pressureDelay = 2.5f; // seconds of grace at the foot
     float runTime() const { return m_runTime; }
     void newRun(std::uint32_t seed); // fresh world, fresh run
 
@@ -299,6 +310,13 @@ private:
     std::vector<std::string> m_ascentDeal;
     float m_ascentFloorY = 0.f;
     float m_ascentTopY = 0.f;
+
+    // Pressure state (Lesson 74): armed only in an ascent.
+    bool m_pressureActive = false;
+    bool m_caught = false;
+    float m_pressureY = 0.f;
+    float m_pressureTimer = 0.f;
+    float m_bestHeight = 0.f;
 
     // Scripting (Lesson 70): the owned host, the root script
     // paths resolve against, the module cache (resolved path ->

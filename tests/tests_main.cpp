@@ -1666,6 +1666,84 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- The rising pressure (Lesson 74) -------------------------------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("pressure");
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        writeFile(dir / "chunks.txt",
+                  "chunk=Solo\n"
+                  "height=200\n"
+                  "platform=340|165|120|1\n"
+                  "platform=300|105|120|1\n"
+                  "platform=340|25|120|1\n");
+        // A fresh Gold Rush world has no pressure at all.
+        Game plain;
+        for (int i = 0; i < 120; ++i)
+            plain.update(1.f / 60.f);
+        const bool noPressure = !plain.pressureActive() &&
+                                !plain.caught() &&
+                                plain.pressureY() == 0.f;
+        // The idle climber: grace, rise, caught — on schedule.
+        Game g;
+        g.loadChunks((dir / "chunks.txt").string());
+        g.buildAscent(5, 3);
+        float yAt2s = -1.f, yAt200 = -1.f;
+        int caughtFrame = -1;
+        for (int i = 1; i <= 600; ++i)
+        {
+            g.update(1.f / 60.f);
+            if (i == 120)
+                yAt2s = g.pressureY();
+            if (i == 200)
+                yAt200 = g.pressureY();
+            if (g.caught() && caughtFrame < 0)
+                caughtFrame = i;
+        }
+        const float frozenY = g.pressureY();
+        for (int i = 0; i < 60; ++i)
+            g.update(1.f / 60.f);
+        const bool onSchedule =
+            yAt2s == 1200.f && yAt200 < 1190.f && yAt200 > 1160.f &&
+            caughtFrame > 240 && caughtFrame < 300 &&
+            g.pressureY() == frozenY && g.heightReached() == 0.f;
+        // The climbing player banks a jump's worth of height and
+        // keeps it after the pressure takes him.
+        Game c;
+        c.loadChunks((dir / "chunks.txt").string());
+        c.buildAscent(5, 3);
+        const Entity& climber = c.entities()[c.playerIndex()];
+        for (int i = 0; i < 30; ++i)
+            c.update(1.f / 60.f);
+        Game::InputState in;
+        in.jump = true;
+        c.setInput(in);
+        bool released = false;
+        for (int i = 0; i < 1200 && !c.caught(); ++i)
+        {
+            c.update(1.f / 60.f);
+            if (!released && climber.velocity.y >= 0.f)
+            {
+                in.jump = false;
+                c.setInput(in);
+                released = true;
+            }
+        }
+        c.clearInput();
+        const float bankedHeight = c.heightReached();
+        for (int i = 0; i < 60; ++i)
+            c.update(1.f / 60.f);
+        const bool banked = c.caught() && bankedHeight > 85.f &&
+                            bankedHeight < 108.f &&
+                            c.heightReached() == bankedHeight;
+        check(noPressure && onSchedule && banked,
+              "rising pressure: grace, then the line climbs on "
+              "schedule; height is banked at the highest feet and "
+              "kept after the catch; Gold Rush has none");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

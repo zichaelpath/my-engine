@@ -402,6 +402,8 @@ void Game::regenerateWorld()
     // A regenerated world is a fresh run (Lesson 32).
     m_goldCollected = 0;
     m_won = false;
+    m_pressureActive = false; // Gold Rush has no pressure (L74)
+    m_caught = false;
     m_runTime = 0.f;
 }
 
@@ -586,6 +588,14 @@ void Game::buildAscent(std::uint32_t seed, int chunkCount)
     m_won = false;
     m_runTime = 0.f;
     m_ascentDeal.clear();
+    // The pressure arms (Lesson 74): it starts below the world,
+    // the grace timer runs from zero, nobody is caught, and the
+    // height score starts at the floor.
+    m_pressureActive = true;
+    m_pressureY = m_worldSize.y;
+    m_pressureTimer = 0.f;
+    m_caught = false;
+    m_bestHeight = 0.f;
 
     const float shaftWidth = 800.f;
     const float shaftLeft = (m_worldSize.x - shaftWidth) / 2.f;
@@ -1010,9 +1020,10 @@ void Game::update(float dt)
     }
 
     dir = math::normalize(dir);
-    if (m_won)
+    if (m_won || m_caught)
         dir = {0.f, 0.f}; // the world stays alive after the win; the
-                          // player takes his bow and stands still (L52)
+                          // player takes his bow and stands still (L52).
+                          // Caught is the climb's version (L74).
 
     // Movement is a system operating on whichever entity the player
     // controls — the input code no longer knows a special shape exists.
@@ -1283,6 +1294,37 @@ void Game::update(float dt)
             }
         }
     }
+
+    // The rising pressure (Lesson 74): Temple Run's clock and
+    // executioner in one line. After a grace delay it climbs at
+    // pressureSpeed; the run's score is the highest the player's
+    // feet have ever been above the floor; when the line reaches
+    // his feet, the run is over — announced with the win's own
+    // grammar (a frozen beat, a shudder), then the world stays
+    // alive behind the result, as it does for a win.
+    if (m_pressureActive && !m_caught)
+    {
+        m_pressureTimer += dt;
+        if (m_pressureTimer > pressureDelay)
+            m_pressureY -= pressureSpeed * dt;
+        const float feetBottom = player.position.y +
+                                 player.hitboxOffset.y +
+                                 hitboxSizeOf(player).y;
+        m_bestHeight =
+            std::max(m_bestHeight, m_ascentFloorY - feetBottom);
+        if (feetBottom >= m_pressureY)
+        {
+            m_caught = true;
+            if (feel.enabled)
+            {
+                hitStop(feel.hitStopWin);
+                addTrauma(0.5f);
+            }
+            Log::info("Caught by the pressure at height " +
+                      std::to_string((int)m_bestHeight) + " after " +
+                      std::to_string(m_pressureTimer) + " s");
+        }
+    }
 }
 
 void Game::onGoldCollected(sf::Vector2f at)
@@ -1534,6 +1576,23 @@ void Game::render(sf::RenderTarget& target) const
     target.draw(m_field);
     for (const auto& block : m_blocks)
         target.draw(block);
+    // The pressure (Lesson 74): a rising band of doom from its
+    // line to the world's floor, drawn under the actors — what
+    // it IS (lava, flood, dark) is the game's fantasy to name;
+    // the engine just makes it glow and climb. A bright leading
+    // edge marks the exact line the player's feet must beat.
+    if (m_pressureActive && m_pressureY < m_worldSize.y)
+    {
+        sf::RectangleShape band({m_worldSize.x,
+                                 m_worldSize.y - m_pressureY});
+        band.setPosition({0.f, m_pressureY});
+        band.setFillColor(sf::Color(255, 92, 36, 205));
+        target.draw(band);
+        sf::RectangleShape edge({m_worldSize.x, 3.f});
+        edge.setPosition({0.f, m_pressureY});
+        edge.setFillColor(sf::Color(255, 196, 110));
+        target.draw(edge);
+    }
     for (const auto& dot : m_dots)
         target.draw(dot);
 
