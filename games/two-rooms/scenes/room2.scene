@@ -1,0 +1,9 @@
+# MyEngine scene
+version=2
+seed=12345
+noiseScale=0.0099999998
+entities=4
+entity=Player|100|500|50|50|80|200|120|1|1|-1|||topdown|0|0|0|0|0
+entity=Spawn:room1|120|500|50|50|200|80|200|0|1|-1|||topdown|0|0|0|0|0
+entity=Spawn|100|900|50|50|200|80|200|0|1|-1|||topdown|0|0|0|0|0
+entity=Goal|900|400|50|50|255|205|60|0|1|-1|||topdown|0|0|0|0|0

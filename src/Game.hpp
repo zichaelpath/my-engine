@@ -230,6 +230,11 @@ public:
     // scene; false when the scene declares neither.
     std::string pendingExit() const { return m_pendingExit; }
     void clearPendingExit() { m_pendingExit.clear(); }
+    // Level completion (Lesson 79): an entity named "Goal" is
+    // a level's finish line — touching it latches here for the
+    // host's campaign to record. Scene loads clear it.
+    bool goalTouched() const { return m_goalTouched; }
+    void clearGoalTouched() { m_goalTouched = false; }
     bool placePlayerAtSpawn(const std::string& fromScene);
     // Shipping hosts set this: Spawn markers are authoring aids
     // and stay invisible in the shipped game. The editor leaves
@@ -422,6 +427,7 @@ private:
     int m_goldTotal = 0;
     bool m_won = false;
     std::string m_pendingExit; // a touched Exit's target (L78)
+    bool m_goalTouched = false; // a touched Goal (Lesson 79)
     float m_runTime = 0.f;
 
     // Input seam + jump state (Lesson 55)

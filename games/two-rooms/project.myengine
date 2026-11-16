@@ -1,0 +1,8 @@
+# MyEngine project file — format 1
+# The game's identity card: hosts read this first. Per-machine
+# settings (window size, volume, speed) live in engine.ini instead.
+format=1
+name=Two Rooms
+seed=4242
+scene=scenes/room1.scene
+scene=scenes/room2.scene

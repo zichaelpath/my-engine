@@ -11,6 +11,7 @@
 // and never an environmental FAIL.
 
 #include "Camera.hpp"
+#include "Campaign.hpp"
 #include "Config.hpp"
 #include "Entity.hpp"
 #include "Easing.hpp"
@@ -1920,6 +1921,66 @@ int main()
               "multi-scene projects: the card lists levels, an "
               "Exit:<scene> touch latches the door, and arrival "
               "lands on Spawn:<from> before plain Spawn");
+        fs::remove_all(dir);
+    }
+
+    // --- Campaign structure: progress and the Goal (Lesson 79) --------
+    {
+        Campaign c;
+        c.reset({"scenes/a.scene", "scenes/b.scene", "scenes/c.scene"});
+        const bool gates = c.levelCount() == 3 && c.current == 0 &&
+                           c.isUnlocked(0) && !c.isUnlocked(1) &&
+                           !c.isUnlocked(2) && !c.finished() &&
+                           c.nextLevel() == 0 && !c.complete(7);
+        const bool march = c.completeCurrent() && c.current == 1 &&
+                           c.isUnlocked(1) && !c.isUnlocked(2) &&
+                           c.nextLevel() == 1;
+        // Replaying an earlier level and finishing it again does
+        // not rewind progress.
+        const bool replay = c.complete(0) && c.current == 1;
+        const bool end = c.completeCurrent() && c.current == 2 &&
+                         c.completeCurrent() && c.finished() &&
+                         c.nextLevel() == -1;
+        // The Goal latch, through real scenes: staged on the
+        // player it latches in one update; a load clears it.
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("campaign-goal");
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        auto actor = [](const std::string& name, float x, float y,
+                        bool controlled) {
+            Entity e;
+            e.name = name;
+            e.position = {x, y};
+            e.size = {50.f, 50.f};
+            e.color = sf::Color(255, 205, 60);
+            e.playerControlled = controlled;
+            return e;
+        };
+        Game stage;
+        stage.replaceEntities(
+            {actor("Player", 100.f, 100.f, true),
+             actor("Goal", 110.f, 110.f, false)});
+        stage.saveScene((dir / "goal.scene").string());
+        stage.replaceEntities({actor("Player", 100.f, 100.f, true)});
+        stage.saveScene((dir / "plain.scene").string());
+        Game g;
+        g.loadScene((dir / "goal.scene").string());
+        g.update(1.f / 60.f);
+        const bool latched = g.goalTouched();
+        g.loadScene((dir / "plain.scene").string());
+        const bool cleared = !g.goalTouched();
+        // The shipped demo campaign, when run from the repo root.
+        Project demo;
+        const bool demoOk =
+            !fs::exists("games/two-rooms") ||
+            (loadProjectFolder("games/two-rooms", demo) &&
+             demo.scenes.size() == 2);
+        check(gates && march && replay && end && latched && cleared &&
+                  demoOk,
+              "campaign: levels unlock in order, completion "
+              "advances to the next unfinished level, replays do "
+              "not rewind, and a touched Goal latches then clears");
         fs::remove_all(dir);
     }
 

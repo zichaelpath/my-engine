@@ -596,6 +596,7 @@ void Game::buildAscent(std::uint32_t seed, int chunkCount)
     m_pressureTimer = 0.f;
     m_caught = false;
     m_bestHeight = 0.f;
+    m_goalTouched = false;
 
     const float shaftWidth = 800.f;
     const float shaftLeft = (m_worldSize.x - shaftWidth) / 2.f;
@@ -1405,6 +1406,26 @@ void Game::update(float dt)
             }
         }
     }
+    // A level's finish line (Lesson 79): an entity named "Goal",
+    // touched the same way, latched for the host's campaign.
+    if (!m_goalTouched)
+    {
+        const sf::FloatRect playerBox(
+            player.position + player.hitboxOffset,
+            hitboxSizeOf(player));
+        for (const auto& e : m_entities)
+        {
+            if (&e == &player || e.name != "Goal")
+                continue;
+            const sf::FloatRect goal(e.position, e.size);
+            if (playerBox.findIntersection(goal))
+            {
+                m_goalTouched = true;
+                Log::info("Goal touched: level complete");
+                break;
+            }
+        }
+    }
 
     // The rising pressure (Lesson 74): Temple Run's clock and
     // executioner in one line. After a grace delay it climbs at
@@ -1985,6 +2006,7 @@ bool Game::loadScene(const std::string& path)
             m_playerEntity = i;
     bindScripts(); // scripted entities in the file go live (L70)
     m_pendingExit.clear(); // a fresh scene has no touched door (L78)
+    m_goalTouched = false; // ...and no touched finish line (L79)
     Log::info("Scene loaded from " + path + " (" +
               std::to_string(m_entities.size()) + " entities, seed " +
               std::to_string(m_seed) + ")");

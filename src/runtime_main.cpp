@@ -1,6 +1,7 @@
 #include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include "Camera.hpp"
+#include "Campaign.hpp"
 #include "Config.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
@@ -23,7 +24,8 @@ enum class Screen
     Playing,
     Paused,
     Won,
-    Caught // the climb's ending (Lesson 76)
+    Caught,          // the climb's ending (Lesson 76)
+    CampaignComplete // the campaign's ending (Lesson 79)
 };
 
 int main(int argc, char** argv)
@@ -38,6 +40,15 @@ int main(int argc, char** argv)
     Project project;
     bool haveProject = loadProjectFolder(projectFolder, project);
     const bool ascent = haveProject && project.mode == "ascent";
+    // A campaign (Lesson 79): a scene-mode project listing more
+    // than one level. The campaign is the player's progress
+    // through that list; the title screen presents it.
+    Campaign campaign;
+    const bool campaignMode =
+        haveProject && !ascent && project.scenes.size() > 1;
+    if (campaignMode)
+        campaign.reset(project.scenes);
+    int selectedLevel = 0;
 
     Config config;
     config.setDefault("windowWidth", "800");
@@ -128,6 +139,9 @@ int main(int argc, char** argv)
     sf::Text caughtTitle = makeText("The pressure took you", 36, sf::Color(255, 120, 60));
     sf::Text caughtScore = makeText("", 22, sf::Color::White);
     sf::Text caughtSub = makeText("Press R to climb again", 20, sf::Color::White);
+    sf::Text campaignTitle = makeText("Campaign complete!", 36, sf::Color(255, 215, 80));
+    sf::Text campaignSub = makeText("Enter: title - R: play it again", 20, sf::Color::White);
+    sf::Text levelLine = makeText("", 18, sf::Color::White);
     sf::RectangleShape dim;
     dim.setFillColor(sf::Color(8, 8, 18, 170));
 
@@ -178,8 +192,34 @@ int main(int argc, char** argv)
                 switch (screen)
                 {
                     case Screen::Title:
+                        if (campaignMode &&
+                            keyPressed->code == Key::Down &&
+                            selectedLevel + 1 < campaign.levelCount() &&
+                            campaign.isUnlocked(selectedLevel + 1))
+                            ++selectedLevel;
+                        if (campaignMode &&
+                            keyPressed->code == Key::Up &&
+                            selectedLevel > 0)
+                            --selectedLevel;
                         if (keyPressed->code == Key::Enter)
+                        {
+                            if (campaignMode)
+                            {
+                                // Enter the chosen level fresh:
+                                // load it and land on its
+                                // default Spawn (Lesson 79).
+                                campaign.current = selectedLevel;
+                                const std::string target =
+                                    campaign.levels[static_cast<std::size_t>(selectedLevel)];
+                                if (game.loadScene(
+                                        projectPath(project, target)))
+                                {
+                                    game.placePlayerAtSpawn("");
+                                    currentScene = target;
+                                }
+                            }
                             screen = Screen::Playing;
+                        }
                         if (keyPressed->code == Key::Escape)
                             window.close();
                         break;
@@ -215,6 +255,27 @@ int main(int argc, char** argv)
                         if (keyPressed->code == Key::Escape)
                             window.close();
                         break;
+                    case Screen::CampaignComplete:
+                        if (keyPressed->code == Key::Enter)
+                            screen = Screen::Title;
+                        if (keyPressed->code == Key::R)
+                        {
+                            // The whole campaign again (L79).
+                            campaign.reset(project.scenes);
+                            selectedLevel = 0;
+                            const std::string target =
+                                campaign.levels[0];
+                            if (game.loadScene(
+                                    projectPath(project, target)))
+                            {
+                                game.placePlayerAtSpawn("");
+                                currentScene = target;
+                            }
+                            screen = Screen::Title;
+                        }
+                        if (keyPressed->code == Key::Escape)
+                            window.close();
+                        break;
                 }
             }
         }
@@ -236,6 +297,27 @@ int main(int argc, char** argv)
                 screen = Screen::Won;
             if (game.caught())
                 screen = Screen::Caught;
+            // A touched Goal (Lesson 79): the campaign records
+            // the completion and the player travels onward to
+            // the next uncompleted level — or the campaign ends.
+            if (campaignMode && game.goalTouched())
+            {
+                const std::string from = sceneBase(currentScene);
+                campaign.completeCurrent();
+                game.clearGoalTouched();
+                if (campaign.finished())
+                    screen = Screen::CampaignComplete;
+                else
+                {
+                    const std::string target =
+                        campaign.levels[static_cast<std::size_t>(campaign.current)];
+                    if (game.loadScene(projectPath(project, target)))
+                    {
+                        game.placePlayerAtSpawn(from);
+                        currentScene = target;
+                    }
+                }
+            }
             // A touched door (Lesson 78): the host does the
             // travelling — load the target scene inside the
             // project, land the player on its named Spawn.
@@ -247,6 +329,12 @@ int main(int argc, char** argv)
                 {
                     game.placePlayerAtSpawn(from);
                     currentScene = target;
+                    // Free travel keeps the campaign's notion of
+                    // "the level in play" honest (Lesson 79).
+                    if (campaignMode)
+                        for (int i = 0; i < campaign.levelCount(); ++i)
+                            if (campaign.levels[static_cast<std::size_t>(i)] == target)
+                                campaign.current = i;
                 }
                 else
                     game.clearPendingExit(); // a broken door
@@ -254,7 +342,8 @@ int main(int argc, char** argv)
                                              // every frame
             }
         }
-        else if (screen == Screen::Won || screen == Screen::Caught)
+        else if (screen == Screen::Won || screen == Screen::Caught ||
+                 screen == Screen::CampaignComplete)
         {
             // The world stays alive behind the end screens — the
             // staged fountain (Lesson 52) plays out there, and the
@@ -287,6 +376,14 @@ int main(int argc, char** argv)
                 if (ascent)
                     std::snprintf(buf, sizeof(buf), "Height: %d",
                                   static_cast<int>(game.heightReached()));
+                else if (campaignMode)
+                    std::snprintf(buf, sizeof(buf),
+                                  "Level %d of %d    Gold: %d / %d    Time: %d:%02d",
+                                  campaign.current + 1,
+                                  campaign.levelCount(),
+                                  game.goldCollected(), game.goldTotal(),
+                                  static_cast<int>(game.runTime()) / 60,
+                                  static_cast<int>(game.runTime()) % 60);
                 else
                     std::snprintf(buf, sizeof(buf), "Gold: %d / %d    Time: %d:%02d",
                                   game.goldCollected(), game.goldTotal(),
@@ -305,6 +402,9 @@ int main(int argc, char** argv)
                 if (ascent)
                     titleSub.setString(
                         "Climb as high as you can - the pressure is rising behind you");
+                else if (campaignMode)
+                    titleSub.setString(
+                        "Reach each level's Goal - finish them all");
                 else
                 {
                     std::snprintf(buf, sizeof(buf),
@@ -314,6 +414,9 @@ int main(int argc, char** argv)
                 }
                 centreOn(titleSub, h / 2.f - 25.f);
                 window.draw(titleSub);
+                titlePrompt.setString(
+                    campaignMode ? "Enter plays - Up/Down picks a level"
+                                 : "Press Enter to play");
                 centreOn(titlePrompt, h / 2.f + 25.f);
                 window.draw(titlePrompt);
                 std::snprintf(buf, sizeof(buf),
@@ -323,6 +426,32 @@ int main(int argc, char** argv)
                 seedLine.setString(buf);
                 centreOn(seedLine, h / 2.f + 70.f);
                 window.draw(seedLine);
+                // The level list (Lesson 79): every level of the
+                // campaign, its state, and the selection — plain
+                // text today; Lesson 80 rebuilds this screen from
+                // shared UI widgets.
+                if (campaignMode)
+                {
+                    for (int i = 0; i < campaign.levelCount(); ++i)
+                    {
+                        const bool unlocked = campaign.isUnlocked(i);
+                        const bool done = campaign.isCompleted(i);
+                        std::snprintf(
+                            buf, sizeof(buf), "%s%d. %s%s",
+                            i == selectedLevel ? "> " : "  ", i + 1,
+                            sceneBase(campaign.levels[static_cast<std::size_t>(i)]).c_str(),
+                            done ? "  [done]" : (unlocked ? "" : "  (locked)"));
+                        levelLine.setString(buf);
+                        levelLine.setFillColor(
+                            i == selectedLevel
+                                ? sf::Color(255, 215, 80)
+                                : (unlocked ? sf::Color::White
+                                            : sf::Color(110, 110, 110)));
+                        centreOn(levelLine, h / 2.f + 115.f +
+                                                26.f * static_cast<float>(i));
+                        window.draw(levelLine);
+                    }
+                }
             }
             else if (screen == Screen::Paused)
             {
@@ -361,6 +490,20 @@ int main(int argc, char** argv)
                 window.draw(caughtScore);
                 centreOn(caughtSub, h / 2.f + 50.f);
                 window.draw(caughtSub);
+            }
+            else if (screen == Screen::CampaignComplete)
+            {
+                dim.setSize({w, h});
+                window.draw(dim);
+                centreOn(campaignTitle, h / 2.f - 45.f);
+                window.draw(campaignTitle);
+                std::snprintf(buf, sizeof(buf), "%d levels finished",
+                              campaign.levelCount());
+                caughtScore.setString(buf);
+                centreOn(caughtScore, h / 2.f + 5.f);
+                window.draw(caughtScore);
+                centreOn(campaignSub, h / 2.f + 50.f);
+                window.draw(campaignSub);
             }
         }
         window.display();
