@@ -19,6 +19,7 @@
 #include "Particles.hpp"
 #include "Project.hpp"
 #include "ScriptHost.hpp"
+#include "Ui.hpp"
 #include "Tween.hpp"
 
 #include <cmath>
@@ -1982,6 +1983,60 @@ int main()
               "advances to the next unfinished level, replays do "
               "not rewind, and a touched Goal latches then clears");
         fs::remove_all(dir);
+    }
+
+    // --- Shared UI widgets: geometry, states, pixels (Lesson 80) -------
+    {
+        // A font from wherever this run can find one (the repo's
+        // bundled copy from the repo root, the system DejaVu
+        // otherwise); the geometry assertions hold either way.
+        sf::Font font;
+        if (!font.openFromFile("assets/DejaVuSans.ttf"))
+            (void)font.openFromFile(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+        ui::Button button(font, "Play", 20);
+        button.placeCentred(400.f, 100.f, 200.f, 44.f);
+        const bool geometry =
+            button.rect.position == sf::Vector2f(300.f, 100.f) &&
+            button.contains({400.f, 122.f}) &&
+            !button.contains({100.f, 122.f}) &&
+            button.clickable({400.f, 122.f});
+        button.enabled = false;
+        const bool disabledGate = !button.clickable({400.f, 122.f}) &&
+                                  button.contains({400.f, 122.f});
+        button.enabled = true;
+        ui::Panel panel;
+        panel.rect = {{0.f, 0.f}, {800.f, 600.f}};
+        const bool panelRect =
+            panel.rect.size == sf::Vector2f(800.f, 600.f);
+        // Rendered states differ: a hovered button's centre
+        // pixel is brighter than a resting one's.
+        auto centrePixel = [&](bool hover) {
+            sf::RenderTexture tex({800, 600});
+            tex.clear(sf::Color(24, 24, 32));
+            ui::Button b(font, "Play", 20);
+            b.placeCentred(400.f, 100.f, 200.f, 44.f);
+            b.setHovered(hover);
+            b.draw(tex);
+            tex.display();
+            // Sampled on the fill, clear of the centred text.
+            return tex.getTexture().copyToImage().getPixel(
+                {320, 110});
+        };
+        const sf::Color rest = centrePixel(false);
+        const sf::Color hov = centrePixel(true);
+        const bool statesDraw = hov.r > rest.r && hov.b > rest.b;
+        // A Label centres where it is told to.
+        ui::Label label(font, "Two Rooms", 20, sf::Color::White);
+        label.centreOn(400.f, 300.f);
+        const sf::FloatRect lb = label.bounds();
+        const bool centred =
+            std::abs((lb.position.x + lb.size.x / 2.f) - 400.f) < 2.f;
+        check(geometry && disabledGate && panelRect && statesDraw &&
+                  centred,
+              "ui widgets: buttons hit-test and gate on enabled, "
+              "hover visibly brightens, panels carry their rect, "
+              "labels centre on request");
     }
 
     // --- Scenes live in the project as files (Lesson 64) ---------------
