@@ -314,6 +314,76 @@ int main()
               "camera: follow glides to the lookahead point, capped at 36");
     }
 
+    // --- Gold Rush, juiced (Lesson 52) ----------------------------------
+    {
+        Game game;
+        game.onGoldCollected({400.f, 300.f});
+        const bool firstBurst = game.collectStreak() == 1 &&
+                                game.particleCount() == 12 && game.ringCount() == 1;
+        game.onGoldCollected({400.f, 300.f});
+        const bool crescendo = game.collectStreak() == 2 &&
+                               game.particleCount() == 26; // 12 + 14
+        game.update(1.3f); // the streak window is 1.2 s
+        check(firstBurst && crescendo && game.collectStreak() == 0,
+              "juice: pickups escalate a streak, then the window forgets");
+
+        Game win;
+        win.onRunWon();
+        const bool staged = win.isHitStopped() && win.trauma() >= 0.35f &&
+                            win.ringCount() >= 1 && win.particleCount() == 0;
+        win.update(0.2f); // the stop (0.12 s) releases; the fountain starts
+        check(staged && win.particleCount() > 0,
+              "juice: the win stages freeze first, fountain after");
+
+        // The water-exit drip, driven honestly: settle on land (any
+        // dot there is collected and its burst expires), wade in,
+        // let the splash die, then step out and count the drip.
+        Game wade;
+        sf::Vector2f landPos, waterPos;
+        bool foundLand = false, foundWater = false;
+        for (int ty = 0; ty < wade.tilesY() && !(foundLand && foundWater); ++ty)
+            for (int tx = 0; tx < wade.tilesX(); ++tx)
+            {
+                const sf::Vector2f centre(tx * 20.f + 10.f, ty * 20.f + 10.f);
+                if (!foundLand && wade.tileAt(tx, ty) == tiles::Grass)
+                {
+                    landPos = centre;
+                    foundLand = true;
+                }
+                if (!foundWater && wade.tileAt(tx, ty) == tiles::Water)
+                {
+                    waterPos = centre;
+                    foundWater = true;
+                }
+            }
+        // playerTile() reads the hitbox CENTRE: place that point.
+        auto placeFeet = [&wade](sf::Vector2f feet) {
+            for (auto& e : wade.entities())
+                if (e.playerControlled)
+                {
+                    const sf::Vector2f hb =
+                        e.hitboxSize.x > 0.f ? e.hitboxSize : e.size;
+                    e.position = feet - e.hitboxOffset - hb / 2.f;
+                }
+        };
+        bool dripOk = false;
+        if (foundLand && foundWater)
+        {
+            placeFeet(landPos);
+            for (int i = 0; i < 130; ++i)
+                wade.update(1.f / 60.f);
+            placeFeet(waterPos);
+            wade.update(1.f / 60.f);
+            for (int i = 0; i < 130; ++i)
+                wade.update(1.f / 60.f);
+            const std::size_t before = wade.particleCount();
+            placeFeet(landPos);
+            wade.update(1.f / 60.f);
+            dripOk = wade.particleCount() == before + 6;
+        }
+        check(dripOk, "juice: stepping out of water drips (6, exactly)");
+    }
+
     // --- The Lesson 44 regression: a flipped sprite stays home -------
 #if defined(__linux__)
     if (std::getenv("DISPLAY") == nullptr)

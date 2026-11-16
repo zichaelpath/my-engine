@@ -137,6 +137,15 @@ public:
     // scripts will get in Arc 5.
     void spawnParticles(const Emitter& emitter);
     std::size_t particleCount() const { return m_particles.activeCount(); }
+
+    // The juice hooks (Lesson 52). The collection loop calls the
+    // first for every dot and the second once, at the win; they are
+    // public because a feel event the tests (and later, scripts)
+    // cannot fire is a feel event nobody can verify.
+    void onGoldCollected(sf::Vector2f at);
+    void onRunWon();
+    int collectStreak() const { return m_collectStreak; }
+    std::size_t ringCount() const { return m_rings.size(); }
     float time = 0.f;
 
 private:
@@ -179,6 +188,24 @@ private:
     float m_trauma = 0.f;       // camera shake budget (Lesson 51)
     float m_hitStop = 0.f;      // world-freeze clock (Lesson 51)
     sf::Vector2f m_playerVel;   // post-collision velocity (Lesson 51)
+
+    // Lesson 52 juice state: the collection streak (pickups close
+    // together escalate the burst), shockwave rings, and the win
+    // sequence's fountain clock.
+    struct Ring
+    {
+        sf::Vector2f position;
+        float life = 0.f;
+        float maxLife = 0.28f;
+        float maxRadius = 26.f;
+        sf::Color color = sf::Color::White;
+    };
+    std::vector<Ring> m_rings;
+    int m_collectStreak = 0;
+    float m_streakTimer = 0.f;
+    float m_winFxTimer = 0.f;
+    float m_winFxAccum = 0.f;
+    int m_winFxBursts = 0; // fountain colour alternation
     int m_goldCollected = 0;
     int m_goldTotal = 0;
     bool m_won = false;

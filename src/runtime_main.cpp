@@ -170,6 +170,13 @@ int main()
             if (game.won())
                 screen = Screen::Won;
         }
+        else if (screen == Screen::Won)
+        {
+            // The world stays alive behind the win screen — the
+            // staged fountain (Lesson 52) plays out there. Game
+            // ignores input once won; the player takes his bow.
+            game.update(dt);
+        }
 
         // The camera follows the player, clamped so the view never
         // leaves the world; it is re-derived every frame from the

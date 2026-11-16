@@ -348,6 +348,46 @@ void Game::update(float dt)
     m_spawnPop.update(dt);
     m_particles.update(dt);
 
+    // Lesson 52 clocks: the streak window, the rings, and the win
+    // fountain (which starts only once the hit-stop has released
+    // the world — this code sits below the gate on purpose).
+    if (m_streakTimer > 0.f)
+    {
+        m_streakTimer -= dt;
+        if (m_streakTimer <= 0.f)
+            m_collectStreak = 0;
+    }
+    for (std::size_t i = m_rings.size(); i-- > 0;)
+    {
+        m_rings[i].life -= dt;
+        if (m_rings[i].life <= 0.f)
+        {
+            m_rings[i] = m_rings.back();
+            m_rings.pop_back();
+        }
+    }
+    if (m_winFxTimer > 0.f)
+    {
+        m_winFxTimer -= dt;
+        m_winFxAccum += dt;
+        while (m_winFxAccum >= 0.08f)
+        {
+            m_winFxAccum -= 0.08f;
+            Emitter fountain;
+            fountain.position =
+                playerCenter() +
+                sf::Vector2f(m_random.rangeFloat("fx", -26.f, 26.f),
+                             m_random.rangeFloat("fx", -14.f, 14.f));
+            fountain.count = 9;
+            fountain.color = (++m_winFxBursts % 2 == 0)
+                                 ? sf::Color(255, 205, 60)
+                                 : sf::Color(255, 240, 200);
+            fountain.speedMin = 60.f;
+            fountain.speedMax = 150.f;
+            spawnParticles(fountain);
+        }
+    }
+
     sf::Vector2f dir(0.f, 0.f);
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) ||
         sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
@@ -363,6 +403,9 @@ void Game::update(float dt)
         dir.x += 1.f;
 
     dir = math::normalize(dir);
+    if (m_won)
+        dir = {0.f, 0.f}; // the world stays alive after the win; the
+                          // player takes his bow and stands still (L52)
 
     // Movement is a system operating on whichever entity the player
     // controls — the input code no longer knows a special shape exists.
@@ -495,6 +538,26 @@ void Game::update(float dt)
         splash.gravity = 420.f;
         spawnParticles(splash);
     }
+    // And the exit (Lesson 52): leaving water drips — a smaller,
+    // sadder fountain at the same feet.
+    if (m_lastPlayerTile != -1 && !isWater(tileNow) && isWater(m_lastPlayerTile))
+    {
+        Emitter drip;
+        drip.position = player.position + player.hitboxOffset +
+                        sf::Vector2f(hitboxSizeOf(player).x / 2.f,
+                                     hitboxSizeOf(player).y);
+        drip.count = 6;
+        drip.color = sf::Color(150, 190, 240);
+        drip.speedMin = 15.f;
+        drip.speedMax = 45.f;
+        drip.spreadRad = 2.4f;
+        drip.lifeMin = 0.25f;
+        drip.lifeMax = 0.45f;
+        drip.sizeMin = 1.5f;
+        drip.sizeMax = 2.5f;
+        drip.gravity = 300.f;
+        spawnParticles(drip);
+    }
     m_lastPlayerTile = tileNow;
 
     // Gold collection (Lesson 32): the run timer runs until the
@@ -515,23 +578,13 @@ void Game::update(float dt)
             m_dots[i] = m_dots.back(); // swap-with-last removal
             m_dots.pop_back();
             ++m_goldCollected;
-            // A burst where the dot died (Lesson 50): gold confetti,
-            // every direction, gravity wins in the end.
-            Emitter burst;
-            burst.position = centre;
-            burst.count = 12;
-            burst.color = sf::Color(255, 205, 60);
-            spawnParticles(burst);
+            onGoldCollected(centre); // burst + ring + streak (L50/L52)
             playSound("assets/pickup.wav",
                       1.f + 0.02f * static_cast<float>(m_goldCollected % 8));
             if (m_goldCollected >= m_goldTotal && m_goldTotal > 0)
             {
                 m_won = true;
-                // The win lands (Lesson 51): a frozen beat and a
-                // rattle, so the last dot feels different from the
-                // thirty-nine before it.
-                hitStop(0.12f);
-                addTrauma(0.35f);
+                onRunWon(); // the staged sequence (Lesson 52)
                 playSound("assets/win.wav");
                 Log::info("World cleared in " + std::to_string(m_runTime) +
                           " s - all " + std::to_string(m_goldTotal) +
@@ -539,6 +592,44 @@ void Game::update(float dt)
             }
         }
     }
+}
+
+void Game::onGoldCollected(sf::Vector2f at)
+{
+    // The streak (Lesson 52): pickups within 1.2 s of each other
+    // escalate — the burst grows with the streak, so a flowing run
+    // *looks* different from a plodding one.
+    ++m_collectStreak;
+    m_streakTimer = 1.2f;
+    Emitter burst;
+    burst.position = at;
+    burst.count = 10 + 2 * std::min(m_collectStreak, 8);
+    burst.color = sf::Color(255, 205, 60);
+    spawnParticles(burst);
+    Ring ring;
+    ring.position = at;
+    ring.life = ring.maxLife;
+    ring.color = sf::Color(255, 205, 60);
+    m_rings.push_back(ring);
+}
+
+void Game::onRunWon()
+{
+    // The staged win (Lesson 52): first the freeze and the rattle
+    // (Lesson 51), then — once the world breathes again — a
+    // fountain over the player for most of a second, and a wide
+    // ring to close it.
+    hitStop(0.12f);
+    addTrauma(0.35f);
+    m_winFxTimer = 0.7f;
+    m_winFxAccum = 0.f;
+    m_winFxBursts = 0;
+    Ring ring;
+    ring.position = playerCenter();
+    ring.life = ring.maxLife = 0.45f;
+    ring.maxRadius = 60.f;
+    ring.color = sf::Color(255, 225, 120);
+    m_rings.push_back(ring);
 }
 
 void Game::spawnParticles(const Emitter& emitter)
@@ -733,6 +824,26 @@ void Game::render(sf::RenderTarget& target) const
     // debug overlays (Lesson 50).
     if (particlesEnabled)
         m_particles.draw(target);
+
+    // Shockwave rings (Lesson 52): an expanding outline that fades
+    // as it grows — the shape of "something happened here".
+    if (particlesEnabled)
+    {
+        for (const Ring& ring : m_rings)
+        {
+            const float progress = 1.f - ring.life / ring.maxLife;
+            const float radius =
+                3.f + (ring.maxRadius - 3.f) * ease::outCubic(progress);
+            sf::CircleShape circle(radius, 36);
+            circle.setPosition(ring.position - sf::Vector2f(radius, radius));
+            circle.setFillColor(sf::Color::Transparent);
+            sf::Color edge = ring.color;
+            edge.a = static_cast<std::uint8_t>(200.f * (1.f - progress));
+            circle.setOutlineColor(edge);
+            circle.setOutlineThickness(2.5f);
+            target.draw(circle);
+        }
+    }
 
     if (showHitboxes)
     {
