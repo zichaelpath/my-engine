@@ -937,6 +937,18 @@ int main()
         ImGui::End();
 
 
+        // Hot reload (Lesson 71): twice a second, script files
+        // that changed on disk replace their modules and rebind
+        // their instances — edit, save, and the world picks it
+        // up, whether or not a play-test is running.
+        static float scriptWatch = 0.f;
+        scriptWatch += dt;
+        if (scriptWatch > 0.5f)
+        {
+            scriptWatch = 0.f;
+            game.reloadScriptsIfChanged();
+        }
+
         if (playing || stepClicked)
             game.update(dt);
 

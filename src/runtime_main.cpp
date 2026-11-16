@@ -168,6 +168,16 @@ int main()
             }
         }
 
+        // Hot reload (Lesson 71): a shipped game can be developed
+        // against, too — changed scripts swap in twice a second.
+        static float scriptWatch = 0.f;
+        scriptWatch += dt;
+        if (scriptWatch > 0.5f)
+        {
+            scriptWatch = 0.f;
+            game.reloadScriptsIfChanged();
+        }
+
         if (screen == Screen::Playing)
         {
             game.update(dt);

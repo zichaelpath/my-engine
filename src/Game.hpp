@@ -9,6 +9,7 @@
 #include "ScriptHost.hpp"
 #include "Tween.hpp"
 #include <cstddef>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -167,6 +168,12 @@ public:
     void setScriptRoot(const std::string& root) { m_scriptRoot = root; }
     const std::string& scriptRoot() const { return m_scriptRoot; }
     void bindScripts();
+    // Hot reload (Lesson 71): if a bound script's file changed on
+    // disk, reload its module and rebind only that script's
+    // instances (their state resets; other scripts run on
+    // untouched). Returns how many modules were reloaded. Hosts
+    // poll this on a throttle; the harness calls it directly.
+    std::size_t reloadScriptsIfChanged();
     ScriptHost& scriptHost() { return m_scripts; }
     std::size_t scriptBindingCount() const
     {
@@ -276,6 +283,8 @@ private:
     ScriptHost m_scripts;
     std::string m_scriptRoot;
     std::map<std::string, int> m_scriptModules;
+    std::map<std::string, std::filesystem::file_time_type>
+        m_scriptModuleTimes; // file mtime at load (Lesson 71)
     struct ScriptBinding
     {
         std::string entityName;

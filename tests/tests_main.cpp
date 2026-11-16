@@ -1396,6 +1396,71 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- Hot reload (Lesson 71) ----------------------------------------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("script-reload");
+        fs::remove_all(dir);
+        fs::create_directories(dir / "scripts");
+        const fs::path moverFile = dir / "scripts" / "mover.lua";
+        const auto moverText = [](int speed) {
+            return std::string(
+                       "local M = {}\n"
+                       "function M.onUpdate(self, dt)\n"
+                       "  self.t = (self.t or 0) + dt\n"
+                       "  _G.lastT = self.t\n"
+                       "  local x, y = entity.getPosition(self)\n"
+                       "  entity.setPosition(self, x + ") +
+                   std::to_string(speed) +
+                   " * dt, y)\n"
+                   "end\n"
+                   "return M\n";
+        };
+        writeFile(moverFile, moverText(30));
+        Game g;
+        g.setScriptRoot(dir.string());
+        for (auto& e : g.entities())
+            if (e.name == "Crate")
+            {
+                e.name = "ReloadRunner";
+                e.script = "scripts/mover.lua";
+                break;
+            }
+        g.bindScripts();
+        const auto runnerX = [&]() {
+            for (const auto& e : g.entities())
+                if (e.name == "ReloadRunner")
+                    return e.position.x;
+            return -1.f;
+        };
+        const float x0 = runnerX();
+        for (int i = 0; i < 60; ++i)
+            g.update(1.f / 60.f);
+        const bool firstLeg = std::abs(runnerX() - (x0 + 30.f)) < 0.5f;
+        const std::size_t noneChanged = g.reloadScriptsIfChanged();
+        // Edit the file — triple the speed — and stamp its mtime
+        // forward so the watch cannot miss it on any filesystem.
+        const auto t0 = fs::last_write_time(moverFile);
+        writeFile(moverFile, moverText(90));
+        fs::last_write_time(moverFile, t0 + std::chrono::seconds(2));
+        const std::size_t oneChanged = g.reloadScriptsIfChanged();
+        const float x1 = runnerX();
+        for (int i = 0; i < 60; ++i)
+            g.update(1.f / 60.f);
+        const bool secondLeg = std::abs(runnerX() - (x1 + 90.f)) < 0.5f;
+        // State reset: after the reload and sixty more frames the
+        // script's own clock reads one second — not two.
+        double lastT = 0.0;
+        const bool stateRead =
+            g.scriptHost().evalNumber("return _G.lastT or -1", lastT);
+        const bool stateReset = stateRead && std::abs(lastT - 1.0) < 0.01;
+        check(firstLeg && noneChanged == 0 && oneChanged == 1 &&
+                  secondLeg && stateReset,
+              "hot reload: an edited script takes over mid-run, its "
+              "state resets, untouched files do not reload");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

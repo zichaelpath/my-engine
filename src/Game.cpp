@@ -92,6 +92,10 @@ void Game::bindScripts()
             if (!m_scripts.loadModule(path, moduleId))
                 continue; // the host logged why
             m_scriptModules[path] = moduleId;
+            std::error_code ec;
+            const auto written = std::filesystem::last_write_time(path, ec);
+            if (!ec)
+                m_scriptModuleTimes[path] = written; // the L71 watch
         }
         int instanceId;
         if (m_scripts.createInstance(moduleId, e.name, instanceId))
@@ -100,6 +104,89 @@ void Game::bindScripts()
     if (!m_scriptBindings.empty())
         Log::info("Scripts bound: " +
                   std::to_string(m_scriptBindings.size()));
+}
+
+std::size_t Game::reloadScriptsIfChanged()
+{
+    // The watch (Lesson 71): compare each cached module's file
+    // against the mtime recorded when it was loaded. Only changed
+    // files reload, and only their instances rebind — an edit to
+    // one script never resets another script's state.
+    std::vector<std::string> changed;
+    for (const auto& [path, moduleId] : m_scriptModules)
+    {
+        std::error_code ec;
+        const auto now = std::filesystem::last_write_time(path, ec);
+        if (ec)
+            continue; // the file vanished; the loaded module stays
+        const auto recorded = m_scriptModuleTimes.find(path);
+        if (recorded == m_scriptModuleTimes.end())
+        {
+            m_scriptModuleTimes[path] = now; // start watching now
+            continue;
+        }
+        if (now != recorded->second)
+            changed.push_back(path);
+    }
+    if (changed.empty())
+        return 0;
+
+    std::size_t reloaded = 0;
+    for (const auto& path : changed)
+    {
+        int freshId;
+        std::error_code ec;
+        const auto now = std::filesystem::last_write_time(path, ec);
+        if (!ec)
+            m_scriptModuleTimes[path] = now; // watch the new file
+        if (!m_scripts.loadModule(path, freshId))
+        {
+            // A broken save keeps the old module running and is
+            // not retried until the file changes again — the host
+            // already logged the error itself.
+            Log::warning("Script reload failed, old version kept: " +
+                         path);
+            continue;
+        }
+        m_scriptModules[path] = freshId;
+        ++reloaded;
+        Log::info("Script reloaded: " + path);
+    }
+    if (reloaded == 0)
+        return 0;
+
+    // Rebind the instances whose module changed: fresh state
+    // tables (script state resets on reload — the honest price of
+    // new code), and a fresh chance for a latched-off script.
+    for (auto& binding : m_scriptBindings)
+    {
+        const Entity* owner = nullptr;
+        for (const auto& e : m_entities)
+            if (e.name == binding.entityName)
+            {
+                owner = &e;
+                break;
+            }
+        if (!owner || owner->script.empty())
+            continue;
+        const std::string resolved =
+            m_scriptRoot.empty() ? owner->script
+                                 : m_scriptRoot + "/" + owner->script;
+        bool affected = false;
+        for (const auto& path : changed)
+            if (path == resolved)
+                affected = true;
+        if (!affected)
+            continue;
+        int instanceId;
+        if (m_scripts.createInstance(m_scriptModules[resolved],
+                                     binding.entityName, instanceId))
+        {
+            binding.instanceId = instanceId;
+            binding.errored = false;
+        }
+    }
+    return reloaded;
 }
 
 std::size_t Game::spawnEntity(const std::string& name, sf::Vector2f position,
