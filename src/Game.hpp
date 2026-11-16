@@ -70,6 +70,21 @@ public:
     // reads it; tests measure it.
     float playerSpawnScale() const { return m_spawnPop.value(); }
 
+    // Camera feel (Lesson 51). Trauma is the shake budget: events
+    // add it, time spends it, and the offset it produces scales
+    // with trauma squared — small rattles whisper, big hits shout.
+    // Hosts add shakeOffset() to their view centre every frame.
+    void addTrauma(float amount);
+    float trauma() const { return m_trauma; }
+    sf::Vector2f shakeOffset() const;
+    // Hit-stop: freeze the world for a beat. The stop clock runs
+    // on real dt; everything else in update() waits.
+    void hitStop(float seconds);
+    bool isHitStopped() const { return m_hitStop > 0.f; }
+    // The player's actual post-collision velocity, for camera
+    // lookahead (and, in time, for scripts).
+    sf::Vector2f playerVelocity() const { return m_playerVel; }
+
     // Tilemap queries (Lesson 21): the tile id at a world position
     // (-1 outside the world), the tile under the player's feet, and
     // a display name for an id.
@@ -161,6 +176,9 @@ private:
     float m_bumpCooldown = 0.f; // bump-sound throttle (Lesson 31)
     FloatTween m_spawnPop;      // spawn-in scale pop (Lesson 49)
     ParticleSystem m_particles; // the feel layer's confetti (Lesson 50)
+    float m_trauma = 0.f;       // camera shake budget (Lesson 51)
+    float m_hitStop = 0.f;      // world-freeze clock (Lesson 51)
+    sf::Vector2f m_playerVel;   // post-collision velocity (Lesson 51)
     int m_goldCollected = 0;
     int m_goldTotal = 0;
     bool m_won = false;

@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 // A viewpoint into the world: a centre (in world units) and a visible
 // height (in world units). The visible width follows the canvas aspect
@@ -45,9 +46,22 @@ struct Camera
                        : std::clamp(center.y, half.y, worldSize.y - half.y);
     }
 
-    void follow(sf::Vector2f target, sf::Vector2f worldSize, sf::Vector2f canvasSize)
+    // Smooth follow with lookahead (Lesson 51): the camera glides
+    // toward a point slightly ahead of the target — led by its
+    // velocity, capped so a sprint never loses it — instead of
+    // snapping. The approach is exponential in dt, so the same
+    // fraction of the remaining distance closes per second at any
+    // frame rate.
+    void follow(sf::Vector2f target, sf::Vector2f velocity, float dt,
+                sf::Vector2f worldSize, sf::Vector2f canvasSize)
     {
-        center = target;
+        sf::Vector2f lead = velocity * 0.18f;
+        const float leadLen = std::sqrt(lead.x * lead.x + lead.y * lead.y);
+        if (leadLen > 36.f)
+            lead *= 36.f / leadLen;
+        const sf::Vector2f desired = target + lead;
+        const float k = 1.f - std::exp(-8.f * dt);
+        center += (desired - center) * k;
         clampToWorld(worldSize, canvasSize);
     }
 };

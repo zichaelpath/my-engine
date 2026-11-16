@@ -304,9 +304,47 @@ void Game::generateDecor()
     Log::info("Decor generated: " + std::to_string(m_dots.size()) + " dots");
 }
 
+void Game::addTrauma(float amount)
+{
+    m_trauma = std::clamp(m_trauma + amount, 0.f, 1.f);
+}
+
+sf::Vector2f Game::shakeOffset() const
+{
+    const float s = m_trauma * m_trauma; // quadratic: feel, not noise
+    if (s <= 0.f)
+        return {0.f, 0.f};
+    // Two incommensurate sines: periodic enough to be smooth,
+    // irregular enough to read as a rattle rather than a sway. A
+    // pure function of game time — no RNG, so tests can reason
+    // about it exactly.
+    constexpr float kMaxShake = 14.f;
+    return {kMaxShake * s * std::sin(time * 39.7f),
+            kMaxShake * 0.8f * s * std::cos(time * 47.9f)};
+}
+
+void Game::hitStop(float seconds)
+{
+    m_hitStop = std::max(m_hitStop, seconds);
+}
+
 void Game::update(float dt)
 {
+    // Hit-stop (Lesson 51): the world holds its breath. Only the
+    // stop clock runs; even game time freezes, so a shake caught
+    // mid-rattle resumes exactly where it stopped. A stop that
+    // ends mid-frame hands its leftover dt to the world — time is
+    // never silently eaten.
+    if (m_hitStop > 0.f)
+    {
+        const float spent = std::min(m_hitStop, dt);
+        m_hitStop -= spent;
+        dt -= spent;
+        if (dt <= 0.f)
+            return;
+    }
     time += dt;
+    m_trauma = std::max(0.f, m_trauma - dt * 1.4f);
     m_spawnPop.update(dt);
     m_particles.update(dt);
 
@@ -329,6 +367,7 @@ void Game::update(float dt)
     // Movement is a system operating on whichever entity the player
     // controls — the input code no longer knows a special shape exists.
     Entity& player = m_entities[m_playerEntity];
+    const sf::Vector2f prevPlayerPos = player.position; // for velocity (L51)
 
     // Animation is the movement system's other output: facing follows
     // horizontal input, and the walk clock runs only while moving —
@@ -392,6 +431,7 @@ void Game::update(float dt)
     if ((blockedX || blockedY) && m_bumpCooldown <= 0.f)
     {
         playSound("assets/bump.wav");
+        addTrauma(0.15f); // a bump you can see, not just hear (Lesson 51)
         m_bumpCooldown = 0.25f;
     }
 
@@ -421,6 +461,11 @@ void Game::update(float dt)
     }
     else
         m_stepTimer = 0.20f; // the next walk's first step lands quickly
+
+    // The player's true velocity this frame (post-collision), for
+    // the camera's lookahead (Lesson 51).
+    m_playerVel = dt > 0.0001f ? (player.position - prevPlayerPos) / dt
+                               : sf::Vector2f(0.f, 0.f);
 
     // Splash: entering water from land, once per entry — an edge
     // detector over the tile stream, not a per-frame state.
@@ -482,6 +527,11 @@ void Game::update(float dt)
             if (m_goldCollected >= m_goldTotal && m_goldTotal > 0)
             {
                 m_won = true;
+                // The win lands (Lesson 51): a frozen beat and a
+                // rattle, so the last dot feels different from the
+                // thirty-nine before it.
+                hitStop(0.12f);
+                addTrauma(0.35f);
                 playSound("assets/win.wav");
                 Log::info("World cleared in " + std::to_string(m_runTime) +
                           " s - all " + std::to_string(m_goldTotal) +

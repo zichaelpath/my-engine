@@ -174,9 +174,11 @@ int main()
         // The camera follows the player, clamped so the view never
         // leaves the world; it is re-derived every frame from the
         // window's current size, so resizes need no event handling.
-        camera.follow(game.playerCenter(), game.worldSize(),
-                      sf::Vector2f(window.getSize()));
-        window.setView(camera.makeView(sf::Vector2f(window.getSize())));
+        camera.follow(game.playerCenter(), game.playerVelocity(), dt,
+                      game.worldSize(), sf::Vector2f(window.getSize()));
+        sf::View worldView = camera.makeView(sf::Vector2f(window.getSize()));
+        worldView.move(game.shakeOffset()); // camera feel (Lesson 51)
+        window.setView(worldView);
         game.render(window);
 
         if (fontOk)

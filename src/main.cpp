@@ -491,10 +491,13 @@ int main()
         camera.viewHeight = 600.f / zoom;
         sf::Vector2f canvasSize(gameView.getSize());
         if (followCam)
-            camera.follow(game.playerCenter(), game.worldSize(), canvasSize);
+            camera.follow(game.playerCenter(), game.playerVelocity(), dt,
+                          game.worldSize(), canvasSize);
         else
             camera.clampToWorld(game.worldSize(), canvasSize);
-        gameView.setView(camera.makeView(canvasSize));
+        sf::View worldView = camera.makeView(canvasSize);
+        worldView.move(game.shakeOffset()); // camera feel (Lesson 51)
+        gameView.setView(worldView);
 
         game.render(gameView);
 

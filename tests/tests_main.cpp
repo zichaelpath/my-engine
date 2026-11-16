@@ -10,6 +10,7 @@
 // a machine with no GL context) reports SKIP, never a fake PASS
 // and never an environmental FAIL.
 
+#include "Camera.hpp"
 #include "Config.hpp"
 #include "Easing.hpp"
 #include "Game.hpp"
@@ -270,6 +271,47 @@ int main()
             same = a.particles()[i].velocity == b.particles()[i].velocity &&
                    a.particles()[i].life == b.particles()[i].life;
         check(same, "particles: same seed, same burst (the fx stream is honest)");
+    }
+
+    // --- Camera feel (Lesson 51) ---------------------------------------
+    {
+        Game game;
+        const bool calmAtRest = game.shakeOffset() == sf::Vector2f(0.f, 0.f);
+        game.addTrauma(1.f);
+        float peak = 0.f;
+        bool bounded = true;
+        for (int i = 0; i < 60; ++i)
+        {
+            game.update(1.f / 60.f);
+            const sf::Vector2f o = game.shakeOffset();
+            peak = std::max(peak, std::abs(o.x));
+            bounded = bounded && std::abs(o.x) <= 14.01f && std::abs(o.y) <= 11.21f;
+        }
+        game.update(2.0f); // trauma decays at 1.4/s: long gone
+        check(calmAtRest && peak > 4.f && bounded && game.trauma() == 0.f &&
+                  game.shakeOffset() == sf::Vector2f(0.f, 0.f),
+              "shake: trauma rattles within bounds, then decays to calm");
+
+        Game run;
+        run.newRun(run.seed());
+        run.update(0.5f);
+        const float frozenAt = run.runTime();
+        run.hitStop(0.2f);
+        run.update(0.1f);
+        const bool froze = run.isHitStopped() && run.runTime() == frozenAt;
+        run.update(0.15f); // 0.1 s finishes the stop, 0.05 s of world follows
+        check(froze && !run.isHitStopped() && run.runTime() > frozenAt,
+              "hit-stop: the run clock freezes, then resumes");
+
+        Camera cam;
+        cam.center = {400.f, 300.f};
+        const sf::Vector2f world(1600.f, 1200.f), canvas(800.f, 600.f);
+        cam.follow({400.f, 300.f}, {200.f, 0.f}, 1.f / 60.f, world, canvas);
+        const bool glides = cam.center.x > 400.5f && cam.center.x < 436.f;
+        for (int i = 0; i < 240; ++i)
+            cam.follow({400.f, 300.f}, {200.f, 0.f}, 1.f / 60.f, world, canvas);
+        check(glides && std::abs(cam.center.x - 436.f) < 1.5f,
+              "camera: follow glides to the lookahead point, capped at 36");
     }
 
     // --- The Lesson 44 regression: a flipped sprite stays home -------
