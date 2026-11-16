@@ -143,6 +143,25 @@ struct Mat4
         return r;
     }
 
+    // Orthographic projection (Lesson 90): the box [l,r]x[b,t]x
+    // [n,f] maps linearly onto the NDC cube — no perspective
+    // divide, no foreshortening. A shadow camera wants exactly
+    // this: the sun's rays are parallel, so its "lens" is a box.
+    // View space looks down -Z, so depths are -z in [n, f].
+    static Mat4 orthographic(float left, float right, float bottom,
+                             float top, float nearPlane, float farPlane)
+    {
+        Mat4 r;
+        r.m[0] = 2.f / (right - left);
+        r.m[5] = 2.f / (top - bottom);
+        r.m[10] = -2.f / (farPlane - nearPlane);
+        r.m[12] = -(right + left) / (right - left);
+        r.m[13] = -(top + bottom) / (top - bottom);
+        r.m[14] = -(farPlane + nearPlane) / (farPlane - nearPlane);
+        r.m[15] = 1.f;
+        return r;
+    }
+
     // The view matrix for a camera at eye looking at center: builds
     // an orthonormal basis (side, up, -forward) from the two points
     // and a world-up hint, then inverts the camera's placement —

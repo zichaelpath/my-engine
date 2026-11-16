@@ -16,6 +16,7 @@
 #include "Entity.hpp"
 #include "Easing.hpp"
 #include "Game.hpp"
+#include "Mat4.hpp"
 #include "Particles.hpp"
 #include "Project.hpp"
 #include "SaveData.hpp"
@@ -2299,6 +2300,33 @@ int main()
               "cold through the project, and clearing it returns "
               "the exact 1.0 generated world");
         fs::remove_all(dir);
+    }
+
+    // --- Orthographic projection maps its box to the cube (Lesson 90) -
+    {
+        const Mat4 o = Mat4::orthographic(-60.f, 60.f, -60.f, 60.f,
+                                          1.f, 140.f);
+        auto apply = [&o](Vec3 p) {
+            return Vec3{o.m[0] * p.x + o.m[4] * p.y + o.m[8] * p.z +
+                            o.m[12],
+                        o.m[1] * p.x + o.m[5] * p.y + o.m[9] * p.z +
+                            o.m[13],
+                        o.m[2] * p.x + o.m[6] * p.y + o.m[10] * p.z +
+                            o.m[14]};
+        };
+        auto near1 = [](float a, float b) {
+            return std::abs(a - b) < 0.001f;
+        };
+        const Vec3 hi = apply({60.f, 60.f, -1.f});
+        const Vec3 lo = apply({-60.f, -60.f, -140.f});
+        const Vec3 mid = apply({0.f, 0.f, -70.5f});
+        check(near1(hi.x, 1.f) && near1(hi.y, 1.f) &&
+                  near1(hi.z, -1.f) && near1(lo.x, -1.f) &&
+                  near1(lo.y, -1.f) && near1(lo.z, 1.f) &&
+                  near1(mid.x, 0.f) && near1(mid.z, 0.f),
+              "mat4: orthographic maps the box corners to the NDC "
+              "cube and the centre to the origin (the sun's "
+              "shadow camera)");
     }
 
     // --- Scenes live in the project as files (Lesson 64) ---------------

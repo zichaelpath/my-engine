@@ -51,9 +51,16 @@ inline PFNGLUNIFORM3FPROC glUniform3f = nullptr;
 inline PFNGLUNIFORM1IPROC glUniform1i = nullptr;
 inline PFNGLUNIFORM1FPROC glUniform1f = nullptr;
 inline PFNGLGENERATEMIPMAPPROC glGenerateMipmap = nullptr;
+inline PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers = nullptr;
+inline PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer = nullptr;
+inline PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D = nullptr;
+inline PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus = nullptr;
 // Note: glGenTextures/glBindTexture/glTexImage2D/glTexParameteri
 // are NOT here — texture objects are OpenGL 1.1 (1997), so they are
 // declared by <GL/gl.h> and called directly, like glClear.
+// glActiveTexture (1.3) is likewise declared by this platform's
+// <GL/gl.h> and called directly — it was added to the loader in
+// Lesson 90 and removed the same day when the header objected.
 
 // Fills every pointer above from the current context's driver.
 // Returns false (and logs each miss) if any function is missing —

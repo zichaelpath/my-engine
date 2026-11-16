@@ -108,7 +108,7 @@ Procgen stays what it has always been here: a foundation a game *may* build on �
 
 ## Arc 9 — 3D, Second Season (Lessons ~89–94)
 
-Progress: Lesson 89: Blinn-Phong specular in MyGL — per-tile materials in the terrain vertex layout (water 90/0.95, grass 6/0.12), uModel + uCameraPos plumbed through both programs, glUniform1f added to the hand-written loader; the highlight measured at the mirror geometry (water saturates, grass stays Lambert).
+Progress: Lesson 89: Blinn-Phong specular in MyGL — per-tile materials in the terrain vertex layout (water 90/0.95, grass 6/0.12), uModel + uCameraPos plumbed through both programs, glUniform1f added to the hand-written loader; the highlight measured at the mirror geometry (water saturates, grass stays Lambert); Lesson 90: shadow mapping — Mat4::orthographic, a 2048 depth pass from the sun, PCF 3x3 with slope-scaled bias in both programs, proven directionally (2,481 pixels darkened, 0 brightened vs the L89 frame)
 
 *MyGL grows from demo to renderer. Zac's parallel LearnOpenGL study feeds this arc directly.*
 

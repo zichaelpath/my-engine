@@ -64,6 +64,10 @@ bool loadGLFunctions()
     load("glUniform1i", glUniform1i);
     load("glUniform1f", glUniform1f);
     load("glGenerateMipmap", glGenerateMipmap);
+    load("glGenFramebuffers", glGenFramebuffers);
+    load("glBindFramebuffer", glBindFramebuffer);
+    load("glFramebufferTexture2D", glFramebufferTexture2D);
+    load("glCheckFramebufferStatus", glCheckFramebufferStatus);
 
     if (ok)
         Log::info("OpenGL functions loaded");

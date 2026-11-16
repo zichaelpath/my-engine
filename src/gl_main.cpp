@@ -56,24 +56,56 @@ in vec3 vWorldPos;
 in vec2 vSpec;
 uniform vec3 uSunDir;
 uniform vec3 uCameraPos;
+uniform mat4 uLightSpace;
+uniform sampler2D uShadowMap;
 out vec4 FragColor;
+float shadowAmount(vec3 worldPos, vec3 n, vec3 sunDir)
+{
+    vec4 ls = uLightSpace * vec4(worldPos, 1.0);
+    vec3 proj = ls.xyz / ls.w * 0.5 + 0.5;
+    if (proj.z > 1.0)
+        return 0.0;
+    float bias = max(0.004 * (1.0 - dot(n, sunDir)), 0.0008);
+    float shadow = 0.0;
+    vec2 texel = 1.0 / vec2(2048.0);
+    for (int x = -1; x <= 1; ++x)
+        for (int y = -1; y <= 1; ++y)
+        {
+            float closest = texture(uShadowMap,
+                proj.xy + vec2(float(x), float(y)) * texel).r;
+            shadow += (proj.z - bias > closest) ? 1.0 : 0.0;
+        }
+    return shadow / 9.0;
+}
 void main()
 {
     // Lambert diffuse: a face square to the sun takes full light,
     // a face edge-on or turned away falls to the ambient floor.
+    // A shadowed fragment (Lesson 90) keeps only the ambient:
+    // the sun's diffuse AND its specular are both direct light.
     vec3 n = normalize(vNormal);
     float diffuse = max(dot(n, uSunDir), 0.0);
-    float light = 0.35 + 0.65 * diffuse;
+    float direct = 1.0 - shadowAmount(vWorldPos, n, uSunDir);
+    float light = 0.35 + 0.65 * diffuse * direct;
     // Blinn-Phong specular (Lesson 89): the halfway vector
     // between sun and view directions — a tight, bright highlight
     // where the surface mirrors the sun into the camera. vSpec
     // carries this material's (shininess, strength).
     vec3 viewDir = normalize(uCameraPos - vWorldPos);
     vec3 halfVec = normalize(uSunDir + viewDir);
-    float spec = pow(max(dot(n, halfVec), 0.0), vSpec.x) * vSpec.y;
+    float spec = pow(max(dot(n, halfVec), 0.0), vSpec.x) * vSpec.y
+                 * direct;
     FragColor = vec4(vColor * light + spec, 1.0);
 }
 )";
+
+// The shadow test (Lesson 90) lives inside both fragment
+// shaders below — GLSL has no includes, so the function is
+// written out in each: project the fragment into the sun's clip
+// space, compare its depth against the shadow map's stored
+// depth with a 3x3 PCF average. 0 = fully lit, 1 = fully
+// shadowed. The bias grows on grazing faces, which is where
+// shadow acne lives.
 
 // The textured program (Lesson 40): same sun, but the base colour
 // comes from a texture sample instead of a vertex colour.
@@ -106,18 +138,59 @@ uniform vec3 uCameraPos;
 uniform float uShininess;
 uniform float uSpecStrength;
 uniform sampler2D uTexture;
+uniform mat4 uLightSpace;
+uniform sampler2D uShadowMap;
 out vec4 FragColor;
+float shadowAmount(vec3 worldPos, vec3 n, vec3 sunDir)
+{
+    vec4 ls = uLightSpace * vec4(worldPos, 1.0);
+    vec3 proj = ls.xyz / ls.w * 0.5 + 0.5;
+    if (proj.z > 1.0)
+        return 0.0;
+    float bias = max(0.004 * (1.0 - dot(n, sunDir)), 0.0008);
+    float shadow = 0.0;
+    vec2 texel = 1.0 / vec2(2048.0);
+    for (int x = -1; x <= 1; ++x)
+        for (int y = -1; y <= 1; ++y)
+        {
+            float closest = texture(uShadowMap,
+                proj.xy + vec2(float(x), float(y)) * texel).r;
+            shadow += (proj.z - bias > closest) ? 1.0 : 0.0;
+        }
+    return shadow / 9.0;
+}
 void main()
 {
     vec3 n = normalize(vNormal);
     float diffuse = max(dot(n, uSunDir), 0.0);
-    float light = 0.35 + 0.65 * diffuse;
+    float direct = 1.0 - shadowAmount(vWorldPos, n, uSunDir);
+    float light = 0.35 + 0.65 * diffuse * direct;
     vec3 viewDir = normalize(uCameraPos - vWorldPos);
     vec3 halfVec = normalize(uSunDir + viewDir);
     float spec = pow(max(dot(n, halfVec), 0.0), uShininess)
-                 * uSpecStrength;
+                 * uSpecStrength * direct;
     FragColor = vec4(texture(uTexture, vUV).rgb * light + spec,
                      1.0);
+}
+)";
+
+// The depth program (Lesson 90): position only, transformed by
+// the sun's light-space matrix — its fragment shader writes
+// nothing because the depth buffer is the whole output.
+const char* kDepthVertexShader = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+uniform mat4 uMVP;
+void main()
+{
+    gl_Position = uMVP * vec4(aPos, 1.0);
+}
+)";
+
+const char* kDepthFragmentShader = R"(
+#version 330 core
+void main()
+{
 }
 )";
 
@@ -359,12 +432,16 @@ int main()
 
     GLuint program = createProgram(kVertexShader, kFragmentShader);
     GLuint texProgram = createProgram(kTexVertexShader, kTexFragmentShader);
-    if (program == 0 || texProgram == 0)
+    GLuint depthProgram = createProgram(kDepthVertexShader,
+                                        kDepthFragmentShader);
+    if (program == 0 || texProgram == 0 || depthProgram == 0)
         return 1;
     GLint mvpLocation = glGetUniformLocation(program, "uMVP");
     GLint modelLocation = glGetUniformLocation(program, "uModel");
     GLint sunLocation = glGetUniformLocation(program, "uSunDir");
     GLint camLocation = glGetUniformLocation(program, "uCameraPos");
+    GLint lightSpaceLocation = glGetUniformLocation(program, "uLightSpace");
+    GLint shadowSamplerLocation = glGetUniformLocation(program, "uShadowMap");
     GLint texMvpLocation = glGetUniformLocation(texProgram, "uMVP");
     GLint texModelLocation = glGetUniformLocation(texProgram, "uModel");
     GLint texSunLocation = glGetUniformLocation(texProgram, "uSunDir");
@@ -372,11 +449,19 @@ int main()
     GLint texShineLocation = glGetUniformLocation(texProgram, "uShininess");
     GLint texSpecLocation = glGetUniformLocation(texProgram, "uSpecStrength");
     GLint texSamplerLocation = glGetUniformLocation(texProgram, "uTexture");
+    GLint texLightSpaceLocation =
+        glGetUniformLocation(texProgram, "uLightSpace");
+    GLint texShadowSamplerLocation =
+        glGetUniformLocation(texProgram, "uShadowMap");
+    GLint depthMvpLocation = glGetUniformLocation(depthProgram, "uMVP");
     if (mvpLocation < 0 || modelLocation < 0 || sunLocation < 0 ||
-        camLocation < 0 || texMvpLocation < 0 || texModelLocation < 0 ||
-        texSunLocation < 0 || texCamLocation < 0 ||
-        texShineLocation < 0 || texSpecLocation < 0 ||
-        texSamplerLocation < 0)
+        camLocation < 0 || lightSpaceLocation < 0 ||
+        shadowSamplerLocation < 0 || texMvpLocation < 0 ||
+        texModelLocation < 0 || texSunLocation < 0 ||
+        texCamLocation < 0 || texShineLocation < 0 ||
+        texSpecLocation < 0 || texSamplerLocation < 0 ||
+        texLightSpaceLocation < 0 || texShadowSamplerLocation < 0 ||
+        depthMvpLocation < 0)
     {
         Log::error("A required uniform was not found in a shader program");
         return 1;
@@ -386,6 +471,51 @@ int main()
     // normal.
     Vec3 sunDir = normalized(Vec3{-0.55f, 0.75f, 0.35f});
     Log::info("Shader programs linked; uniforms located");
+
+    // The shadow camera (Lesson 90): an orthographic box sitting
+    // on the sun's line, looking at the world's centre. Its
+    // matrix is constant — the sun never moves — so the depth
+    // pass and both lighting programs share this one lightSpace.
+    const Mat4 lightSpace =
+        Mat4::orthographic(-60.f, 60.f, -60.f, 60.f, 1.f, 160.f) *
+        Mat4::lookAt(sunDir * 70.f, Vec3{0.f, 0.f, 0.f},
+                     Vec3{0.f, 1.f, 0.f});
+
+    // The shadow map: a depth texture on its own framebuffer.
+    // Nothing draws colour into it (GL_NONE draw/read), and its
+    // border depth is 1.0 — the farthest possible — so fragments
+    // outside the sun's box read as lit, never as shadowed.
+    const GLsizei kShadowSize = 2048;
+    GLuint shadowMap = 0;
+    glGenTextures(1, &shadowMap);
+    glBindTexture(GL_TEXTURE_2D, shadowMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, kShadowSize,
+                 kShadowSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT,
+                 nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                    GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                    GL_CLAMP_TO_BORDER);
+    const float borderDepth[4] = {1.f, 1.f, 1.f, 1.f};
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,
+                     borderDepth);
+    GLuint shadowFbo = 0;
+    glGenFramebuffers(1, &shadowFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                           GL_TEXTURE_2D, shadowMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) !=
+        GL_FRAMEBUFFER_COMPLETE)
+    {
+        Log::error("Shadow framebuffer is not complete");
+        return 1;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    Log::info("Shadow map ready: 2048x2048 depth");
 
     // The world, from the same Game the 2D hosts play (default seed
     // 12345 — the Gold Rush world), extruded by tile type.
@@ -565,6 +695,34 @@ int main()
         Mat4 view = Mat4::lookAt(cameraPos, cameraPos + front, Vec3{0.f, 1.f, 0.f});
         Mat4 projection = Mat4::perspective(60.f * 3.14159265f / 180.f, aspect, 0.1f, 300.f);
 
+        // PASS 1 (Lesson 90): depth from the sun. Everything
+        // that can cast is drawn into the shadow map through the
+        // light-space matrix; the colour pipeline never runs.
+        glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo);
+        glViewport(0, 0, kShadowSize, kShadowSize);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glUseProgram(depthProgram);
+        glBindVertexArray(vao);
+        glUniformMatrix4fv(depthMvpLocation, 1, GL_FALSE,
+                           lightSpace.data());
+        glDrawArrays(GL_TRIANGLES, 0, terrainVertexCount);
+        glBindVertexArray(crateVao);
+        for (const Vec3& spot : crateSpots)
+        {
+            Mat4 model = Mat4::translation(spot.x, spot.y, spot.z) *
+                         Mat4::scaling(1.6f, 1.6f, 1.6f);
+            Mat4 depthMvp = lightSpace * model;
+            glUniformMatrix4fv(depthMvpLocation, 1, GL_FALSE,
+                               depthMvp.data());
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT,
+                           nullptr);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // PASS 2: the lit scene, sampling the shadow map on
+        // texture unit 1 (unit 0 stays the crates' colour map).
+        glViewport(0, 0, static_cast<GLsizei>(size.x),
+                   static_cast<GLsizei>(size.y));
         glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(program);
@@ -577,6 +735,12 @@ int main()
                            Mat4::identity().data());
         glUniform3f(sunLocation, sunDir.x, sunDir.y, sunDir.z);
         glUniform3f(camLocation, cameraPos.x, cameraPos.y, cameraPos.z);
+        glUniformMatrix4fv(lightSpaceLocation, 1, GL_FALSE,
+                           lightSpace.data());
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, shadowMap);
+        glUniform1i(shadowSamplerLocation, 1);
+        glActiveTexture(GL_TEXTURE0);
         glDrawArrays(GL_TRIANGLES, 0, terrainVertexCount);
 
         // The crates: second program, same sun. Their model is a
@@ -596,6 +760,12 @@ int main()
             glUniform1f(texShineLocation, 24.f);
             glUniform1f(texSpecLocation, 0.30f);
             glUniform1i(texSamplerLocation, 0);
+            glUniformMatrix4fv(texLightSpaceLocation, 1, GL_FALSE,
+                               lightSpace.data());
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, shadowMap);
+            glUniform1i(texShadowSamplerLocation, 1);
+            glActiveTexture(GL_TEXTURE0);
             for (const Vec3& spot : crateSpots)
             {
                 Mat4 model = Mat4::translation(spot.x, spot.y, spot.z) *
