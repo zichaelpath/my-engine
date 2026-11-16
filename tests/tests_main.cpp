@@ -11,8 +11,10 @@
 // and never an environmental FAIL.
 
 #include "Config.hpp"
+#include "Easing.hpp"
 #include "Game.hpp"
 #include "Project.hpp"
+#include "Tween.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -203,6 +205,41 @@ int main()
                   config.getInt("music", 0) == 1,
               "config: file values land, defaults fill the gaps, junk is skipped");
         std::filesystem::remove(file);
+    }
+
+    // --- Easing & tweens (Lesson 49) ----------------------------------
+    {
+        const ease::Fn curves[] = {ease::linear,    ease::inQuad,  ease::outQuad,
+                                   ease::inOutQuad, ease::outCubic, ease::outBack,
+                                   ease::outBounce};
+        bool endpoints = true;
+        for (ease::Fn f : curves)
+            endpoints = endpoints && std::abs(f(0.f)) < 1e-6f &&
+                        std::abs(f(1.f) - 1.f) < 1e-6f;
+        check(endpoints, "easing: every curve starts at 0 and lands on 1");
+        check(ease::outBack(0.5f) > 1.0f,
+              "easing: outBack overshoots mid-flight (the pop)");
+        bool monotonic = true;
+        for (float t = 0.1f; t <= 1.0f; t += 0.1f)
+            monotonic = monotonic && ease::outQuad(t) >= ease::outQuad(t - 0.1f);
+        check(monotonic, "easing: outQuad never runs backwards");
+
+        FloatTween tween;
+        tween.start(10.f, 20.f, 2.0f, ease::linear);
+        const bool startsAtFrom = std::abs(tween.value() - 10.f) < 1e-6f;
+        tween.update(1.0f);
+        const bool midIsMid = std::abs(tween.value() - 15.f) < 1e-4f;
+        tween.update(5.0f); // far past the end: must clamp, not drift
+        check(startsAtFrom && midIsMid && tween.done() &&
+                  std::abs(tween.value() - 20.f) < 1e-6f,
+              "tween: from, midpoint, clamped settle at to");
+
+        Game game;
+        game.newRun(game.seed());
+        const bool popping = game.playerSpawnScale() < 1.f;
+        game.update(1.0f); // the pop lasts 0.35 s
+        check(popping && std::abs(game.playerSpawnScale() - 1.f) < 1e-6f,
+              "tween: a new run pops the player in, then settles at 1");
     }
 
     // --- The Lesson 44 regression: a flipped sprite stays home -------

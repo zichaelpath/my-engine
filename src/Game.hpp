@@ -5,6 +5,7 @@
 #include "Noise.hpp"
 #include "Random.hpp"
 #include "Resources.hpp"
+#include "Tween.hpp"
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -62,6 +63,11 @@ public:
     bool won() const { return m_won; }
     float runTime() const { return m_runTime; }
     void newRun(std::uint32_t seed); // fresh world, fresh run
+
+    // The player's spawn-in pop (Lesson 49): 1 when settled, an
+    // eased 0-to-1 while the run's first moments play out. Render
+    // reads it; tests measure it.
+    float playerSpawnScale() const { return m_spawnPop.value(); }
 
     // Tilemap queries (Lesson 21): the tile id at a world position
     // (-1 outside the world), the tile under the player's feet, and
@@ -145,6 +151,7 @@ private:
     sf::Music m_music;
     std::string m_musicTrack;
     float m_bumpCooldown = 0.f; // bump-sound throttle (Lesson 31)
+    FloatTween m_spawnPop;      // spawn-in scale pop (Lesson 49)
     int m_goldCollected = 0;
     int m_goldTotal = 0;
     bool m_won = false;

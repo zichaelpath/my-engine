@@ -144,6 +144,9 @@ void Game::newRun(std::uint32_t seed)
         regenerateWorld();
     Log::info("New run: seed " + std::to_string(m_seed) + " - collect " +
               std::to_string(m_goldTotal) + " gold");
+    // Arrive like you mean it: the player pops in from nothing,
+    // overshooting slightly before settling (Lesson 49).
+    m_spawnPop.start(0.f, 1.f, 0.35f, ease::outBack);
 }
 
 void Game::generateField()
@@ -304,6 +307,7 @@ void Game::generateDecor()
 void Game::update(float dt)
 {
     time += dt;
+    m_spawnPop.update(dt);
 
     sf::Vector2f dir(0.f, 0.f);
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) ||
@@ -582,21 +586,34 @@ void Game::render(sf::RenderTarget& target) const
         {
             if ((pass == 1) != entity.playerControlled)
                 continue;
+            // The spawn pop (Lesson 49) scales the player's picture
+            // around his feet: same centre-bottom, eased size. Every
+            // other entity — and the player once settled — draws at
+            // its true position and size.
+            sf::Vector2f drawPos = entity.position;
+            sf::Vector2f drawSize = entity.size;
+            if (entity.playerControlled && !m_spawnPop.done())
+            {
+                const float s = m_spawnPop.value();
+                drawSize = entity.size * s;
+                drawPos = {entity.position.x + (entity.size.x - drawSize.x) / 2.f,
+                           entity.position.y + (entity.size.y - drawSize.y)};
+            }
             if (entity.sprite == sprites::CRATE)
             {
                 // File-backed: the crate's texture comes from disk,
                 // through the resource cache (Lesson 20). If the file
                 // is missing, the cache hands back the placeholder.
                 sf::Sprite crateSprite(m_resources.get("assets/crate.tga"));
-                crateSprite.setPosition(entity.position);
-                crateSprite.setScale({entity.size.x / 32.f, entity.size.y / 32.f});
+                crateSprite.setPosition(drawPos);
+                crateSprite.setScale({drawSize.x / 32.f, drawSize.y / 32.f});
                 target.draw(crateSprite);
                 continue;
             }
             if (entity.sprite == sprites::NONE)
             {
-                shape.setSize(entity.size);
-                shape.setPosition(entity.position);
+                shape.setSize(drawSize);
+                shape.setPosition(drawPos);
                 shape.setFillColor(entity.color);
                 target.draw(shape);
                 continue;
@@ -604,8 +621,8 @@ void Game::render(sf::RenderTarget& target) const
             sprite.setTextureRect(
                 sf::IntRect({sprites::PLAYER_X + entity.frame * sprites::FRAME, 0},
                             {sprites::FRAME, sprites::FRAME}));
-            sf::Vector2f scale(entity.size.x / sprites::FRAME,
-                               entity.size.y / sprites::FRAME);
+            sf::Vector2f scale(drawSize.x / sprites::FRAME,
+                               drawSize.y / sprites::FRAME);
             if (entity.flipX)
             {
                 // Mirror in place: the position already carries the
@@ -614,14 +631,13 @@ void Game::render(sf::RenderTarget& target) const
                 // (Lesson 44: with origin FRAME it rendered one full
                 // entity width right of its hitbox when facing left).
                 sprite.setOrigin({0.f, 0.f});
-                sprite.setPosition(entity.position +
-                                   sf::Vector2f(entity.size.x, 0.f));
+                sprite.setPosition(drawPos + sf::Vector2f(drawSize.x, 0.f));
                 sprite.setScale({-scale.x, scale.y});
             }
             else
             {
                 sprite.setOrigin({0.f, 0.f});
-                sprite.setPosition(entity.position);
+                sprite.setPosition(drawPos);
                 sprite.setScale(scale);
             }
             target.draw(sprite);
