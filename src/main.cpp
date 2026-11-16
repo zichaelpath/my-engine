@@ -72,6 +72,8 @@ int main()
     // canvas, not the window frame. (Found by Lesson 25's first drag.)
     ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
     Game game;
+    if (haveProject)
+        game.setScriptRoot(project.root); // scripts resolve in the project (L70)
     if (static_cast<std::uint32_t>(config.getInt("seed", 12345)) != game.seed())
         game.setSeed(static_cast<std::uint32_t>(config.getInt("seed", 12345)));
     if (config.getFloat("noiseScale", 0.01f) != game.noiseFrequency())
@@ -815,6 +817,7 @@ int main()
                         // start scene when it has one.
                         project = opened;
                         haveProject = true;
+                        game.setScriptRoot(project.root); // before the bind inside newRun
                         game.newRun(project.seed);
                         if (!project.startScene.empty())
                         {

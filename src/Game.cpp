@@ -63,7 +63,43 @@ Game::Game() : m_random(m_seed)
     spawnEntity("Crate", {560.f, 380.f}, {40.f, 40.f}, sf::Color(220, 140, 60),
                 false, sprites::CRATE);
 
+    m_scripts.installEntityApi(*this);
+    bindScripts();
+
     Log::info("Game created with seed " + std::to_string(m_seed));
+}
+
+void Game::bindScripts()
+{
+    // (Re)bind an instance for every entity carrying a script
+    // path. Modules are cached by resolved path — ten guards on
+    // one script share one module and get ten state tables.
+    // Instances resolve their entity by name on every call (the
+    // v1 rule from Lesson 67), so a rebind is cheap and safe.
+    m_scriptBindings.clear();
+    for (const auto& e : m_entities)
+    {
+        if (e.script.empty())
+            continue;
+        const std::string path =
+            m_scriptRoot.empty() ? e.script : m_scriptRoot + "/" + e.script;
+        int moduleId;
+        const auto cached = m_scriptModules.find(path);
+        if (cached != m_scriptModules.end())
+            moduleId = cached->second;
+        else
+        {
+            if (!m_scripts.loadModule(path, moduleId))
+                continue; // the host logged why
+            m_scriptModules[path] = moduleId;
+        }
+        int instanceId;
+        if (m_scripts.createInstance(moduleId, e.name, instanceId))
+            m_scriptBindings.push_back({e.name, instanceId, false});
+    }
+    if (!m_scriptBindings.empty())
+        Log::info("Scripts bound: " +
+                  std::to_string(m_scriptBindings.size()));
 }
 
 std::size_t Game::spawnEntity(const std::string& name, sf::Vector2f position,
@@ -380,6 +416,7 @@ void Game::newRun(std::uint32_t seed)
     // overshooting slightly before settling (Lesson 49).
     if (feel.enabled)
         m_spawnPop.start(0.f, 1.f, feel.popDuration, ease::outBack);
+    bindScripts(); // the fresh entity list may carry scripts
 }
 
 void Game::generateField()
@@ -684,6 +721,20 @@ void Game::update(float dt)
                 }
             }
         }
+    }
+
+    // Scripts (Lesson 70): each bound instance's onUpdate runs
+    // before movement integration, so a velocity a script sets is
+    // integrated this same frame. An instance that errors is
+    // latched off — the host logged the first failure; a broken
+    // script must not spam the log sixty times a second or keep
+    // half-running on a corrupt state.
+    for (auto& binding : m_scriptBindings)
+    {
+        if (binding.errored)
+            continue;
+        if (!m_scripts.callUpdate(binding.instanceId, dt))
+            binding.errored = true;
     }
 
     dir = math::normalize(dir);
@@ -1477,6 +1528,7 @@ bool Game::loadScene(const std::string& path)
     for (std::size_t i = 0; i < m_entities.size(); ++i)
         if (m_entities[i].playerControlled)
             m_playerEntity = i;
+    bindScripts(); // scripted entities in the file go live (L70)
     Log::info("Scene loaded from " + path + " (" +
               std::to_string(m_entities.size()) + " entities, seed " +
               std::to_string(m_seed) + ")");

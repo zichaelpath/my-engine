@@ -52,6 +52,8 @@ int main()
     window.setFramerateLimit(60);
 
     Game game;
+    if (haveProject)
+        game.setScriptRoot(project.root); // scripts resolve in the project (L70)
     if (static_cast<std::uint32_t>(config.getInt("seed", 12345)) != game.seed())
         game.setSeed(static_cast<std::uint32_t>(config.getInt("seed", 12345)));
     if (haveProject)

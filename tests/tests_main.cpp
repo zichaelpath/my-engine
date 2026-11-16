@@ -1321,6 +1321,81 @@ int main()
         fs::remove(v3File);
     }
 
+    // --- Scripts in the loop (Lesson 70) -------------------------------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("script-loop");
+        fs::remove_all(dir);
+        fs::create_directories(dir / "scripts");
+        writeFile(dir / "scripts" / "mover.lua",
+                  "local M = {}\n"
+                  "function M.onUpdate(self, dt)\n"
+                  "  local x, y = entity.getPosition(self)\n"
+                  "  entity.setPosition(self, x + 30 * dt, y)\n"
+                  "end\n"
+                  "return M\n");
+        writeFile(dir / "scripts" / "boom.lua",
+                  "local M = {}\n"
+                  "function M.onUpdate(self, dt)\n"
+                  "  _G.boomCount = (_G.boomCount or 0) + 1\n"
+                  "  error('boom')\n"
+                  "end\n"
+                  "return M\n");
+        // Two scripted crates: one mover, one that errors every call.
+        Game g;
+        g.setScriptRoot(dir.string());
+        bool tagged = false;
+        for (auto& e : g.entities())
+        {
+            if (e.name != "Crate")
+                continue;
+            if (!tagged)
+            {
+                e.name = "ScriptRunner";
+                e.script = "scripts/mover.lua";
+                tagged = true;
+            }
+            else
+            {
+                e.name = "ScriptBoomer";
+                e.script = "scripts/boom.lua";
+            }
+        }
+        g.bindScripts();
+        const bool bound = g.scriptBindingCount() == 2;
+        float startX = 0.f;
+        for (const auto& e : g.entities())
+            if (e.name == "ScriptRunner")
+                startX = e.position.x;
+        for (int i = 0; i < 60; ++i)
+            g.update(1.f / 60.f);
+        float endX = 0.f;
+        for (const auto& e : g.entities())
+            if (e.name == "ScriptRunner")
+                endX = e.position.x;
+        const bool moved = std::abs(endX - (startX + 30.f)) < 0.5f;
+        // The error latch: sixty frames of updates, exactly ONE call
+        // into the broken script — it failed once and was latched off.
+        double booms = 0.0;
+        const bool counted =
+            g.scriptHost().evalNumber("return _G.boomCount or -1", booms);
+        const bool latched = counted && booms == 1.0;
+        // And the promise of the lesson: a scene FILE goes live on
+        // load — no explicit bind in between.
+        const fs::path sceneFile = tempPath("script-loop.scene");
+        const bool saved = g.saveScene(sceneFile.string());
+        Game lg;
+        lg.setScriptRoot(dir.string());
+        const bool loadedLive =
+            saved && lg.loadScene(sceneFile.string()) &&
+            lg.scriptBindingCount() == 2;
+        check(bound && moved && latched && loadedLive,
+              "scripts in the loop: update() drives onUpdate, a broken "
+              "script latches after one failure, scene loads go live");
+        fs::remove(sceneFile);
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

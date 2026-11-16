@@ -6,8 +6,10 @@
 #include "Random.hpp"
 #include "Particles.hpp"
 #include "Resources.hpp"
+#include "ScriptHost.hpp"
 #include "Tween.hpp"
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -157,6 +159,20 @@ public:
     bool loadTypes(const std::string& path);
     const std::vector<EntityType>& types() const { return m_types; }
 
+    // Scripts in the loop (Lesson 70): the Game owns a ScriptHost.
+    // Script paths on entities are project-relative; setScriptRoot
+    // says where they resolve (empty = the working directory).
+    // bindScripts (re)binds an instance for every scripted entity
+    // — called when a scene loads, a run starts, and on demand.
+    void setScriptRoot(const std::string& root) { m_scriptRoot = root; }
+    const std::string& scriptRoot() const { return m_scriptRoot; }
+    void bindScripts();
+    ScriptHost& scriptHost() { return m_scripts; }
+    std::size_t scriptBindingCount() const
+    {
+        return m_scriptBindings.size();
+    }
+
     // Scene serialisation (Lesson 18): the world is a recipe — seed +
     // noise scale regenerate the terrain exactly (Arc 2 determinism),
     // so the file only needs the recipe and the entity records.
@@ -252,6 +268,21 @@ private:
 
     std::vector<Entity> m_entities;
     std::vector<EntityType> m_types; // the type registry (Lesson 68)
+
+    // Scripting (Lesson 70): the owned host, the root script
+    // paths resolve against, the module cache (resolved path ->
+    // module id), and the live bindings. A binding latches off
+    // (errored) after its first failure until the next bind.
+    ScriptHost m_scripts;
+    std::string m_scriptRoot;
+    std::map<std::string, int> m_scriptModules;
+    struct ScriptBinding
+    {
+        std::string entityName;
+        int instanceId = -1;
+        bool errored = false;
+    };
+    std::vector<ScriptBinding> m_scriptBindings;
     std::size_t m_playerEntity = 0;
     sf::Texture m_sheet;
     TextureCache m_resources;
