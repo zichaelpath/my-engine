@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6.0 — 2026-11-16
+
+The engine's games grow from places into journeys. Where 1.5.0 shipped two standalone worlds, 1.6.0 gives a project many scenes, a campaign across them, screens built from shared parts, and a player whose progress survives the night.
+
+**Multi-scene projects.** A project card's `scene=` line is repeatable: an ordered level list, the first its start. Travel is a naming convention, not a format change — an entity named `Exit:<scene>` is a door, `Spawn:<scene-you-came-from>` (or plain `Spawn`) is the landing, and spawn markers show for authors in the editor while staying invisible in shipped games.
+
+**Campaigns.** A `Campaign` model tracks an ordered level sequence: levels unlock in order, completion advances to the next unfinished level, and replaying an old level never rewinds progress. A level's finish line is an entity named `Goal`, touched like a door. The Runtime plays campaigns end to end — title-screen level select with locked and done states, a "Level N of M" HUD, and a Campaign Complete screen. A complete two-level demo campaign ships in `games/two-rooms/`.
+
+**Shared UI widgets.** Every Runtime screen is rebuilt from `ui::Label`, `ui::Button` and `ui::Panel`: state-drawn buttons (resting, hovered, gold-ringed selected, dimmed disabled), screen actions shared between the keyboard and new mouse routing, so Enter and clicking Play are one code path.
+
+**Save files.** A versioned `save.dat` in the project folder holds the player's state: campaign progress (restored only when the saved level list still matches the project), Gold Rush best times per seed, Temple Run's best height, and per-player settings — the first being camera shake, toggled with K on the title screen. Progress is written at the moment it happens, and bests only move one way.
+
+The test harness grows to 60 checks, including an end-to-end campaign played across a simulated restart. Both games repackage at 1.6.0 and pass the clean-room boot.
+
+Every step is documented in `docs/devlog/` (82 lessons) and retold in `docs/LESSON_BLOG.md`.
+
 ## 1.5.0 — 2026-11-15
 
 The engine ships a second game. Where 1.0.0 proved one game could be built on MyEngine, 1.5.0 proves the engine is the reusable part: a structurally different game — a vertical endless climber instead of a top-down collector — built from a project folder, data files, and host wiring, with no changes to the game's core systems to make it fit.

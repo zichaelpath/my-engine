@@ -2089,6 +2089,76 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- Arc 7 end-to-end: a campaign across a restart (Lesson 82) -----
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("arc7-restart");
+        fs::remove_all(dir);
+        fs::create_directories(dir / "scenes");
+        auto actor = [](const std::string& name, float x, float y,
+                        bool controlled) {
+            Entity e;
+            e.name = name;
+            e.position = {x, y};
+            e.size = {50.f, 50.f};
+            e.color = sf::Color(200, 200, 80);
+            e.playerControlled = controlled;
+            return e;
+        };
+        Game stage;
+        stage.replaceEntities(
+            {actor("Player", 100.f, 100.f, true),
+             actor("Goal", 110.f, 110.f, false)});
+        stage.saveScene((dir / "scenes/one.scene").string());
+        stage.replaceEntities(
+            {actor("Player", 700.f, 500.f, true),
+             actor("Spawn:one", 500.f, 300.f, false),
+             actor("Goal", 900.f, 900.f, false)});
+        stage.saveScene((dir / "scenes/two.scene").string());
+        writeFile(dir / "project.myengine",
+                  "format=1\nname=Restart Test\nseed=7\n"
+                  "scene=scenes/one.scene\nscene=scenes/two.scene\n");
+        Project p;
+        loadProjectFolder(dir.string(), p);
+        // Session 1: play level one to its Goal and persist,
+        // in exactly the runtime's shapes.
+        Campaign campaign;
+        campaign.reset(p.scenes);
+        Game g;
+        g.loadScene((dir / "scenes/one.scene").string());
+        g.update(1.f / 60.f);
+        const bool goalHit = g.goalTouched();
+        campaign.completeCurrent();
+        SaveData save;
+        save.campaign = campaign;
+        save.hasCampaign = true;
+        const bool saved = writeSave(p.root, save);
+        // Session 2 (the restart): everything rebuilt cold; the
+        // save restores the campaign only because the level
+        // list still matches, and play resumes in level two.
+        SaveData back;
+        Campaign restored;
+        restored.reset(p.scenes);
+        const bool restoredOk =
+            loadSave(p.root, back) && back.hasCampaign &&
+            back.campaign.levels == p.scenes;
+        if (restoredOk)
+            restored = back.campaign;
+        Game g2;
+        g2.loadScene((dir / "scenes/two.scene").string());
+        const bool resumed = restored.isCompleted(0) &&
+                             restored.current == 1 &&
+                             restored.isUnlocked(1) &&
+                             g2.placePlayerAtSpawn("one") &&
+                             g2.entities()[g2.playerIndex()].position ==
+                                 sf::Vector2f(500.f, 300.f);
+        check(goalHit && saved && restoredOk && resumed,
+              "arc 7 end-to-end: a goal finished in one session "
+              "restores as campaign progress after a cold "
+              "restart, and play resumes in level two");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;
