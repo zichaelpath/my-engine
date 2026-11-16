@@ -130,7 +130,25 @@ public:
     float speed = 200.f;
     float clearColor[3] = {30.f / 255.f, 30.f / 255.f, 40.f / 255.f};
     bool showHitboxes = false; // editor debug overlay (Lesson 19)
-    bool particlesEnabled = true; // game-feel toggle (Lesson 50)
+
+    // Every game-feel constant in one struct (Lesson 53): the
+    // editor's Feel panel edits this live, the harness pins its
+    // defaults, and a game that wants a different personality
+    // changes data, not code. Defaults ARE the shipped feel —
+    // Lessons 49-52 were tuned into these numbers.
+    struct Feel
+    {
+        bool enabled = true;          // the whole layer, one switch
+        bool particlesEnabled = true; // bursts, splashes, drips, rings
+        float popDuration = 0.35f;    // spawn-in pop, seconds (L49)
+        float shakeMax = 14.f;        // offset at trauma 1.0 (L51)
+        float traumaDecay = 1.4f;     // trauma spent per second (L51)
+        float hitStopWin = 0.12f;     // the win's frozen beat (L52)
+        float streakWindow = 1.2f;    // seconds to keep a streak (L52)
+        int burstBase = 10;           // pickup burst size (L52)
+        int burstPerStreak = 2;       // ... plus this per streak step
+    };
+    Feel feel;
 
     // Fires an emitter through the game's own pool and RNG — the
     // same call the collection and splash paths make, and the one

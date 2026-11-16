@@ -452,6 +452,33 @@ int main()
             game.generateDecor();
         ImGui::End();
 
+        // The Feel panel (Lesson 53): Arc 2's whole layer, live.
+        // Every slider writes Game::feel — the same struct the
+        // harness pins — and the Fire buttons trigger the game's
+        // own event hooks, so the panel is a workbench, not a poster.
+        ImGui::Begin("Feel");
+        ImGui::Checkbox("Feel enabled (master)", &game.feel.enabled);
+        ImGui::Checkbox("Particles & rings", &game.feel.particlesEnabled);
+        ImGui::SliderFloat("Spawn pop (s)", &game.feel.popDuration, 0.05f, 0.8f);
+        ImGui::SliderFloat("Shake max", &game.feel.shakeMax, 0.f, 30.f);
+        ImGui::SliderFloat("Trauma decay (/s)", &game.feel.traumaDecay, 0.4f, 3.f);
+        ImGui::SliderFloat("Win hit-stop (s)", &game.feel.hitStopWin, 0.f, 0.3f);
+        ImGui::SliderFloat("Streak window (s)", &game.feel.streakWindow, 0.3f, 3.f);
+        ImGui::Separator();
+        if (ImGui::Button("Fire: pickup"))
+            game.onGoldCollected(game.playerCenter());
+        ImGui::SameLine();
+        if (ImGui::Button("Fire: shake"))
+            game.addTrauma(0.6f);
+        ImGui::SameLine();
+        if (ImGui::Button("Fire: win"))
+            game.onRunWon();
+        ImGui::Separator();
+        ImGui::Text("Trauma: %.2f   Streak: %d", game.trauma(), game.collectStreak());
+        ImGui::Text("Particles alive: %zu   Rings: %zu", game.particleCount(),
+                    game.ringCount());
+        ImGui::End();
+
         ImGui::Begin("Console");
         if (ImGui::Button("Clear"))
             Log::clear();

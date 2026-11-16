@@ -146,7 +146,8 @@ void Game::newRun(std::uint32_t seed)
               std::to_string(m_goldTotal) + " gold");
     // Arrive like you mean it: the player pops in from nothing,
     // overshooting slightly before settling (Lesson 49).
-    m_spawnPop.start(0.f, 1.f, 0.35f, ease::outBack);
+    if (feel.enabled)
+        m_spawnPop.start(0.f, 1.f, feel.popDuration, ease::outBack);
 }
 
 void Game::generateField()
@@ -306,25 +307,28 @@ void Game::generateDecor()
 
 void Game::addTrauma(float amount)
 {
+    if (!feel.enabled)
+        return;
     m_trauma = std::clamp(m_trauma + amount, 0.f, 1.f);
 }
 
 sf::Vector2f Game::shakeOffset() const
 {
     const float s = m_trauma * m_trauma; // quadratic: feel, not noise
-    if (s <= 0.f)
+    if (!feel.enabled || s <= 0.f)
         return {0.f, 0.f};
     // Two incommensurate sines: periodic enough to be smooth,
     // irregular enough to read as a rattle rather than a sway. A
     // pure function of game time — no RNG, so tests can reason
     // about it exactly.
-    constexpr float kMaxShake = 14.f;
-    return {kMaxShake * s * std::sin(time * 39.7f),
-            kMaxShake * 0.8f * s * std::cos(time * 47.9f)};
+    return {feel.shakeMax * s * std::sin(time * 39.7f),
+            feel.shakeMax * 0.8f * s * std::cos(time * 47.9f)};
 }
 
 void Game::hitStop(float seconds)
 {
+    if (!feel.enabled)
+        return;
     m_hitStop = std::max(m_hitStop, seconds);
 }
 
@@ -344,7 +348,7 @@ void Game::update(float dt)
             return;
     }
     time += dt;
-    m_trauma = std::max(0.f, m_trauma - dt * 1.4f);
+    m_trauma = std::max(0.f, m_trauma - dt * feel.traumaDecay);
     m_spawnPop.update(dt);
     m_particles.update(dt);
 
@@ -600,17 +604,20 @@ void Game::onGoldCollected(sf::Vector2f at)
     // escalate — the burst grows with the streak, so a flowing run
     // *looks* different from a plodding one.
     ++m_collectStreak;
-    m_streakTimer = 1.2f;
+    m_streakTimer = feel.streakWindow;
     Emitter burst;
     burst.position = at;
-    burst.count = 10 + 2 * std::min(m_collectStreak, 8);
+    burst.count = feel.burstBase + feel.burstPerStreak * std::min(m_collectStreak, 8);
     burst.color = sf::Color(255, 205, 60);
     spawnParticles(burst);
-    Ring ring;
-    ring.position = at;
-    ring.life = ring.maxLife;
-    ring.color = sf::Color(255, 205, 60);
-    m_rings.push_back(ring);
+    if (feel.enabled && feel.particlesEnabled)
+    {
+        Ring ring;
+        ring.position = at;
+        ring.life = ring.maxLife;
+        ring.color = sf::Color(255, 205, 60);
+        m_rings.push_back(ring);
+    }
 }
 
 void Game::onRunWon()
@@ -619,22 +626,25 @@ void Game::onRunWon()
     // (Lesson 51), then — once the world breathes again — a
     // fountain over the player for most of a second, and a wide
     // ring to close it.
-    hitStop(0.12f);
+    hitStop(feel.hitStopWin);
     addTrauma(0.35f);
     m_winFxTimer = 0.7f;
     m_winFxAccum = 0.f;
     m_winFxBursts = 0;
-    Ring ring;
-    ring.position = playerCenter();
-    ring.life = ring.maxLife = 0.45f;
-    ring.maxRadius = 60.f;
-    ring.color = sf::Color(255, 225, 120);
-    m_rings.push_back(ring);
+    if (feel.enabled && feel.particlesEnabled)
+    {
+        Ring ring;
+        ring.position = playerCenter();
+        ring.life = ring.maxLife = 0.45f;
+        ring.maxRadius = 60.f;
+        ring.color = sf::Color(255, 225, 120);
+        m_rings.push_back(ring);
+    }
 }
 
 void Game::spawnParticles(const Emitter& emitter)
 {
-    if (!particlesEnabled)
+    if (!feel.enabled || !feel.particlesEnabled)
         return;
     // Cosmetic randomness only: the "fx" stream is derived from the
     // seed independently of every generation stream (Lesson 10's
@@ -822,12 +832,12 @@ void Game::render(sf::RenderTarget& target) const
 
     // Particles draw over the world and its actors, under the
     // debug overlays (Lesson 50).
-    if (particlesEnabled)
+    if (feel.enabled && feel.particlesEnabled)
         m_particles.draw(target);
 
     // Shockwave rings (Lesson 52): an expanding outline that fades
     // as it grows — the shape of "something happened here".
-    if (particlesEnabled)
+    if (feel.enabled && feel.particlesEnabled)
     {
         for (const Ring& ring : m_rings)
         {

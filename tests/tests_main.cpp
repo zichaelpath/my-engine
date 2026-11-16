@@ -257,7 +257,7 @@ int main()
         check(startsEmpty && spawned && game.particleCount() == 0,
               "particles: spawn fills the pool, time empties it");
 
-        game.particlesEnabled = false;
+        game.feel.particlesEnabled = false;
         game.spawnParticles(burst);
         check(game.particleCount() == 0,
               "particles: the feel toggle silences spawns");
@@ -382,6 +382,33 @@ int main()
             dripOk = wade.particleCount() == before + 6;
         }
         check(dripOk, "juice: stepping out of water drips (6, exactly)");
+    }
+
+    // --- Feel is data (Lesson 53) ---------------------------------------
+    {
+        // The master switch silences the whole layer at once.
+        Game off;
+        off.feel.enabled = false;
+        off.newRun(off.seed());
+        off.addTrauma(0.8f);
+        off.hitStop(0.2f);
+        off.onGoldCollected({400.f, 300.f});
+        check(off.playerSpawnScale() == 1.f && off.trauma() == 0.f &&
+                  !off.isHitStopped() && off.particleCount() == 0 &&
+                  off.shakeOffset() == sf::Vector2f(0.f, 0.f),
+              "feel: the master switch turns the whole layer off");
+
+        // Tuning reaches the code it names.
+        Game tuned;
+        tuned.feel.streakWindow = 5.f;
+        tuned.onGoldCollected({400.f, 300.f});
+        tuned.update(2.0f); // past the shipped window, inside the tuned one
+        const bool windowHeld = tuned.collectStreak() == 1;
+        tuned.feel.burstBase = 0;
+        tuned.feel.burstPerStreak = 0;
+        tuned.onGoldCollected({400.f, 300.f});
+        check(windowHeld && tuned.particleCount() == 0 && tuned.ringCount() == 1,
+              "feel: panel numbers change behaviour (window, burst size)");
     }
 
     // --- The Lesson 44 regression: a flipped sprite stays home -------
