@@ -41,7 +41,7 @@ int main()
     // Runtime's business — the editor's own seed config stays live
     // so worlds can be experimented with without touching the file.
     Project project;
-    bool haveProject = loadProject("project.myengine", project);
+    bool haveProject = loadProjectFolder(".", project);
 
     Config config;
     config.setDefault("windowWidth", "1280");

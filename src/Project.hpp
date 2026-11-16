@@ -17,6 +17,13 @@ struct Project
     int formatVersion = 0; // 0 until a file loads successfully
     std::uint32_t seed = 12345;
     std::string startScene; // empty = generate the world, load nothing
+
+    // The folder the project lives in (Lesson 60): a project is a
+    // PLACE — a directory holding project.myengine plus the
+    // standard subfolders (assets/, scenes/, scripts/). Empty
+    // until the project is loaded or created through the folder
+    // API below; paths inside the project are relative to here.
+    std::string root;
 };
 
 // Loads a project file into `out`. Returns false — leaving `out`
@@ -24,3 +31,18 @@ struct Project
 // written for a different format version: a project from a newer
 // engine must fail loudly here, never half-load.
 bool loadProject(const std::string& path, Project& out);
+
+// The folder API (Lesson 60). loadProjectFolder reads
+// <folder>/project.myengine and records the folder as the root.
+// createProjectFolder makes a new project place: the folder, its
+// standard subfolders, and a fresh project.myengine — refusing
+// (false) when a project already lives there, because creating
+// over one is a different verb than opening it. saveProject
+// writes the struct back to <root>/project.myengine.
+// projectPath resolves a project-relative path against the root
+// (an empty root leaves the path as-is: today's behaviour).
+bool loadProjectFolder(const std::string& folder, Project& out);
+bool createProjectFolder(const std::string& folder, const std::string& name,
+                         Project& out);
+bool saveProject(const Project& project);
+std::string projectPath(const Project& project, const std::string& relative);

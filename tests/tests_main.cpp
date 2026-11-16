@@ -1008,6 +1008,40 @@ int main()
               "goal");
     }
 
+    // --- The project is a folder (Lesson 60) -------------------------------
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("project-place");
+        fs::remove_all(dir);
+        Project created;
+        const bool made = createProjectFolder(dir.string(), "Test Game",
+                                              created);
+        const bool layout =
+            fs::exists(dir / "project.myengine") &&
+            fs::is_directory(dir / "assets") &&
+            fs::is_directory(dir / "scenes") &&
+            fs::is_directory(dir / "scripts");
+        Project loaded;
+        const bool readBack = loadProjectFolder(dir.string(), loaded) &&
+                              loaded.name == "Test Game" &&
+                              loaded.root == dir.string() &&
+                              loaded.seed == created.seed;
+        const bool noClobber =
+            !createProjectFolder(dir.string(), "Other", created);
+        loaded.name = "Renamed Game";
+        const bool saved = saveProject(loaded);
+        Project again;
+        const bool renamed = saved && loadProjectFolder(dir.string(), again) &&
+                             again.name == "Renamed Game";
+        const bool paths =
+            projectPath(again, "assets/a.png") ==
+                dir.string() + "/assets/a.png" &&
+            projectPath(Project{}, "assets/a.png") == "assets/a.png";
+        check(made && layout && readBack && noClobber && renamed && paths,
+              "project: a folder is created, read back, saved, resolved");
+        fs::remove_all(dir);
+    }
+
     // --- The Lesson 44 regression: a flipped sprite stays home -------
 #if defined(__linux__)
     if (std::getenv("DISPLAY") == nullptr)

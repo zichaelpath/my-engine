@@ -31,7 +31,7 @@ int main()
     // The project file (Lesson 41) is read first: it says what
     // game this is. engine.ini below stays per-machine settings.
     Project project;
-    bool haveProject = loadProject("project.myengine", project);
+    bool haveProject = loadProjectFolder(".", project);
 
     Config config;
     config.setDefault("windowWidth", "800");
@@ -62,9 +62,11 @@ int main()
     {
         // A named start scene loads when it exists; a fresh checkout
         // has no saved scene yet, which is normal, not an error.
-        std::ifstream sceneFile(project.startScene);
-        if (sceneFile && !game.loadScene(project.startScene))
-            Log::warning("Project start scene failed to load: " + project.startScene);
+        // The scene is named relative to the project root (L60).
+        const std::string scenePath = projectPath(project, project.startScene);
+        std::ifstream sceneFile(scenePath);
+        if (sceneFile && !game.loadScene(scenePath))
+            Log::warning("Project start scene failed to load: " + scenePath);
     }
     game.speed = config.getFloat("playerSpeed", 200.f);
     if (config.getInt("music", 1))

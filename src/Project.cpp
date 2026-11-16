@@ -2,6 +2,7 @@
 
 #include "Log.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -82,5 +83,110 @@ bool loadProject(const std::string& path, Project& out)
               std::to_string(out.formatVersion) + ", seed " +
               std::to_string(out.seed) + ", scene " +
               (out.startScene.empty() ? std::string("(none)") : out.startScene) + ")");
+    return true;
+}
+
+namespace
+{
+
+// A root is stored without a trailing slash (except the
+// filesystem root itself), so projectPath can always join with
+// exactly one '/'.
+std::string normalizedRoot(const std::string& folder)
+{
+    std::string root = folder;
+    while (root.size() > 1 && root.back() == '/')
+        root.pop_back();
+    return root;
+}
+
+bool writeProjectFile(const std::string& path, const Project& project)
+{
+    std::ofstream file(path);
+    if (!file)
+        return false;
+    file << "# MyEngine project file — format 1\n"
+         << "# The game's identity card: hosts read this first. Per-machine\n"
+         << "# settings (window size, volume, speed) live in engine.ini "
+            "instead.\n"
+         << "format=1\n"
+         << "name=" << project.name << "\n"
+         << "seed=" << project.seed << "\n"
+         << "scene=" << project.startScene << "\n";
+    return static_cast<bool>(file);
+}
+
+} // namespace
+
+std::string projectPath(const Project& project, const std::string& relative)
+{
+    if (project.root.empty() || relative.empty())
+        return relative;
+    if (relative.front() == '/') // already absolute
+        return relative;
+    return project.root + "/" + relative;
+}
+
+bool loadProjectFolder(const std::string& folder, Project& out)
+{
+    Project loaded;
+    if (!loadProject(normalizedRoot(folder) + "/project.myengine", loaded))
+        return false;
+    loaded.root = normalizedRoot(folder);
+    out = loaded;
+    return true;
+}
+
+bool createProjectFolder(const std::string& folder, const std::string& name,
+                         Project& out)
+{
+    namespace fs = std::filesystem;
+    const std::string root = normalizedRoot(folder);
+    std::error_code ec;
+    if (fs::exists(root + "/project.myengine"))
+    {
+        Log::error("createProjectFolder: a project already lives at " + root +
+                   " — open it instead of creating over it");
+        return false;
+    }
+    for (const char* sub : {"", "/assets", "/scenes", "/scripts"})
+    {
+        if (!fs::create_directories(root + sub, ec) && ec)
+        {
+            Log::error("createProjectFolder: cannot create " + root + sub +
+                       ": " + ec.message());
+            return false;
+        }
+    }
+    Project created;
+    created.name = name;
+    created.formatVersion = 1;
+    created.root = root;
+    if (!writeProjectFile(root + "/project.myengine", created))
+    {
+        Log::error("createProjectFolder: cannot write " + root +
+                   "/project.myengine");
+        return false;
+    }
+    out = created;
+    Log::info("Project created: " + name + " at " + root +
+              " (assets/, scenes/, scripts/)");
+    return true;
+}
+
+bool saveProject(const Project& project)
+{
+    if (project.root.empty())
+    {
+        Log::error("saveProject: the project has no root folder");
+        return false;
+    }
+    if (!writeProjectFile(project.root + "/project.myengine", project))
+    {
+        Log::error("saveProject: cannot write " + project.root +
+                   "/project.myengine");
+        return false;
+    }
+    Log::info("Project saved: " + project.name + " at " + project.root);
     return true;
 }
