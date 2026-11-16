@@ -1,5 +1,6 @@
 #include <SFML/Window.hpp>
 #include "GLLoader.hpp"
+#include "Mesh.hpp"
 #include "Game.hpp"
 #include "Log.hpp"
 #include "SpriteSheet.hpp"
@@ -236,40 +237,6 @@ GLuint createProgram(const char* vertexSource, const char* fragmentSource)
         return 0;
     }
     return program;
-}
-
-// The crate mesh (Lesson 40): a unit cube, 24 vertices — four per
-// face, because faces need their own normals AND their own UV
-// corners. Vertex layout: position + normal + UV (8 floats).
-void buildCrateMesh(std::vector<float>& verts, std::vector<std::uint32_t>& indices)
-{
-    struct Face
-    {
-        float normal[3];
-        float corners[4][3];
-    };
-    const Face faces[6] = {
-        {{0, 0, 1}, {{-0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, 0.5f}, {0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f}}},
-        {{0, 0, -1}, {{0.5f, -0.5f, -0.5f}, {-0.5f, -0.5f, -0.5f}, {-0.5f, 0.5f, -0.5f}, {0.5f, 0.5f, -0.5f}}},
-        {{1, 0, 0}, {{0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}}},
-        {{-1, 0, 0}, {{-0.5f, -0.5f, -0.5f}, {-0.5f, -0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f, -0.5f}}},
-        {{0, 1, 0}, {{-0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, -0.5f}, {-0.5f, 0.5f, -0.5f}}},
-        {{0, -1, 0}, {{-0.5f, -0.5f, -0.5f}, {0.5f, -0.5f, -0.5f}, {0.5f, -0.5f, 0.5f}, {-0.5f, -0.5f, 0.5f}}},
-    };
-    const float uvs[4][2] = {{0.f, 0.f}, {1.f, 0.f}, {1.f, 1.f}, {0.f, 1.f}};
-    for (const Face& face : faces)
-    {
-        std::uint32_t base = static_cast<std::uint32_t>(verts.size() / 8);
-        for (int i = 0; i < 4; ++i)
-        {
-            verts.insert(verts.end(),
-                         {face.corners[i][0], face.corners[i][1], face.corners[i][2],
-                          face.normal[0], face.normal[1], face.normal[2],
-                          uvs[i][0], uvs[i][1]});
-        }
-        indices.insert(indices.end(),
-                       {base, base + 1, base + 2, base, base + 2, base + 3});
-    }
 }
 
 // Height per tile type (Lesson 38): water sits below the land it
@@ -521,64 +488,29 @@ int main()
     // 12345 — the Gold Rush world), extruded by tile type.
     Game game;
     std::vector<float> terrain = buildTerrain(game);
-    const GLsizei terrainVertexCount = static_cast<GLsizei>(terrain.size() / 11);
-    Log::info("Terrain built: " + std::to_string(terrainVertexCount / 3) +
-              " triangles from a " + std::to_string(game.tilesX()) + "x" +
-              std::to_string(game.tilesY()) + " tile grid");
+    Log::info("Terrain built: " +
+              std::to_string(terrain.size() / 11 / 3) +
+              " triangles from a " + std::to_string(game.tilesX()) +
+              "x" + std::to_string(game.tilesY()) + " tile grid");
 
-    GLuint vao = 0;
-    GLuint vbo = 0;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(terrain.size() * sizeof(float)),
-                 terrain.data(), GL_STATIC_DRAW);
-    // Vertex layout: position (0), normal (1), colour (2),
-    // specular pair (3) — eleven floats per vertex. The shader's
-    // layout qualifiers and these offsets are two halves of one
-    // contract.
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), nullptr);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float),
-                          reinterpret_cast<const void*>(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float),
-                          reinterpret_cast<const void*>(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 11 * sizeof(float),
-                          reinterpret_cast<const void*>(9 * sizeof(float)));
-    glEnableVertexAttribArray(3);
+    // Both meshes are Mesh values now (Lesson 91): the class
+    // owns the VAO/VBO/EBO and the attribute contract — position
+    // (0), normal (1), colour (2), specular pair (3) for the
+    // terrain; position, normal, UV for the crate.
+    Mesh terrainMesh(terrain, {{0, 3}, {1, 3}, {2, 3}, {3, 2}});
 
     // The crates (Lesson 40): mesh, texture, and placements — the
     // placements come from the Game's own entity list, converted
     // from 2D world pixels into terrain space and stood on the
-    // height of the tile beneath them.
+    // height of the tile beneath them. The mesh itself is a
+    // loaded asset since Lesson 91 (assets/crate.obj) — the
+    // hand-typed cube array is gone.
     std::vector<float> crateVerts;
     std::vector<std::uint32_t> crateIndices;
-    buildCrateMesh(crateVerts, crateIndices);
-    GLuint crateVao = 0;
-    GLuint crateVbo = 0;
-    GLuint crateEbo = 0;
-    glGenVertexArrays(1, &crateVao);
-    glGenBuffers(1, &crateVbo);
-    glGenBuffers(1, &crateEbo);
-    glBindVertexArray(crateVao);
-    glBindBuffer(GL_ARRAY_BUFFER, crateVbo);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(crateVerts.size() * sizeof(float)),
-                 crateVerts.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, crateEbo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 static_cast<GLsizeiptr>(crateIndices.size() * sizeof(std::uint32_t)),
-                 crateIndices.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), nullptr);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                          reinterpret_cast<const void*>(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                          reinterpret_cast<const void*>(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
+    Mesh crateMesh;
+    if (loadObj("assets/crate.obj", crateVerts, crateIndices))
+        crateMesh = Mesh(crateVerts, {{0, 3}, {1, 3}, {2, 2}},
+                         crateIndices);
 
     // The texture: SFML decodes the file (CPU-side loading is its
     // job in every host); the GL texture object is ours. Images load
@@ -702,21 +634,19 @@ int main()
         glViewport(0, 0, kShadowSize, kShadowSize);
         glClear(GL_DEPTH_BUFFER_BIT);
         glUseProgram(depthProgram);
-        glBindVertexArray(vao);
         glUniformMatrix4fv(depthMvpLocation, 1, GL_FALSE,
                            lightSpace.data());
-        glDrawArrays(GL_TRIANGLES, 0, terrainVertexCount);
-        glBindVertexArray(crateVao);
-        for (const Vec3& spot : crateSpots)
-        {
-            Mat4 model = Mat4::translation(spot.x, spot.y, spot.z) *
-                         Mat4::scaling(1.6f, 1.6f, 1.6f);
-            Mat4 depthMvp = lightSpace * model;
-            glUniformMatrix4fv(depthMvpLocation, 1, GL_FALSE,
-                               depthMvp.data());
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT,
-                           nullptr);
-        }
+        terrainMesh.draw();
+        if (crateMesh.valid())
+            for (const Vec3& spot : crateSpots)
+            {
+                Mat4 model = Mat4::translation(spot.x, spot.y, spot.z) *
+                             Mat4::scaling(1.6f, 1.6f, 1.6f);
+                Mat4 depthMvp = lightSpace * model;
+                glUniformMatrix4fv(depthMvpLocation, 1, GL_FALSE,
+                                   depthMvp.data());
+                crateMesh.draw();
+            }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // PASS 2: the lit scene, sampling the shadow map on
@@ -726,7 +656,6 @@ int main()
         glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(program);
-        glBindVertexArray(vao);
         // The terrain is built in world coordinates, so its model
         // matrix is the identity — one draw for the whole world.
         Mat4 mvp = projection * view;
@@ -741,16 +670,15 @@ int main()
         glBindTexture(GL_TEXTURE_2D, shadowMap);
         glUniform1i(shadowSamplerLocation, 1);
         glActiveTexture(GL_TEXTURE0);
-        glDrawArrays(GL_TRIANGLES, 0, terrainVertexCount);
+        terrainMesh.draw();
 
         // The crates: second program, same sun. Their model is a
         // translation plus a uniform scale — normals survive both
         // (translation never rotates; uniform scale only stretches
         // a normal's length, and the shader normalizes).
-        if (crateTexture != 0)
+        if (crateTexture != 0 && crateMesh.valid())
         {
             glUseProgram(texProgram);
-            glBindVertexArray(crateVao);
             glBindTexture(GL_TEXTURE_2D, crateTexture);
             glUniform3f(texSunLocation, sunDir.x, sunDir.y, sunDir.z);
             glUniform3f(texCamLocation, cameraPos.x, cameraPos.y,
@@ -774,7 +702,7 @@ int main()
                 glUniformMatrix4fv(texMvpLocation, 1, GL_FALSE, crateMvp.data());
                 glUniformMatrix4fv(texModelLocation, 1, GL_FALSE,
                                    model.data());
-                glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
+                crateMesh.draw();
             }
         }
         window.display();

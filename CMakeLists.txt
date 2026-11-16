@@ -98,7 +98,7 @@ target_link_libraries(GameLib PUBLIC
 # include path for <GL/gl.h>, wherever this machine keeps it.
 find_package(OpenGL REQUIRED)
 
-add_library(GLLoader src/GLLoader.cpp)
+add_library(GLLoader src/GLLoader.cpp src/Mesh.cpp)
 
 target_include_directories(GLLoader PUBLIC src vendor)
 
@@ -119,5 +119,5 @@ target_link_libraries(MyGL PRIVATE
 # the number of failures, so CI can read it.
 add_executable(MyTests tests/tests_main.cpp)
 
-target_link_libraries(MyTests PRIVATE GameLib)
+target_link_libraries(MyTests PRIVATE GameLib GLLoader)
 

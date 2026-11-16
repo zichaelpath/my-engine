@@ -64,6 +64,8 @@ bool loadGLFunctions()
     load("glUniform1i", glUniform1i);
     load("glUniform1f", glUniform1f);
     load("glGenerateMipmap", glGenerateMipmap);
+    load("glDeleteVertexArrays", glDeleteVertexArrays);
+    load("glDeleteBuffers", glDeleteBuffers);
     load("glGenFramebuffers", glGenFramebuffers);
     load("glBindFramebuffer", glBindFramebuffer);
     load("glFramebufferTexture2D", glFramebufferTexture2D);

@@ -17,6 +17,7 @@
 #include "Easing.hpp"
 #include "Game.hpp"
 #include "Mat4.hpp"
+#include "Mesh.hpp"
 #include "Particles.hpp"
 #include "Project.hpp"
 #include "SaveData.hpp"
@@ -2327,6 +2328,68 @@ int main()
               "mat4: orthographic maps the box corners to the NDC "
               "cube and the centre to the origin (the sun's "
               "shadow camera)");
+    }
+
+    // --- The OBJ loader: forms, fan, flat normals (Lesson 91) ---------
+    {
+        // One quad in v/vt/vn form, one bare triangle (v only,
+        // so a flat normal is computed), sharing no vertices.
+        const std::string obj =
+            "v 0 0 0\n"
+            "v 1 0 0\n"
+            "v 1 1 0\n"
+            "v 0 1 0\n"
+            "v 0 0 1\n"
+            "v 2 0 1\n"
+            "v 0 2 1\n"
+            "vt 0 0\n"
+            "vt 1 0\n"
+            "vt 1 1\n"
+            "vt 0 1\n"
+            "vn 0 0 1\n"
+            "f 1/1/1 2/2/1 3/3/1 4/4/1\n"
+            "f 5 6 7\n";
+        std::vector<float> verts;
+        std::vector<std::uint32_t> indices;
+        const bool parsed = parseObj(obj, verts, indices);
+        // Quad: 4 unique triples -> 6 indices. Triangle: 3 new
+        // vertices -> 3 indices. 7 vertices of 8 floats total.
+        bool shape = parsed && verts.size() == 7 * 8 &&
+                     indices.size() == 9;
+        bool values = false;
+        bool flatNormal = false;
+        if (shape)
+        {
+            // Vertex 2 is (1,1,0) with normal (0,0,1), uv (1,1).
+            values = verts[16] == 1.f && verts[17] == 1.f &&
+                     verts[18] == 0.f && verts[19] == 0.f &&
+                     verts[20] == 0.f && verts[21] == 1.f &&
+                     verts[22] == 1.f && verts[23] == 1.f;
+            // The bare triangle's first vertex (index 4) carries
+            // the computed flat normal: cross((2,0,0),(0,2,0))
+            // normalized = (0,0,1).
+            flatNormal = verts[32 + 3] == 0.f &&
+                         verts[32 + 4] == 0.f &&
+                         verts[32 + 5] == 1.f;
+        }
+        check(shape && values && flatNormal,
+              "obj: v/vt/vn quads fan-triangulate and dedupe, "
+              "bare faces get a computed flat normal");
+        // The shipped crate: the hand-typed cube, as an asset.
+        std::vector<float> crateVerts;
+        std::vector<std::uint32_t> crateIdx;
+        if (loadObj("assets/crate.obj", crateVerts, crateIdx))
+        {
+            bool cube = crateVerts.size() == 24 * 8 &&
+                        crateIdx.size() == 36;
+            for (std::size_t i = 0; cube && i < crateVerts.size();
+                 i += 8)
+                cube = std::abs(crateVerts[i]) == 0.5f &&
+                       std::abs(crateVerts[i + 1]) == 0.5f &&
+                       std::abs(crateVerts[i + 2]) == 0.5f;
+            check(cube, "obj: the shipped crate.obj is the "
+                        "24-vertex unit cube it replaces");
+        }
     }
 
     // --- Scenes live in the project as files (Lesson 64) ---------------
