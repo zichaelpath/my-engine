@@ -2258,6 +2258,49 @@ int main()
         fs::remove_all(dir);
     }
 
+    // --- Arc 8 capstone: the author's hand, end to end (Lesson 88) ----
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = tempPath("arc8-capstone");
+        fs::remove_all(dir);
+        Project p;
+        createProjectFolder(dir.string(), "Capstone", p);
+        p.scenes = {"scenes/one.scene"};
+        p.startScene = p.scenes[0];
+        saveProject(p);
+        fs::create_directories(dir / "scenes");
+        const std::string scenePath =
+            (dir / "scenes" / "one.scene").string();
+        Game author;
+        const int gen = author.generatedTileAt(20, 20);
+        const int other = (gen == 5) ? 3 : 5;
+        author.setTile(20, 20, other);
+        author.setTile(21, 20, other);
+        const bool painted = author.tileOverrideCount() == 2 &&
+                             author.saveScene(scenePath);
+        // Cold, the way the Runtime meets it: project first,
+        // then its start scene — the paint must be there.
+        Project coldProject;
+        Game cold;
+        const bool coldSeesPaint =
+            loadProjectFolder(dir.string(), coldProject) &&
+            cold.loadScene(scenePath) &&
+            cold.tileOverrideCount() == 2 &&
+            cold.tileAt(20, 20) == other;
+        // And the promise underneath the whole arc: clear the
+        // hand away and generation is untouched — the 1.0
+        // fingerprint, exactly.
+        cold.setTileOverrides({});
+        const bool generationUntouched =
+            cold.tileOverrideCount() == 0 &&
+            gridChecksum(cold) == kBaselineChecksum;
+        check(painted && coldSeesPaint && generationUntouched,
+              "arc 8: paint saved in a project's scene is seen "
+              "cold through the project, and clearing it returns "
+              "the exact 1.0 generated world");
+        fs::remove_all(dir);
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

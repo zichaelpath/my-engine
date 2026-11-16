@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.7.0 — The Editor Grows Up
+
+Phase 2, Arc 8: the editor stops being a scene tinkerer and
+becomes the place a game is authored.
+
+- **Terrain painting** (Lesson 83): paint any of the six tiles
+  over the generated field with a 1x1 or 3x3 brush, or erase
+  back to generation. Paint is stored as differences-only
+  overrides in the scene file — paint a tile to what generation
+  already put there and nothing is stored. Generation itself
+  is untouched: clear the paint and the world's 1.0
+  fingerprint returns exactly (harness-pinned).
+- **The Game View pops out** (Lesson 84): its own OS window
+  for a second monitor, fed by the same render texture.
+  Picking, dragging, painting, panning and zooming work in
+  both homes through one unified pointer; the layout choice
+  persists in engine.ini (Config learned `set()`).
+- **The Levels panel** (Lesson 85): the project's scene list
+  edited where it belongs — open any level through the one
+  load ritual, reorder the campaign, remove a level from the
+  list (never its file), add the current scene. Every change
+  writes the project card immediately.
+- **Play-test travel** (Lesson 86): an editor test now plays
+  the journey — doors and Goals answer in the editor exactly
+  as in the Runtime, the test tracking its own scene — and
+  the snapshot restores the starting scene exactly, travel
+  and all.
+- **Two viewports** (Lesson 87): a Game View 2 panel with its
+  own free camera on the same world — possible because
+  `Game::render` is const, so a second render of one state
+  cannot desync it. Selection shows in both views; editing
+  stays in the main one.
+- Harness: **64 checks**, closing with an Arc 8 capstone —
+  paint saved in a project's scene is seen cold through the
+  project, and clearing it returns the exact generated world.
+
 ## 1.6.0 — 2026-11-16
 
 The engine's games grow from places into journeys. Where 1.5.0 shipped two standalone worlds, 1.6.0 gives a project many scenes, a campaign across them, screens built from shared parts, and a player whose progress survives the night.
