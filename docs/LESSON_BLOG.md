@@ -493,3 +493,7 @@ Arc 10 opens with the retrospective. Phase 1 built an engine that could make a g
 ## Lesson 98 — The README Tells the Truth Again
 
 The showcase pass of Arc 10, and it caught the README lying by staleness: its honesty section still claimed "no scripting language" a full arc after Lua shipped, and "no 3D view inside the editor" a lesson after the 3D View landed. The refresh brings every section current — scripting, campaigns, versioned saves, Temple Run, specular and shadows and sky, 69 harness checks — and rewrites the honesty section as "What 1.8 is not", whose three front-door items (no designed default layout, no start screen, no in-editor file creation) now point at the Phase 3 roadmap they became. A README for a portfolio engine is a claim; this lesson makes the claim checkable again.
+
+## Lesson 99 — The Door Opens: MIT, and the Repo Goes Public
+
+The Arc 10 gate fell in one tap: public, MIT. The license lands at the root (Copyright (c) 2026 Zachary Shade — the same choice as his pixel-art-tools repo, for the same reason: fully open source, unmistakably), the README's new License section names the edges (DejaVu's own license, the Khronos headers' MIT), and only then — license commit on main first — did the repo flip from private to public, verified from outside through the unauthenticated API. The paperwork was written from Lesson 1 as if strangers would read it; now they can.

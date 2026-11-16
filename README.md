@@ -55,6 +55,12 @@ Run every host **from the repo root** (asset paths like `assets/crate.tga` resol
 
 Honesty is part of the portfolio. There is no networking. The editor's 3D View is a view, not a 3D editor — 3D authoring happens in the 2D scene and the OBJ files. The audio is synthesized, and its playback timing is verified by ear on a real machine, not on the headless build rig. And the front door is still engine-shaped: windows open in the arrangement of a tracked `imgui.ini` rather than a designed default layout, a project is opened by pointing the editor at its folder rather than from a start screen, and files are added to a project from the filesystem rather than from the Project panel. Those three are not oversights — they are Phase 3, planned in [docs/ROADMAP_PHASE3.md](docs/ROADMAP_PHASE3.md), because the author hit them in that order within an hour of his first hands-on build. Godot is 25 years and hundreds of contributors; this is one developer and 97 lessons — scoped to what a solo dev needs to ship 2D games, and understood all the way down.
 
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Zachary Shade. Use it, learn from it, ship something with it.
+
+The bundled DejaVu font keeps its own license (`assets/DejaVu-LICENSE.txt`), and the vendored Khronos headers (`vendor/GL/glext.h`, `vendor/KHR/khrplatform.h`) are MIT-licensed by the Khronos Group.
+
 ## Documentation
 
 - [docs/ROADMAP.md](docs/ROADMAP.md) — the Phase 1 plan (nine arcs, 43 lessons as built)
