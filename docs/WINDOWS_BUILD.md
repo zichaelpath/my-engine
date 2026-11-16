@@ -31,11 +31,12 @@ The first configure downloads the dependencies (a few minutes, needs internet) i
 cmake --build Build --config Release
 ```
 
-Three executables land in `Build\Release\`:
+The executables land in `Build\Release\`:
 
 - `MyEngine.exe` — the editor
-- `MyRuntime.exe` — the game player (this is Gold Rush)
+- `MyRuntime.exe` — the game player (plays whichever project you point it at)
 - `MyGL.exe` — the raw-OpenGL 3D host
+- `MyTests.exe` — the headless test harness (prints PASS/FAIL lines; the last line is the score)
 
 ## 5. Run
 
@@ -45,6 +46,14 @@ Run them **from the repo root** — assets, `project.myengine`, and `engine.ini`
 cd C:\Users\Zac\Documents\my-engine
 .\Build\Release\MyRuntime.exe
 ```
+
+That plays **Gold Rush** (the repo root is its project). **Temple Run** is the project in `games\temple-run` — pass its folder:
+
+```powershell
+.\Build\Release\MyRuntime.exe games\temple-run
+```
+
+The editor (`MyEngine.exe`) and the 3D host (`MyGL.exe`) also run from the repo root. Note there are no prebuilt games to download from the repo: `dist\` is gitignored, and the zips Dietrich builds are Linux binaries — on Windows, this build *is* the way to play.
 
 If an executable complains about a missing DLL, the build produced shared libraries: copy the `*.dll` files from `Build\_deps\sfml-build\lib\Release\` next to the `.exe` and run again. (The Linux build links SFML statically and needs none of this; the check is here so the first Windows run is boring either way.)
 
@@ -63,12 +72,14 @@ foreach ($f in "crate.tga","step.wav","splash.wav","bump.wav","pickup.wav",
 }
 Copy-Item tools\GoldRush-README.txt "$stage\README.txt"
 Copy-Item project.myengine "$stage\project.myengine"
-"1.0.0" | Set-Content "$stage\VERSION.txt"
+"1.8.0" | Set-Content "$stage\VERSION.txt"
 ```
+
+(Use whatever version `CMakeLists.txt` currently declares — see the Notes. Temple Run stages the same way from `games\temple-run\`: its `project.myengine`, its `chunks.txt`, the shared `assets\`, and `tools\TempleRun-README.txt`.)
 
 Then write the default `engine.ini` into the stage folder (the Linux script's version is in `tools/package_game.sh` — same seven lines), and zip the `dist\GoldRush` folder. Players run `GoldRush.exe` from inside its own folder; the folder is the install.
 
 ## Notes
 
-- The engine version every host prints at startup comes from the `project()` line in `CMakeLists.txt` (currently 1.0.0) — bump it there, never in code.
+- The engine version every host prints at startup comes from the `project()` line in `CMakeLists.txt` (currently 1.8.0) — bump it there, never in code.
 - `imgui.ini` in the repo root is the editor's saved panel layout; it is yours, and it is tracked on purpose.

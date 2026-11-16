@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(MyEngine VERSION 1.7.0 LANGUAGES C CXX)
+project(MyEngine VERSION 1.8.0 LANGUAGES C CXX)
 
 # The engine's version lives in the project() line above and
 # nowhere else: configure_file bakes it into a generated header the

@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.8.0 — The 3D Second Season
+
+Phase 2, Arc 9: the raw-OpenGL host grows from a lit heightfield
+into a small 3D engine, and the editor gains a 3D eye.
+
+- **Blinn-Phong specular** (Lesson 89): materials join the
+  lighting model — a per-tile shininess/strength pair in the
+  terrain vertices, one material for the crates. Water shines;
+  grass does not.
+- **Shadow mapping** (Lesson 90): a 2048-deep pass from the
+  sun (Mat4 grows an orthographic projection) and a PCF-softened
+  depth test in both lit programs. The terrain shades itself;
+  shadowed fragments lose diffuse and specular together.
+- **Meshes and OBJ models** (Lesson 91): a move-only Mesh
+  class owns VAO/VBO/EBO, and a CPU-side OBJ loader (harness-
+  tested) turns the crate from a hand-typed array into
+  `assets/crate.obj`.
+- **Sky and fog** (Lesson 92): a gradient dome follows the
+  camera; linear distance fog shares one horizon colour with
+  the sky and the clear colour, so the world dissolves into
+  its sky.
+- **The editor's 3D View** (Lesson 93): the heightfield
+  builder and the shader compiler were extracted into the
+  libraries (TerrainMesh, GLProgram), and a Viewport3D panel
+  now renders the scene being edited, in 3D, beside the 2D
+  views — refreshed by a per-frame tile hash, no edit-path
+  hooks.
+- Harness: 69 checks, including the Arc 9 capstone — the
+  built world and the loaded crate fit inside the sun's
+  shadow camera.
+
 ## 1.7.0 — The Editor Grows Up
 
 Phase 2, Arc 8: the editor stops being a scene tinkerer and

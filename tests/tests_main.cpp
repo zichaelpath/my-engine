@@ -2404,6 +2404,57 @@ int main()
               "host's 18,604-triangle heightfield exactly");
     }
 
+    // --- Arc 9 capstone: the 3D data path holds together (Lesson 94) --
+    {
+        // The whole arc in one claim: the shared builder's world
+        // and the loaded crate both fit inside the sun's shadow
+        // camera — the orthographic box MyGL shades through —
+        // using the host's own sun constants. If the world ever
+        // outgrows the box, shadows would silently stop at its
+        // edge; this check hears about it first.
+        Game g;
+        const std::vector<float> terrain = buildTerrain(g);
+        std::vector<float> crateVerts;
+        std::vector<std::uint32_t> crateIdx;
+        const bool crateOk =
+            loadObj("assets/crate.obj", crateVerts, crateIdx);
+        const Vec3 sunDir =
+            normalized(Vec3{-0.55f, 0.75f, 0.35f});
+        const Mat4 lightSpace =
+            Mat4::orthographic(-60.f, 60.f, -60.f, 60.f, 1.f,
+                               160.f) *
+            Mat4::lookAt(sunDir * 70.f, Vec3{0.f, 0.f, 0.f},
+                         Vec3{0.f, 1.f, 0.f});
+        auto inside = [&lightSpace](float x, float y, float z) {
+            const float cx =
+                lightSpace.m[0] * x + lightSpace.m[4] * y +
+                lightSpace.m[8] * z + lightSpace.m[12];
+            const float cy =
+                lightSpace.m[1] * x + lightSpace.m[5] * y +
+                lightSpace.m[9] * z + lightSpace.m[13];
+            const float cz =
+                lightSpace.m[2] * x + lightSpace.m[6] * y +
+                lightSpace.m[10] * z + lightSpace.m[14];
+            const float cw =
+                lightSpace.m[3] * x + lightSpace.m[7] * y +
+                lightSpace.m[11] * z + lightSpace.m[15];
+            return std::abs(cx / cw) <= 1.f &&
+                   std::abs(cy / cw) <= 1.f &&
+                   std::abs(cz / cw) <= 1.f;
+        };
+        bool allIn = crateOk;
+        for (std::size_t i = 0; allIn && i < terrain.size();
+             i += 11 * 37) // a stride sample across the whole field
+            allIn = inside(terrain[i], terrain[i + 1],
+                           terrain[i + 2]);
+        for (std::size_t i = 0; allIn && i < crateVerts.size();
+             i += 8)
+            allIn = inside(crateVerts[i], crateVerts[i + 1],
+                           crateVerts[i + 2]);
+        check(allIn, "arc9: the built world and the loaded crate "
+                     "fit inside the sun's shadow camera");
+    }
+
     // --- Scenes live in the project as files (Lesson 64) ---------------
     {
         namespace fs = std::filesystem;

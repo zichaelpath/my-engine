@@ -18,7 +18,7 @@
 # from its own folder (double-click works; the folder IS the install).
 set -euo pipefail
 
-VERSION="1.7.0"
+VERSION="1.8.0"
 BUILD_DIR="${1:-BuildRelease}"
 GAME="${2:-goldrush}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
