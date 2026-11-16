@@ -69,7 +69,7 @@ Procgen stays what it has always been here: a foundation a game *may* build on �
 
 ## Arc 5 — Scripting (Lessons ~66–72)
 
-*The scripting pillar: behaviour belongs to the game, not the engine. (Language decision is Zac's — see Decisions; the plan is written for the recommended option.)*
+*The scripting pillar: behaviour belongs to the game, not the engine. **DECIDED Nov 15, 2026 (Zac): Lua, hand-bound** through the plain C API — the recommendation, confirmed.*
 
 - **A language, embedded by hand.** Lua, built from source via FetchContent and bound through its plain C API — no binding framework, the same own-the-stack choice as the hand-written GL loader over GLAD. A `ScriptHost` in GameLib owns the VM.
 - **Scripts are project files.** `.lua` files under the project's `scripts/` (Arc 4's layout), attached to entities by name — in the type data (below) and per-instance in scenes (scene format grows a `script=` field, version-gated like Lesson 41 taught).
@@ -124,7 +124,7 @@ Procgen stays what it has always been here: a foundation a game *may* build on �
 
 ## Decisions Zac owns (needed before the arc named)
 
-1. **Before Arc 5:** the scripting language — Lua, hand-bound (recommended: the game industry's default embed, tiny, rookie-legible, and ownable the way this engine owns its GL loader) or an alternative he names.
+1. **Before Arc 5:** the scripting language — **DECIDED Nov 15, 2026: Lua, hand-bound** (the game industry's default embed, tiny, rookie-legible, and ownable the way this engine owns its GL loader).
 2. **Before Arc 6:** the second game's name and fantasy (platformer mechanics are planned; identity is his).
 3. **Before Arc 10:** public repo vs private + showcase.
 4. **Any time in Arc 1:** his Phase 1 playtest findings *are* Arc 1's spec — the arc re-plans around them, not vice versa.
