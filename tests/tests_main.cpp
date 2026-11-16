@@ -17,6 +17,7 @@
 #include "Game.hpp"
 #include "Particles.hpp"
 #include "Project.hpp"
+#include "ScriptHost.hpp"
 #include "Tween.hpp"
 
 #include <cmath>
@@ -1006,6 +1007,32 @@ int main()
                   onGoal,
               "climber: the shaft climbs end to end — floor, ledges, ride, "
               "goal");
+    }
+
+    // --- Lua lives in the engine (Lesson 66) ------------------------------
+    {
+        namespace fs = std::filesystem;
+        ScriptHost host;
+        double value = 0;
+        const bool math = host.valid() &&
+                          host.evalNumber("return 6 * 7", value) &&
+                          value == 42.0;
+        const bool state = host.runString("answer = 40 + 2") &&
+                           host.evalNumber("return answer", value) &&
+                           value == 42.0;
+        // A broken script is a false with a log line, never a crash.
+        const bool survives = !host.runString("this is not lua ((") &&
+                              !host.runString("error('boom')") &&
+                              host.evalNumber("return 1", value);
+        const fs::path scriptFile = tempPath("host-test.lua");
+        writeFile(scriptFile, "fromFile = 7 * 6");
+        const bool file = host.runFile(scriptFile.string()) &&
+                          host.evalNumber("return fromFile", value) &&
+                          value == 42.0 &&
+                          !host.runFile("/nonexistent-66.lua");
+        check(math && state && survives && file,
+              "lua: the host runs, remembers, and survives bad scripts");
+        fs::remove(scriptFile);
     }
 
     // --- The project is a folder (Lesson 60) -------------------------------

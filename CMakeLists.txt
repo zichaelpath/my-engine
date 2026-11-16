@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(MyEngine VERSION 1.0.0 LANGUAGES CXX)
+project(MyEngine VERSION 1.0.0 LANGUAGES C CXX)
 
 # The engine's version lives in the project() line above and
 # nowhere else: configure_file bakes it into a generated header the
@@ -41,6 +41,30 @@ FetchContent_Declare(imgui-sfml
     GIT_TAG v3.0)
 FetchContent_MakeAvailable(imgui-sfml)
 
+# --- Lua 5.4.7 (Lesson 66, Arc 5) ---
+# The scripting language, embedded from the official lua.org
+# tarball (hash pinned). Lua ships no CMakeLists, so the library
+# is built here from its C sources — everything in src/ except
+# the two standalone programs (lua.c the interpreter, luac.c the
+# compiler). Hand-bound through the plain C API, like the
+# engine's GL loader: small enough to own, nothing hidden.
+FetchContent_Declare(lua
+    URL https://www.lua.org/ftp/lua-5.4.7.tar.gz
+    URL_HASH SHA256=9fbf5e28ef86c69858f6d3d34eccc32e911c1a28b4120ff3e84aaa70cfbf1e30)
+FetchContent_GetProperties(lua)
+if(NOT lua_POPULATED)
+    FetchContent_Populate(lua)
+endif()
+file(GLOB LUA_SOURCES ${lua_SOURCE_DIR}/src/*.c)
+list(REMOVE_ITEM LUA_SOURCES
+    ${lua_SOURCE_DIR}/src/lua.c
+    ${lua_SOURCE_DIR}/src/luac.c)
+add_library(lua STATIC ${LUA_SOURCES})
+target_include_directories(lua PUBLIC ${lua_SOURCE_DIR}/src)
+if(UNIX)
+    target_link_libraries(lua PUBLIC m dl)
+endif()
+
 add_executable(MyEngine src/main.cpp)
 
 # NOTE: main.cpp doesn't use ImGui until Lesson 3. The ImGui-SFML link
@@ -55,7 +79,7 @@ add_executable(MyRuntime src/runtime_main.cpp)
 target_link_libraries(MyRuntime PRIVATE
     GameLib)
 
-add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Config.cpp src/SpriteSheet.cpp src/Resources.cpp src/Project.cpp src/Particles.cpp)
+add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Config.cpp src/SpriteSheet.cpp src/Resources.cpp src/Project.cpp src/Particles.cpp src/ScriptHost.cpp)
 
 target_include_directories(GameLib PUBLIC src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
@@ -63,7 +87,8 @@ target_link_libraries(GameLib PUBLIC
     SFML::Graphics
     SFML::Window
     SFML::System
-    SFML::Audio)
+    SFML::Audio
+    lua)
 
 # --- OpenGL (Lesson 35, Arc 8) ---
 # GLLoader is the engine's own function loader: post-1.1 entry points
