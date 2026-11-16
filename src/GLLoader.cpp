@@ -77,6 +77,7 @@ bool loadGLFunctions()
     load("glBindFramebuffer", glBindFramebuffer);
     load("glFramebufferTexture2D", glFramebufferTexture2D);
     load("glCheckFramebufferStatus", glCheckFramebufferStatus);
+    load("glActiveTexture", glActiveTexture_);
 
     if (ok)
         Log::info("OpenGL functions loaded");

@@ -64,12 +64,19 @@ inline PFNGLDELETERENDERBUFFERSPROC glDeleteRenderbuffers = nullptr;
 inline PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer = nullptr;
 inline PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D = nullptr;
 inline PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus = nullptr;
+// glActiveTexture (GL 1.3) is the loader's one renamed pointer,
+// and its name is a two-platform story. Lesson 90 added it as
+// glActiveTexture; Mesa's <GL/gl.h> — which declares the 1.3
+// functions outright — rejected a same-named variable, so it
+// was removed and called directly. Lesson 96: the Windows SDK's
+// <GL/gl.h> declares only 1.1 and has never heard of it, so the
+// direct call failed there. It lives in the loader after all,
+// trailing underscore and all, so neither header can collide
+// with it on either platform.
+inline PFNGLACTIVETEXTUREPROC glActiveTexture_ = nullptr;
 // Note: glGenTextures/glBindTexture/glTexImage2D/glTexParameteri
 // are NOT here — texture objects are OpenGL 1.1 (1997), so they are
 // declared by <GL/gl.h> and called directly, like glClear.
-// glActiveTexture (1.3) is likewise declared by this platform's
-// <GL/gl.h> and called directly — it was added to the loader in
-// Lesson 90 and removed the same day when the header objected.
 
 // Fills every pointer above from the current context's driver.
 // Returns false (and logs each miss) if any function is missing —

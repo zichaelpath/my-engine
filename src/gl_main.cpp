@@ -640,10 +640,10 @@ int main()
                     skyHorizon.z);
         glUniform1f(fogNearLocation, fogNear);
         glUniform1f(fogFarLocation, fogFar);
-        glActiveTexture(GL_TEXTURE1);
+        glActiveTexture_(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, shadowMap);
         glUniform1i(shadowSamplerLocation, 1);
-        glActiveTexture(GL_TEXTURE0);
+        glActiveTexture_(GL_TEXTURE0);
         terrainMesh.draw();
 
         // The crates: second program, same sun. Their model is a
@@ -668,10 +668,10 @@ int main()
                         skyHorizon.y, skyHorizon.z);
             glUniform1f(texFogNearLocation, fogNear);
             glUniform1f(texFogFarLocation, fogFar);
-            glActiveTexture(GL_TEXTURE1);
+            glActiveTexture_(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, shadowMap);
             glUniform1i(texShadowSamplerLocation, 1);
-            glActiveTexture(GL_TEXTURE0);
+            glActiveTexture_(GL_TEXTURE0);
             for (const Vec3& spot : crateSpots)
             {
                 Mat4 model = Mat4::translation(spot.x, spot.y, spot.z) *
