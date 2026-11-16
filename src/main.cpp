@@ -52,6 +52,14 @@ int pickEntity(const Game& game, sf::Vector2f world)
     return -1;
 }
 
+// The version of the default layout below (Lesson 102). It is
+// stamped into engine.ini (layoutVersion) whenever the layout
+// is built; a stamp older than this constant means the saved
+// arrangement predates the current default, so the default is
+// rebuilt exactly once — a future layout redesign reaches
+// existing users without fighting their ini files forever.
+constexpr int kDefaultLayoutVersion = 1;
+
 // The editor's default layout (Lesson 101), built with the
 // DockBuilder the first time the editor runs — and again
 // whenever the author asks for it back. Before this lesson the
@@ -121,6 +129,7 @@ int main()
     config.setDefault("volume", "80");
     config.setDefault("music", "1");
     config.setDefault("popGameView", "0"); // editor layout (L84)
+    config.setDefault("layoutVersion", "0"); // default-layout stamp (L102)
     if (!config.load("engine.ini"))
         config.save("engine.ini");
 
@@ -142,10 +151,13 @@ int main()
     // First run (Lesson 101): no saved layout file means the
     // default layout gets built on the first frame. From then on
     // the file is the user's own — per-machine, gitignored, and
-    // never shipped again.
+    // never shipped again. A stale layoutVersion stamp (Lesson
+    // 102) also triggers exactly one rebuild, so a future
+    // default reaches existing users once, then leaves them be.
     const char* iniPath = ImGui::GetIO().IniFilename;
     bool layoutNeedsBuild =
-        iniPath == nullptr || !std::filesystem::exists(iniPath);
+        iniPath == nullptr || !std::filesystem::exists(iniPath) ||
+        config.getInt("layoutVersion", 0) < kDefaultLayoutVersion;
     bool resetLayout = false;
     Game game;
     if (haveProject)
@@ -177,6 +189,21 @@ int main()
     // (paint, loads, procgen) without hooks in every path.
     Viewport3D viewport3d;
     bool view3dOpen = false;
+    // Panel visibility (Lesson 102): the View menu's toggles.
+    // Game View 2 and the 3D View keep their older flags above;
+    // every other panel gets one of these. All default to shown —
+    // hiding a panel is a desk-clearing choice, never a default.
+    bool showEngineDebug = true;
+    bool showHierarchy = true;
+    bool showInspector = true;
+    bool showProcgen = true;
+    bool showFeel = true;
+    bool showPhysics = true;
+    bool showLevels = true;
+    bool showTerrain = true;
+    bool showProject = true;
+    bool showConsole = true;
+    bool showGameView = true;
     sf::Vector2f view3dPanelSize(640.f, 400.f);
     GLuint view3dTexture = 0;
     std::uint64_t view3dTileHash = 0;
@@ -382,6 +409,38 @@ int main()
 
         ImGui::SFML::Update(window, sf::seconds(dt));
 
+        // The main menu bar (Lesson 102). It is submitted before
+        // the dockspace on purpose: the menu shrinks the main
+        // viewport's work area, and DockSpaceOverViewport fills
+        // exactly that area — so the desk starts below the menu.
+        if (ImGui::BeginMainMenuBar())
+        {
+            if (ImGui::BeginMenu("View"))
+            {
+                ImGui::MenuItem("Game View", nullptr, &showGameView);
+                ImGui::MenuItem("Game View 2", nullptr, &view2Open);
+                ImGui::MenuItem("3D View", nullptr, &view3dOpen);
+                ImGui::Separator();
+                ImGui::MenuItem("Hierarchy", nullptr, &showHierarchy);
+                ImGui::MenuItem("Inspector", nullptr, &showInspector);
+                ImGui::MenuItem("Project", nullptr, &showProject);
+                ImGui::MenuItem("Console", nullptr, &showConsole);
+                ImGui::Separator();
+                ImGui::MenuItem("Engine Debug", nullptr,
+                                &showEngineDebug);
+                ImGui::MenuItem("Procgen", nullptr, &showProcgen);
+                ImGui::MenuItem("Feel", nullptr, &showFeel);
+                ImGui::MenuItem("Physics", nullptr, &showPhysics);
+                ImGui::MenuItem("Terrain", nullptr, &showTerrain);
+                ImGui::MenuItem("Levels", nullptr, &showLevels);
+                ImGui::Separator();
+                if (ImGui::MenuItem("Reset to default layout"))
+                    resetLayout = true;
+                ImGui::EndMenu();
+            }
+            ImGui::EndMainMenuBar();
+        }
+
         const ImGuiID dockspaceId =
             ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
         if (layoutNeedsBuild || resetLayout)
@@ -390,9 +449,14 @@ int main()
                                ImGui::GetMainViewport()->Size);
             layoutNeedsBuild = false;
             resetLayout = false;
+            config.set("layoutVersion",
+                       std::to_string(kDefaultLayoutVersion));
+            config.save("engine.ini");
         }
 
         bool stepClicked = false;
+        if (showEngineDebug)
+        {
         ImGui::Begin("Engine Debug");
         ImGui::Text("FPS: %.1f", 1.0f / dt);
         ImGui::Text("Frame time: %.3f ms", dt * 1000.f);
@@ -537,6 +601,7 @@ int main()
                 haveProject ? projectPath(project, "scenes") : ".";
         }
         ImGui::End();
+        }
 
         // Undo/redo (Lesson 27): snapshot the entity list BEFORE a
         // committed action; undo swaps the current list onto the
@@ -614,6 +679,8 @@ int main()
 
         // Hierarchy (Lesson 23): every entity by name; clicking a row
         // drives the SAME selection the Game View picking writes.
+        if (showHierarchy)
+        {
         ImGui::Begin("Hierarchy");
         {
             const auto& list = game.entities();
@@ -656,9 +723,12 @@ int main()
             ImGui::Text("%zu back / %zu fwd", undoStack.size(), redoStack.size());
         }
         ImGui::End();
+        }
 
         // Inspector (Lesson 24): the selected entity's properties,
         // editable — edits write straight into the live game.
+        if (showInspector)
+        {
         ImGui::Begin("Inspector");
         if (selected >= 0 && selected < static_cast<int>(game.entities().size()))
         {
@@ -718,7 +788,10 @@ int main()
                 "Nothing selected. Click an entity in the Game View or the Hierarchy.");
         }
         ImGui::End();
+        }
 
+        if (showProcgen)
+        {
         ImGui::Begin("Procgen");
         ImGui::Text("Master seed: %u", game.seed());
         ImGui::InputInt("Seed", &seedInput);
@@ -740,11 +813,14 @@ int main()
         if (ImGui::Button("Reshuffle decor"))
             game.generateDecor();
         ImGui::End();
+        }
 
         // The Feel panel (Lesson 53): Arc 2's whole layer, live.
         // Every slider writes Game::feel — the same struct the
         // harness pins — and the Fire buttons trigger the game's
         // own event hooks, so the panel is a workbench, not a poster.
+        if (showFeel)
+        {
         ImGui::Begin("Feel");
         ImGui::Checkbox("Feel enabled (master)", &game.feel.enabled);
         ImGui::Checkbox("Particles & rings", &game.feel.particlesEnabled);
@@ -767,6 +843,7 @@ int main()
         ImGui::Text("Particles alive: %zu   Rings: %zu", game.particleCount(),
                     game.ringCount());
         ImGui::End();
+        }
 
         // The Physics panel (Lesson 58): Arc 3's numbers, live —
         // the same public fields the harness pins. Solidity is a
@@ -774,6 +851,8 @@ int main()
         // switch flips the player between Gold Rush and platformer
         // so the whole toolkit can be felt without leaving the
         // editor.
+        if (showPhysics)
+        {
         ImGui::Begin("Physics");
         ImGui::SliderFloat("Gravity", &game.gravity, 200.f, 4000.f);
         ImGui::SliderFloat("Terminal velocity", &game.terminalVelocity, 100.f,
@@ -809,6 +888,7 @@ int main()
         if (ImGui::Button("Build climber test"))
             game.buildClimberTest();
         ImGui::End();
+        }
 
         // File browser dialog state (Lesson 62): one modal serves
         // every choosing the editor needs. purpose 1 picks a
@@ -856,6 +936,8 @@ int main()
         // IS the campaign order and the first entry is the start
         // scene; every change writes the project card at once,
         // so the list on disk and the list on screen never drift.
+        if (showLevels)
+        {
         ImGui::Begin("Levels");
         {
             if (!haveProject)
@@ -939,12 +1021,15 @@ int main()
             }
         }
         ImGui::End();
+        }
 
         // The Terrain panel (Lesson 83): painting is a mode, a
         // palette and a brush. Painted tiles are overrides over
         // the generated field, stored in the scene file; the
         // panel reports how many exist so the author can see the
         // weight of their hand.
+        if (showTerrain)
+        {
         ImGui::Begin("Terrain");
         {
             ImGui::Checkbox("Paint mode", &paintMode);
@@ -989,6 +1074,7 @@ int main()
             }
         }
         ImGui::End();
+        }
 
         // The Project panel (Lesson 61): the place, visible — a
         // tree over listProjectFiles, rebuilt on Refresh, with the
@@ -996,6 +1082,8 @@ int main()
         // ImGui ID is the full project-relative path (###), so two
         // files with the same leaf name in different folders can
         // never collide.
+        if (showProject)
+        {
         ImGui::Begin("Project");
         if (ImGui::Button("Open project folder..."))
         {
@@ -1106,6 +1194,7 @@ int main()
             }
         }
         ImGui::End();
+        }
 
         // The file browser modal (Lesson 62). An in-editor browser
         // — portable to every platform the engine runs on, with no
@@ -1271,6 +1360,8 @@ int main()
             }
         }
 
+        if (showConsole)
+        {
         ImGui::Begin("Console");
         if (ImGui::Button("Clear"))
             Log::clear();
@@ -1295,6 +1386,7 @@ int main()
         lastEntryCount = Log::entries().size();
         ImGui::EndChild();
         ImGui::End();
+        }
 
 
         // Hot reload (Lesson 71): twice a second, script files
@@ -1628,6 +1720,8 @@ int main()
         };
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+        if (showGameView)
+        {
         ImGui::Begin("Game View");
         if (popOpen)
         {
@@ -1673,6 +1767,7 @@ int main()
             ImGui::PopStyleVar();
         }
         ImGui::End();
+        }
 
         // The Game View 2 panel (Lesson 87): the second camera's
         // home. It has its own pan (right-drag) and zoom (wheel);
