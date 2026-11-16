@@ -1087,6 +1087,60 @@ int main()
               "its errors stay its own");
     }
 
+    // --- Entity types: the data half (Lesson 68) ---------------------------
+    {
+        namespace fs = std::filesystem;
+        Game tg;
+        EntityType guard;
+        guard.name = "Guard";
+        guard.size = {44.f, 44.f};
+        guard.color = sf::Color(80, 120, 220);
+        guard.moveModel = MoveModel::Platformer;
+        guard.script = "scripts/guard.lua";
+        tg.defineType(guard);
+        const bool spawned = tg.spawnTyped("Guard", "Guard 1", {500, 500});
+        const Entity* g1 = nullptr;
+        for (const auto& e : tg.entities())
+            if (e.name == "Guard 1")
+                g1 = &e;
+        const bool stamped = g1 && g1->type == "Guard" &&
+                             g1->size == sf::Vector2f(44.f, 44.f) &&
+                             g1->moveModel == MoveModel::Platformer &&
+                             g1->script == "scripts/guard.lua" &&
+                             g1->color == sf::Color(80, 120, 220);
+        // Types load from a file in the engine's key=value family.
+        const fs::path typesFile = tempPath("types.txt");
+        writeFile(typesFile,
+                  "# cast\n"
+                  "type=Sentry\n"
+                  "size=30,60\n"
+                  "model=platformer\n"
+                  "script=scripts/sentry.lua\n"
+                  "\n"
+                  "type=Patroller\n"
+                  "size=36,36\n"
+                  "solid=0\n");
+        const bool loadedFile = tg.loadTypes(typesFile.string());
+        const EntityType* sentry = tg.findType("Sentry");
+        const EntityType* patroller = tg.findType("Patroller");
+        const bool fromFile =
+            loadedFile && sentry && sentry->size == sf::Vector2f(30.f, 60.f) &&
+            sentry->script == "scripts/sentry.lua" && patroller &&
+            !patroller->solid &&
+            patroller->moveModel == MoveModel::TopDown;
+        // Unknown types fail cleanly; redefining replaces.
+        const bool unknownFails = !tg.spawnTyped("Nope", "Ghost", {0, 0});
+        guard.size = {48.f, 48.f};
+        tg.defineType(guard);
+        const bool replaced = tg.findType("Guard") &&
+                              tg.findType("Guard")->size ==
+                                  sf::Vector2f(48.f, 48.f);
+        check(spawned && stamped && fromFile && unknownFails && replaced,
+              "types: definitions stamp entities, load from files, and "
+              "replace cleanly");
+        fs::remove(typesFile);
+    }
+
     // --- The project is a folder (Lesson 60) -------------------------------
     {
         namespace fs = std::filesystem;

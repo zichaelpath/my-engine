@@ -64,4 +64,28 @@ struct Entity
     bool platformInit = false;
     int platformSign = 1;                // +1 toward platformTo
     sf::Vector2f frameDelta{0.f, 0.f};   // this frame's travel
+
+    // Type & script (Lesson 68): the entity's type name ("" =
+    // untyped) and the project-relative path of its Lua script
+    // ("" = none). The type is the data half of the scripting
+    // model: a definition in the game's registry hands the entity
+    // its defaults; the script is the behaviour half.
+    std::string type;
+    std::string script;
+};
+
+// A type definition (Lesson 68): the defaults a new entity of
+// this type is stamped with. Types live in the Game's registry,
+// defined in code or loaded from a types file; a scene stores
+// only the type NAME on each entity, so a game's cast can be
+// rebalanced in one place.
+struct EntityType
+{
+    std::string name;
+    sf::Vector2f size{50.f, 50.f};
+    sf::Color color = sf::Color::White;
+    bool solid = true;
+    MoveModel moveModel = MoveModel::TopDown;
+    int sprite = -1;
+    std::string script;
 };

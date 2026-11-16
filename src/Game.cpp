@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -82,6 +83,151 @@ std::size_t Game::spawnEntity(const std::string& name, sf::Vector2f position,
               std::to_string(static_cast<int>(position.x)) + ", " +
               std::to_string(static_cast<int>(position.y)) + ")");
     return m_entities.size() - 1;
+}
+
+// --- Entity types (Lesson 68) ------------------------------------------
+
+void Game::defineType(const EntityType& typeDef)
+{
+    for (auto& existing : m_types)
+        if (existing.name == typeDef.name)
+        {
+            existing = typeDef;
+            return;
+        }
+    m_types.push_back(typeDef);
+}
+
+const EntityType* Game::findType(const std::string& name) const
+{
+    for (const auto& t : m_types)
+        if (t.name == name)
+            return &t;
+    return nullptr;
+}
+
+bool Game::applyType(Entity& entity, const std::string& typeName) const
+{
+    const EntityType* def = findType(typeName);
+    if (!def)
+    {
+        Log::error("applyType: unknown type '" + typeName + "'");
+        return false;
+    }
+    entity.type = def->name;
+    entity.size = def->size;
+    entity.color = def->color;
+    entity.solid = def->solid;
+    entity.moveModel = def->moveModel;
+    entity.sprite = def->sprite;
+    entity.script = def->script;
+    applySpriteHitbox(entity);
+    return true;
+}
+
+bool Game::spawnTyped(const std::string& typeName, const std::string& name,
+                      sf::Vector2f position)
+{
+    Entity entity;
+    entity.name = name;
+    entity.position = position;
+    if (!applyType(entity, typeName))
+        return false;
+    m_entities.push_back(entity);
+    Log::info("Entity spawned: " + name + " (type " + typeName + ")");
+    return true;
+}
+
+bool Game::loadTypes(const std::string& path)
+{
+    std::ifstream file(path);
+    if (!file)
+    {
+        Log::error("loadTypes: cannot open " + path);
+        return false;
+    }
+    auto trimmed = [](const std::string& s) {
+        const std::size_t first = s.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos)
+            return std::string();
+        const std::size_t last = s.find_last_not_of(" \t\r\n");
+        return s.substr(first, last - first + 1);
+    };
+    int loaded = 0;
+    EntityType current;
+    bool inBlock = false;
+    auto flush = [&]() {
+        if (inBlock && !current.name.empty())
+        {
+            defineType(current);
+            ++loaded;
+        }
+        current = EntityType{};
+        inBlock = false;
+    };
+    std::string line;
+    while (std::getline(file, line))
+    {
+        const std::string t = trimmed(line);
+        if (t.empty() || t[0] == '#')
+            continue;
+        const std::size_t eq = t.find('=');
+        if (eq == std::string::npos)
+            continue;
+        const std::string key = trimmed(t.substr(0, eq));
+        const std::string value = trimmed(t.substr(eq + 1));
+        if (key == "type")
+        {
+            flush();
+            current.name = value;
+            inBlock = true;
+        }
+        else if (!inBlock)
+        {
+            continue;
+        }
+        else if (key == "size")
+        {
+            float w = 50.f, h = 50.f;
+            if (std::sscanf(value.c_str(), "%f,%f", &w, &h) == 2)
+                current.size = {w, h};
+        }
+        else if (key == "color")
+        {
+            unsigned r = 255, g = 255, b = 255;
+            if (std::sscanf(value.c_str(), "%u,%u,%u", &r, &g, &b) == 3)
+                current.color = sf::Color(static_cast<std::uint8_t>(r),
+                                          static_cast<std::uint8_t>(g),
+                                          static_cast<std::uint8_t>(b));
+        }
+        else if (key == "solid")
+        {
+            current.solid = value == "1" || value == "true";
+        }
+        else if (key == "model")
+        {
+            current.moveModel = value == "platformer"
+                                    ? MoveModel::Platformer
+                                    : MoveModel::TopDown;
+        }
+        else if (key == "sprite")
+        {
+            current.sprite = std::stoi(value);
+        }
+        else if (key == "script")
+        {
+            current.script = value;
+        }
+        else
+        {
+            Log::warning("loadTypes " + path + ": unknown key '" + key +
+                         "' ignored");
+        }
+    }
+    flush();
+    Log::info("loadTypes: " + std::to_string(loaded) + " type(s) from " +
+              path);
+    return loaded > 0;
 }
 
 void Game::removeEntity(std::size_t index)

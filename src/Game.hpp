@@ -142,6 +142,21 @@ public:
     // scene the game is simulating.
     std::vector<Entity>& entities() { return m_entities; }
 
+    // Entity types (Lesson 68): the registry of type definitions.
+    // defineType registers or replaces one; applyType stamps a
+    // type's defaults onto an entity (and records the type name);
+    // spawnTyped creates an entity from a type in one call;
+    // loadTypes reads definitions from a text file in the
+    // engine's key=value family — a `type=` line opens a block,
+    // the keys below it fill the definition.
+    void defineType(const EntityType& typeDef);
+    const EntityType* findType(const std::string& name) const;
+    bool applyType(Entity& entity, const std::string& typeName) const;
+    bool spawnTyped(const std::string& typeName, const std::string& name,
+                    sf::Vector2f position);
+    bool loadTypes(const std::string& path);
+    const std::vector<EntityType>& types() const { return m_types; }
+
     // Scene serialisation (Lesson 18): the world is a recipe — seed +
     // noise scale regenerate the terrain exactly (Arc 2 determinism),
     // so the file only needs the recipe and the entity records.
@@ -236,6 +251,7 @@ private:
     sf::Vector2f m_worldSize{1600.f, 1200.f};
 
     std::vector<Entity> m_entities;
+    std::vector<EntityType> m_types; // the type registry (Lesson 68)
     std::size_t m_playerEntity = 0;
     sf::Texture m_sheet;
     TextureCache m_resources;
