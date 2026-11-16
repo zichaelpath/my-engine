@@ -128,6 +128,13 @@ public:
     bool loadScene(const std::string& path);
 
     float speed = 200.f;
+
+    // Platformer physics (Lesson 54): the second movement model's
+    // numbers, public data like speed — Arc 3's Physics panel will
+    // edit them live, and the harness pins their behaviour.
+    float gravity = 1800.f;         // units/s^2
+    float terminalVelocity = 900.f; // units/s, the fall's ceiling
+    float platformerSpeed = 230.f;  // run speed, units/s
     float clearColor[3] = {30.f / 255.f, 30.f / 255.f, 40.f / 255.f};
     bool showHitboxes = false; // editor debug overlay (Lesson 19)
 

@@ -446,7 +446,22 @@ void Game::update(float dt)
         default: break;
     }
 
-    sf::Vector2f move = dir * (speed * terrainFactor) * dt;
+    sf::Vector2f move;
+    if (player.moveModel == MoveModel::Platformer)
+    {
+        // Platformer (Lesson 54): input steers X, gravity owns Y.
+        // The velocity is the state; this frame's move derives from
+        // it, and the shared axis-separated resolver below decides
+        // what survives — one collision truth for both models.
+        player.velocity.x = dir.x * platformerSpeed;
+        player.velocity.y =
+            std::min(player.velocity.y + gravity * dt, terminalVelocity);
+        move = player.velocity * dt;
+    }
+    else
+    {
+        move = dir * (speed * terrainFactor) * dt;
+    }
 
     // Axis-separated collision: move and resolve one axis at a time.
     // A blocked axis never stops the other, so walls slide instead of
@@ -475,7 +490,11 @@ void Game::update(float dt)
                     std::abs(player.position.x - beforeMove.x) < std::abs(move.x) - 0.001f;
     bool blockedY = move.y != 0.f &&
                     std::abs(player.position.y - beforeMove.y) < std::abs(move.y) - 0.001f;
-    if ((blockedX || blockedY) && m_bumpCooldown <= 0.f)
+    // A platformer's blocked Y is a landing, not a bump — it gets
+    // its own treatment in Lesson 55 and stays silent here.
+    const bool bumpWorthy =
+        blockedX || (blockedY && player.moveModel == MoveModel::TopDown);
+    if (bumpWorthy && m_bumpCooldown <= 0.f)
     {
         playSound("assets/bump.wav");
         addTrauma(0.15f); // a bump you can see, not just hear (Lesson 51)
@@ -493,6 +512,22 @@ void Game::update(float dt)
         player.position.y, -player.hitboxOffset.y,
         std::max(-player.hitboxOffset.y,
                  m_worldSize.y - player.hitboxOffset.y - boxSize.y));
+
+    // Grounded (Lesson 54): the platformer was falling, asked for
+    // more downward travel than the world allowed, and so is
+    // standing on whatever stopped it — a crate, a block, the
+    // floor. A head-bonk on the way up spends the rise the same
+    // way. Standing is re-earned every frame: gravity always asks
+    // again, the ground always answers.
+    if (player.moveModel == MoveModel::Platformer)
+    {
+        const float actualDy = player.position.y - beforeMove.y;
+        player.grounded =
+            player.velocity.y > 0.f && actualDy < move.y - 0.001f;
+        if (player.grounded ||
+            (player.velocity.y < 0.f && actualDy > move.y + 0.001f))
+            player.velocity.y = 0.f;
+    }
 
     // Footsteps (Lesson 29): while the player walks, a step every
     // 0.27 s, alternating pitch so the loop doesn't sound mechanical.

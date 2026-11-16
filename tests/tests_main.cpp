@@ -12,6 +12,7 @@
 
 #include "Camera.hpp"
 #include "Config.hpp"
+#include "Entity.hpp"
 #include "Easing.hpp"
 #include "Game.hpp"
 #include "Particles.hpp"
@@ -409,6 +410,84 @@ int main()
         tuned.onGoldCollected({400.f, 300.f});
         check(windowHeld && tuned.particleCount() == 0 && tuned.ringCount() == 1,
               "feel: panel numbers change behaviour (window, burst size)");
+    }
+
+    // --- Platformer physics: gravity & grounded (Lesson 54) -------------
+    {
+        auto platformerPlayer = [](Game& g, sf::Vector2f pos) {
+            for (auto& e : g.entities())
+                if (e.playerControlled)
+                {
+                    e.moveModel = MoveModel::Platformer;
+                    e.position = pos;
+                    e.velocity = {0.f, 0.f};
+                }
+        };
+
+        // Find a clear drop column empirically: a column where the
+        // player starts embedded in a terrain block resolves on
+        // top of it instead of falling (the resolver assumes you
+        // arrived from your movement side), so reject any column
+        // where the first frames do not move DOWN.
+        bool fallOk = false;
+        for (float x : {150.f, 400.f, 650.f, 900.f, 1150.f, 1400.f})
+        {
+            Game fall;
+            platformerPlayer(fall, {x, 100.f});
+            for (int i = 0; i < 10; ++i)
+                fall.update(1.f / 60.f);
+            float fellTo = 0.f;
+            for (auto& e : fall.entities())
+                if (e.playerControlled)
+                    fellTo = e.position.y;
+            if (fellTo <= 100.f)
+                continue; // embedded start: not a fall
+            bool landed = false;
+            float restY = 0.f;
+            for (int i = 0; i < 300 && !landed; ++i)
+            {
+                fall.update(1.f / 60.f);
+                for (auto& e : fall.entities())
+                    if (e.playerControlled && e.grounded)
+                    {
+                        landed = true;
+                        restY = e.position.y;
+                    }
+            }
+            for (int i = 0; i < 10; ++i)
+                fall.update(1.f / 60.f);
+            bool stable = false;
+            for (auto& e : fall.entities())
+                if (e.playerControlled)
+                    stable = e.position.y == restY && e.velocity.y == 0.f &&
+                             e.grounded;
+            fallOk = landed && stable;
+            if (fallOk)
+                break;
+        }
+        check(fallOk,
+              "platformer: gravity pulls, the ground answers, rest is rest");
+
+        // Landing on a crate: the crate at (200, 150) is 40x40; the
+        // feet box (offset 11,28, size 28x22) rests with its bottom
+        // on the crate's top — or on a terrain block above it, in
+        // which case the rest is higher, never lower.
+        Game crate;
+        platformerPlayer(crate, {205.f, 40.f});
+        bool onCrate = false;
+        float crateRestY = 0.f;
+        for (int i = 0; i < 300 && !onCrate; ++i)
+        {
+            crate.update(1.f / 60.f);
+            for (auto& e : crate.entities())
+                if (e.playerControlled && e.grounded)
+                {
+                    onCrate = true;
+                    crateRestY = e.position.y;
+                }
+        }
+        check(onCrate && crateRestY <= 100.01f && crateRestY > 40.f,
+              "platformer: a fall can land on an entity, not just the floor");
     }
 
     // --- The Lesson 44 regression: a flipped sprite stays home -------

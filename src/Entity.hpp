@@ -11,6 +11,12 @@
 // seed of the component design Arc 3 grows toward: today the fields
 // sit in one struct; when entities start needing different subsets
 // (a crate has no input, a ghost has no collision), the struct splits.
+// Who owns an entity's vertical motion (Lesson 54). TopDown: the
+// player steers both axes directly (Gold Rush). Platformer:
+// gravity owns Y, input owns X, and the ground is a fact the
+// entity carries. One collision system serves both.
+enum class MoveModel { TopDown, Platformer };
+
 struct Entity
 {
     std::string name;
@@ -35,4 +41,12 @@ struct Entity
     // and the head/shoulders no longer collide, only the feet do.
     sf::Vector2f hitboxOffset{0.f, 0.f};
     sf::Vector2f hitboxSize{0.f, 0.f};
+
+    // Platformer state (Lesson 54): the movement model, the
+    // velocity gravity integrates, and whether the last frame
+    // ended standing on something. TopDown entities ignore all
+    // three; they exist so a game can mix models in one world.
+    MoveModel moveModel = MoveModel::TopDown;
+    sf::Vector2f velocity{0.f, 0.f};
+    bool grounded = false;
 };
