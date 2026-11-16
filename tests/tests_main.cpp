@@ -1035,6 +1035,58 @@ int main()
         fs::remove(scriptFile);
     }
 
+    // --- The bridge: Lua drives an entity (Lesson 67) ----------------------
+    {
+        Game bg;
+        Entity* target = nullptr;
+        for (auto& e : bg.entities())
+            if (e.name == "Crate")
+            {
+                e.name = "ScriptCrate"; // unique for the binding test
+                target = &e;
+                break;
+            }
+        ScriptHost host;
+        host.installEntityApi(bg);
+        int moduleId = -1, instanceId = -1;
+        const bool loaded = host.loadModuleFromString(
+            "local M = {}\n"
+            "function M.onUpdate(self, dt)\n"
+            "  local x, y = entity.getPosition(self)\n"
+            "  entity.setPosition(self, x + 30 * dt, y)\n"
+            "  self.t = (self.t or 0) + dt\n"
+            "  _G.lastT = self.t\n"
+            "end\n"
+            "return M\n",
+            "mover", moduleId);
+        const bool instanced =
+            loaded && host.createInstance(moduleId, "ScriptCrate",
+                                          instanceId);
+        const float startX = target ? target->position.x : 0.f;
+        bool updatesOk = instanced;
+        for (int i = 0; i < 60 && updatesOk; ++i)
+            updatesOk = host.callUpdate(instanceId, 1.f / 60.f);
+        double lastT = 0;
+        const bool stateKept = host.evalNumber("return lastT", lastT) &&
+                               std::abs(lastT - 1.0) < 0.001;
+        // A module whose onUpdate errors: reported, survived.
+        int badModule = -1, badInstance = -1;
+        const bool badLoaded = host.loadModuleFromString(
+            "local M = {}\n"
+            "function M.onUpdate(self, dt) error('nope') end\n"
+            "return M\n",
+            "bad", badModule);
+        const bool badSurvived =
+            badLoaded &&
+            host.createInstance(badModule, "ScriptCrate", badInstance) &&
+            !host.callUpdate(badInstance, 1.f / 60.f) &&
+            host.evalNumber("return 1", lastT);
+        check(target && updatesOk && stateKept && badSurvived &&
+                  std::abs(target->position.x - (startX + 30.f)) < 0.01f,
+              "bridge: a Lua module moves an entity, keeps state, and "
+              "its errors stay its own");
+    }
+
     // --- The project is a folder (Lesson 60) -------------------------------
     {
         namespace fs = std::filesystem;

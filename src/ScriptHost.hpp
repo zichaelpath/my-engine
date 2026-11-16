@@ -1,6 +1,9 @@
 #pragma once
 
 #include <string>
+#include <vector>
+
+class Game;
 
 // The scripting host (Lesson 66, Arc 5): one embedded Lua state,
 // owned and driven through a small C++ face. Scripts are a game's
@@ -44,6 +47,38 @@ public:
 
     lua_State* state() { return m_state; }
 
+    // --- The bridge (Lesson 67) --------------------------------------
+    // A script MODULE is a .lua file that returns a table of
+    // functions (the Lua module idiom):
+    //     local M = {}
+    //     function M.onUpdate(self, dt) ... end
+    //     return M
+    // An INSTANCE binds a module to one entity: the instance owns
+    // a state table (`self` in the callbacks) that carries the
+    // entity's name in __name and whatever fields the script
+    // stores on it — per-entity script memory with no C++ schema.
+    // installEntityApi registers the engine API v1 (an `entity`
+    // table of functions taking `self`, plus global log() and
+    // time()) bound to one Game; entities are addressed by name.
+    void installEntityApi(Game& game);
+    bool loadModule(const std::string& path, int& moduleId);
+    bool loadModuleFromString(const std::string& code,
+                              const std::string& chunkName, int& moduleId);
+    bool createInstance(int moduleId, const std::string& entityName,
+                        int& instanceId);
+    // Calls the instance's onUpdate(self, dt) when it defines one.
+    // A script error logs and returns false; the engine survives.
+    bool callUpdate(int instanceId, float dt);
+
 private:
+    struct Instance
+    {
+        int moduleRef = 0; // Lua registry refs
+        int stateRef = 0;
+        std::string entityName;
+    };
+    bool loadModuleFromStack(int& moduleId); // chunk already loaded
     lua_State* m_state = nullptr;
+    std::vector<int> m_moduleRefs;
+    std::vector<Instance> m_instances;
 };
