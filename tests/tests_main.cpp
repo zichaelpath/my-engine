@@ -13,6 +13,7 @@
 #include "Config.hpp"
 #include "Easing.hpp"
 #include "Game.hpp"
+#include "Particles.hpp"
 #include "Project.hpp"
 #include "Tween.hpp"
 
@@ -240,6 +241,35 @@ int main()
         game.update(1.0f); // the pop lasts 0.35 s
         check(popping && std::abs(game.playerSpawnScale() - 1.f) < 1e-6f,
               "tween: a new run pops the player in, then settles at 1");
+    }
+
+    // --- Particles (Lesson 50) -----------------------------------------
+    {
+        Emitter burst;
+        burst.count = 12;
+
+        Game game;
+        const bool startsEmpty = game.particleCount() == 0;
+        game.spawnParticles(burst);
+        const bool spawned = game.particleCount() == 12;
+        game.update(2.0f); // every lifespan in the default emitter is < 2 s
+        check(startsEmpty && spawned && game.particleCount() == 0,
+              "particles: spawn fills the pool, time empties it");
+
+        game.particlesEnabled = false;
+        game.spawnParticles(burst);
+        check(game.particleCount() == 0,
+              "particles: the feel toggle silences spawns");
+
+        ParticleSystem a, b;
+        Random rngA(999), rngB(999);
+        a.spawn(burst, rngA);
+        b.spawn(burst, rngB);
+        bool same = a.particles().size() == b.particles().size();
+        for (std::size_t i = 0; same && i < a.particles().size(); ++i)
+            same = a.particles()[i].velocity == b.particles()[i].velocity &&
+                   a.particles()[i].life == b.particles()[i].life;
+        check(same, "particles: same seed, same burst (the fx stream is honest)");
     }
 
     // --- The Lesson 44 regression: a flipped sprite stays home -------

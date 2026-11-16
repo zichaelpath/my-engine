@@ -308,6 +308,7 @@ void Game::update(float dt)
 {
     time += dt;
     m_spawnPop.update(dt);
+    m_particles.update(dt);
 
     sf::Vector2f dir(0.f, 0.f);
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) ||
@@ -431,6 +432,23 @@ void Game::update(float dt)
     {
         playSound("assets/splash.wav");
         Log::info("Splash - the player wades in");
+        // The splash has had a sound since Lesson 29; since Lesson
+        // 50 it has a picture too — a fountain at the player's feet.
+        Emitter splash;
+        splash.position = player.position + player.hitboxOffset +
+                          sf::Vector2f(hitboxSizeOf(player).x / 2.f,
+                                       hitboxSizeOf(player).y);
+        splash.count = 14;
+        splash.color = sf::Color(170, 210, 255);
+        splash.speedMin = 50.f;
+        splash.speedMax = 120.f;
+        splash.spreadRad = 1.9f; // a cone, not a burst
+        splash.lifeMin = 0.3f;
+        splash.lifeMax = 0.55f;
+        splash.sizeMin = 2.f;
+        splash.sizeMax = 3.f;
+        splash.gravity = 420.f;
+        spawnParticles(splash);
     }
     m_lastPlayerTile = tileNow;
 
@@ -452,6 +470,13 @@ void Game::update(float dt)
             m_dots[i] = m_dots.back(); // swap-with-last removal
             m_dots.pop_back();
             ++m_goldCollected;
+            // A burst where the dot died (Lesson 50): gold confetti,
+            // every direction, gravity wins in the end.
+            Emitter burst;
+            burst.position = centre;
+            burst.count = 12;
+            burst.color = sf::Color(255, 205, 60);
+            spawnParticles(burst);
             playSound("assets/pickup.wav",
                       1.f + 0.02f * static_cast<float>(m_goldCollected % 8));
             if (m_goldCollected >= m_goldTotal && m_goldTotal > 0)
@@ -464,6 +489,16 @@ void Game::update(float dt)
             }
         }
     }
+}
+
+void Game::spawnParticles(const Emitter& emitter)
+{
+    if (!particlesEnabled)
+        return;
+    // Cosmetic randomness only: the "fx" stream is derived from the
+    // seed independently of every generation stream (Lesson 10's
+    // design), so a burst can never change the world it decorates.
+    m_particles.spawn(emitter, m_random);
 }
 
 void Game::playSound(const std::string& path, float pitch)
@@ -643,6 +678,11 @@ void Game::render(sf::RenderTarget& target) const
             target.draw(sprite);
         }
     }
+
+    // Particles draw over the world and its actors, under the
+    // debug overlays (Lesson 50).
+    if (particlesEnabled)
+        m_particles.draw(target);
 
     if (showHitboxes)
     {

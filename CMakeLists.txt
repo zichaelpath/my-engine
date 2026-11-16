@@ -55,7 +55,7 @@ add_executable(MyRuntime src/runtime_main.cpp)
 target_link_libraries(MyRuntime PRIVATE
     GameLib)
 
-add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Config.cpp src/SpriteSheet.cpp src/Resources.cpp src/Project.cpp)
+add_library(GameLib src/Game.cpp src/Random.cpp src/Noise.cpp src/Log.cpp src/Config.cpp src/SpriteSheet.cpp src/Resources.cpp src/Project.cpp src/Particles.cpp)
 
 target_include_directories(GameLib PUBLIC src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 

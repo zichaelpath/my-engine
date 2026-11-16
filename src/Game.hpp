@@ -4,6 +4,7 @@
 #include "Entity.hpp"
 #include "Noise.hpp"
 #include "Random.hpp"
+#include "Particles.hpp"
 #include "Resources.hpp"
 #include "Tween.hpp"
 #include <cstddef>
@@ -114,6 +115,13 @@ public:
     float speed = 200.f;
     float clearColor[3] = {30.f / 255.f, 30.f / 255.f, 40.f / 255.f};
     bool showHitboxes = false; // editor debug overlay (Lesson 19)
+    bool particlesEnabled = true; // game-feel toggle (Lesson 50)
+
+    // Fires an emitter through the game's own pool and RNG — the
+    // same call the collection and splash paths make, and the one
+    // scripts will get in Arc 5.
+    void spawnParticles(const Emitter& emitter);
+    std::size_t particleCount() const { return m_particles.activeCount(); }
     float time = 0.f;
 
 private:
@@ -152,6 +160,7 @@ private:
     std::string m_musicTrack;
     float m_bumpCooldown = 0.f; // bump-sound throttle (Lesson 31)
     FloatTween m_spawnPop;      // spawn-in scale pop (Lesson 49)
+    ParticleSystem m_particles; // the feel layer's confetti (Lesson 50)
     int m_goldCollected = 0;
     int m_goldTotal = 0;
     bool m_won = false;
